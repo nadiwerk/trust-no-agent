@@ -1,0 +1,17 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node
+node_modules/
+
+# Scratch / local state
+.trust/
+*.local
+.omo/
+
+# Logs
+*.log
+
+CHANGELOG.md

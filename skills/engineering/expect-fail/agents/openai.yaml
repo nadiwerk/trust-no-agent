@@ -1,0 +1,3 @@
+interface:
+  display_name: "Expect Fail"
+  short_description: "Fail-first test-driven loop"

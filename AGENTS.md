@@ -1,0 +1,99 @@
+# trust-no-agent — AGENTS.md (the router)
+
+Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; this file decides **when** each one loads.
+
+## 1. Classify before anything
+
+- `fast` — one step, verifiable at a glance → answer/do directly. No mechanism.
+- `full` — 2-4 steps, one verifiable deliverable → short todos + verification.
+- `loop` — multi-stage / multi-file / spans many turns → full chain, verify each stage.
+
+**If it can't be checked at a glance, it isn't `fast`.** Skipping verification to save effort is the bug this workflow exists to prevent.
+
+**Writing tests is never `fast`.** A test-writing task is always `full` or `loop` — never `fast` — because a test that "passes immediately" is exactly the tautological anti-pattern `expect-fail` exists to catch (evals: an agent classified a test task as `fast` and skipped the skill, writing a tautological test — evidence: docs/design.md §The residual gap). Classifying test-writing as `fast` is how the fail-first discipline silently drops.
+
+## 2. Trigger matrix
+
+| Situation | Load |
+|---|---|
+| Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) | `breakpoint` (variant: `scribe` when decisions should be recorded as ADRs/glossary) |
+| User wants to stress-test a plan | `breakpoint` |
+| Conversation converged, need a written spec | `save-as` |
+| Spec ready, need tickets | `fork-it` |
+| Tickets approved, time to build | `make-it-so` |
+| Writing tests / building test-first | `expect-fail` **MANDATORY** |
+| Bug / test failure / unexpected behavior | `root-cause` **MANDATORY** |
+| Before any "done" claim, commit, or PR | `receipts` **MANDATORY** |
+| Review requested / changes since a fixed point | `roast-my-code` |
+| Review feedback received (from anyone) | `no-thanks` |
+| A ticket/feature finished | `ship-log` |
+
+Check this table **before responding**, including before asking clarifying questions. If there is even a 1% chance a skill applies, load it. One invariant: a user-invoked skill is invoked by a human only — it may load model-invoked skills, but never another user-invoked one (that way lies an orchestration cycle). When delegating, skills reach subagents only via the delegation tool's skill-loading parameter — an unloaded skill is a dead skill.
+
+### MANDATORY discipline skills — no self-trigger, no exception
+
+Three skills are **MANDATORY**, not advisory. Self-trigger is proven unreliable (evals: 0/3 fresh agents loaded them when the scenario demanded it, even with explicit trigger words in the description — evidence and honest limits: docs/design.md §Self-trigger is unreliable). The discipline they encode is the framework's core, so it must not depend on the model choosing to load it:
+
+- **`expect-fail`** — load before writing any test or any production code that changes behavior. No production code without a failing test first.
+- **`root-cause`** — load before proposing any fix for a bug, test failure, or unexpected behavior. No fixes without root-cause investigation first.
+- **`receipts`** — load before accepting any "done"/"shipped"/"fixed" claim, before committing, or before creating a PR. No completion claims without fresh verification evidence.
+
+These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." The mechanical check in `scripts/eval.mjs` verifies this section stays present; dropping it fails CI.
+
+## 3. The chain (for `loop`-class work)
+
+```
+breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
+```
+
+Rules:
+
+- Breakpoint → spec → tickets happen in **one unbroken context window** — don't compact or clear between them; implementation needs the verbatim reasoning, not a summary.
+- **Upstream spec gate (class `loop` only):** No fork-it without executable acceptance criteria — a spec that cannot be tested cannot be decomposed. Verification proves behavior, not intent; the gate forces testability upstream where intent is still cheap to fix. See `save-as` §Acceptance Criteria and §Adversarial self-review; `fork-it` refuses to slice a spec without them.
+- Each ticket execution starts **fresh** — the previous ticket's context is disposable.
+- Work the **frontier**: any ticket whose blockers are all done.
+
+## 4. Division of labor (every session)
+
+- **Facts are the agent's job** — look them up in the codebase, don't ask.
+- **Decisions are the user's job** — put each one to the user and wait.
+- Any decision the agent makes on its own gets a `Ruling:` entry in the ledger: `Ruling: <decision> — <why> — <cost if wrong>`.
+
+## 5. Delegation discipline
+
+Every subagent prompt MUST carry:
+
+```
+Repo rules: (1) every file change is verified (typecheck/test/error output) before it's called done. (2) No refactoring outside the requested scope. (3) No touching files outside the allowed path list.
+```
+
+…plus the 6 sections: **TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT**.
+
+Subagent results are verified by the orchestrator — a report is a lead, not evidence. A verifier that cannot determine an outcome reports `uncertain` with a one-line reason; a forced choice is how silent corruption enters a project. Parallel writers get one git worktree each; read-only parallel work runs without them.
+
+**Load the MANDATORY skills into every delegation that touches their domain.** Self-trigger is unreliable (evals: 0/3, see docs/design.md), so `load_skills` is the forcing function — the skill is placed in the subagent's context, not left to its choice. A delegation that writes tests or behavior-changing code MUST carry `load_skills: ["expect-fail"]`; one that will fix a bug or diagnose a failure MUST carry `load_skills: ["root-cause"]`; one that will claim done or commit MUST carry `load_skills: ["receipts"]`. On a harness whose delegation tool lacks `load_skills`, inject the skill's procedure inline into the prompt instead (an unloaded skill is a dead skill).
+
+The routing graph itself is part of the contract:
+
+- **Rule inheritance** — review findings that get accepted become 1-3 permanent lines in this router before the work is logged. Recurring failures inherit the same way: the fix lands as a rule, not as a story in the transcript. A review finding accepted today must guard every session from tomorrow; the system never runs on memory. Where a rule can be checked mechanically, encode it twice: prose for the why, a mechanical check (lint rule, hook, script, test) for the boundary — the guide explains the reason, the check enforces it. Rule entry is gated, scoped, and reversible — see docs/rule-inheritance.md before a rule lands (origin, rationale, scope, undo required; one-off noise and session lessons do not become rules).
+- **Edges are free** — deduplication, merging, flattening, and ranking of subagent results are deterministic orchestrator steps, never extra subagents. Agents are for judgment; don't pay tokens for wiring.
+- **Audit fake dependencies** — before running a chain stage, ask: does the next stage actually consume the previous stage's output? If not, run them in parallel — never queue work just because it was written down in order.
+
+## 6. Verification commands
+
+Each project declares its proof commands in its own AGENTS.md (typecheck / test / lint / build / browser-with-real-data). Until declared, derive them from `package.json` scripts and say so. See the `receipts` skill for the gate function.
+
+## 7. Ledger
+
+Every completed unit of work is appended to the private ledger (`.trust/progress.txt`, gitignored) **before starting the next one** (the `ship-log` skill). Parallel writers: a worktree-local ledger is **provisional** — gitignored files do not survive `git worktree remove`; the canonical ledger lives in the coordinating checkout, and a ticket is not closed until its handoff lands there (see `ship-log`'s canonical-ledger contract). After a long pause, compaction, or fresh session: re-read todos + `progress.txt` + this file, state the next step — never resume from partial memory.
+
+## 8. Context is a budget (lazy by default)
+
+The framework's entire standing cost is the skill descriptions — keep it that way:
+
+- **Descriptions are the only always-on cost.** Keep them short and trigger-pure; a bloated description taxes every request, forever.
+- **Reference material is never a skill.** Catalogs, checklists, and principle docs live in lazy-loaded files behind a one-line pointer, read only when the work calls for them. A skill costs on every request; a file costs only when read.
+- **Depth goes in sub-files.** A skill stays a thin orchestrator and links to deep reference files that load only when that path is taken (`expect-fail` is the pattern).
+- **One precise lookup beats many cheap ones.** Climb the lookup ladder — code index where the project has one (e.g. codegraph — see docs/omo-integration.md) → LSP/symbol-level search → grep-and-read loops last. Fastest available tool; same rule on every harness.
+- **Everything added pays rent.** A new skill, MCP server, or router section must fill a gap we actually hit — its standing cost is weighed before it's added, not after.
+- **References degrade, never hard-fail.** A mention that cannot be resolved — a skill name, file path, selector, or ticket reference that no longer exists or was never created — degrades to its plain label (or the closest real one) and execution continues; residual markers are scrubbed so unresolved tokens never reach the user or the next stage. Hard errors are reserved for references whose resolution is load-bearing (a gate, a merge base, a blocking ticket); everything else degrades gracefully, because a stalled pipeline over a missing footnote is the failure mode, not the missing footnote itself.

@@ -1,0 +1,45 @@
+# Rule inheritance — governance
+
+AGENTS.md §5 says accepted review findings become 1-3 permanent router lines before the work is logged. This file is the governance for that act. Load it only when a rule is about to land in the router; a rule entering the router pays rent forever, so entry is gated, scoped, and reversible.
+
+## The gate — four required fields
+
+A finding may become a router rule only when all four are recorded (in the ledger entry, here, or both):
+
+| Field | Meaning | Example |
+|---|---|---|
+| **Origin** | The finding / ledger entry that produced it | "roast-my-code #12: off-by-one labeled FYI" |
+| **Rationale** | Why the rule must guard every session from tomorrow | "severity labels drifted toward FYI on real bugs" |
+| **Scope** | `repo` (target project only) vs `global` (this router) | global |
+| **Undo** | How to remove it and what removal costs | "delete the trigger line; ledger keeps the record" |
+
+No origin, no rule. A rule without an origin is a preference wearing a rule's uniform.
+
+## The noise filter
+
+Reject before gating — a lesson that fails this filter never reaches the gate:
+
+- **One-off noise** — a single incident with no recurrence pattern.
+- **Unsupported hypotheses** — an explanation with no evidence attached.
+- **Transient tool outputs** — an error that resolved on retry after a real fix.
+- **Session-specific lessons** — true only for this project/task; they belong in the target project's own AGENTS.md (repo scope), not the global router.
+- **Duplicates of a mechanical check** — if a script/lint/hook already enforces the boundary, prose is redundant: encode once, reference the check.
+
+Recurring failures inherit the same way: the fix lands as a rule, not as a story in the transcript.
+
+## Local vs global
+
+- **repo scope** — the rule lands in the target project's AGENTS.md / WORKFLOW.md, not here. Lower bar; a session lesson can live here if the project accepts it.
+- **global scope** — the rule lands in this router (AGENTS.md). Higher bar: it must have survived at least one recurrence, or one review acceptance with evidence attached.
+
+## Undo
+
+Removal is a normal edit, never a secret: delete the rule's line(s) from the router and leave the ledger entry intact. The ledger is the audit trail; the router is the current state. Cost of a wrong removal: the rule stops guarding future sessions — but the ledger still shows why it existed, so the removal is reviewable, not lost.
+
+## Register
+
+Append a row when a rule lands. Pre-doc rules (present before this file existed) predate this gate — their origins live in the private ledger, not this register. Backfilling rows is optional cleanup, not required for future entries.
+
+| Rule (router section) | Origin | Scope | Undo | Added |
+|---|---|---|---|---|
+| _(none yet — first gated rule goes here)_ | | | | |

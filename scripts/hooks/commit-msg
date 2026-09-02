@@ -1,0 +1,14 @@
+#!/bin/sh
+# trust-no-agent commit-msg hook — Conventional Commits enforcement.
+# Allowed: type(scope)?: subject   — type in feat|fix|docs|chore|refactor|test|ci|style|perf|build|revert
+# Merge/reset/revert auto-commits are exempt.
+msg=$(head -1 "$1")
+case "$msg" in
+  "Revert "*|"Merge "*|*" (from HEAD)"*) exit 0 ;;
+esac
+echo "$msg" | grep -Eq '^(feat|fix|docs|chore|refactor|test|ci|style|perf|build|revert)(\([a-zA-Z0-9_./-]+\))?!?: .{1,100}'
+if [ $? -ne 0 ]; then
+  echo "COMMIT REJECTED: not a Conventional Commit: \"$msg\"" >&2
+  echo 'Expected: <type>(<optional scope>)<!>: <description>  — e.g. "feat(skills): ..."' >&2
+  exit 1
+fi

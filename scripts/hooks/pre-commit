@@ -1,0 +1,6 @@
+#!/bin/sh
+# trust-no-agent pre-commit hook — structural + invocation-axis validation before every commit.
+# Active via: git config core.hooksPath scripts/hooks
+root="$(git rev-parse --show-toplevel)"
+"$root/scripts/validate.mjs" 2>/dev/null || node "$root/scripts/validate.mjs" || exit 1
+"$root/scripts/eval.mjs" 2>/dev/null || node "$root/scripts/eval.mjs" || exit 1
