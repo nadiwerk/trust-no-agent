@@ -45,13 +45,13 @@ breakpoint opens → make-it-so executes → receipts closes
 classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
 ```
 
-1. **Classify** the task: `fast` (one step, verifiable at a glance) / `full` (2-4 steps) / `loop` (multi-stage). Don't run the full ceremony on a typo.
-2. **breakpoint** — execution pauses here: the agent interviews YOU until shared understanding. Facts are the agent's job; decisions are yours.
-3. **save-as** — File > Save As: synthesize the conversation into a spec. No new questions, no speculative answers.
-4. **fork-it** — fork the work into vertical slices with blocking edges. One branch per piece of work, just like git.
-5. **make-it-so** — test-first at agreed seams, verify ruthlessly, repair with receipts.
-6. **roast-my-code** — three-axis review (Standards + Spec + Security) run as parallel subagents.
-7. **ship-log** — append to a private, gitignored working ledger. A log that dies with the conversation was a decision made in secret.
+- **Classify** the task: `fast` (one step, verifiable at a glance) / `full` (2-4 steps) / `loop` (multi-stage). Don't run the full ceremony on a typo.
+- **breakpoint** — execution pauses here: the agent interviews YOU until shared understanding. Facts are the agent's job; decisions are yours.
+- **save-as** — File > Save As: synthesize the conversation into a spec. No new questions, no speculative answers.
+- **fork-it** — fork the work into vertical slices with blocking edges. One branch per piece of work, just like git.
+- **make-it-so** — test-first at agreed seams, verify ruthlessly, repair with receipts.
+- **roast-my-code** — three-axis review (Standards + Spec + Security) run as parallel subagents.
+- **ship-log** — append to a private, gitignored working ledger. A log that dies with the conversation was a decision made in secret.
 
 Bugs take their own parallel path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`. Both paths meet at the same gates.
 
