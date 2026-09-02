@@ -70,6 +70,26 @@ This installs two hooks:
   refactors, no restyling (see WORKFLOW.md rule 3).
 - **No secrets.** The framework never stores credentials; keep them out of
   tracked files.
+- **Update the CHANGELOG** (`CHANGELOG.md`, Keep a Changelog + SemVer) when a
+  change is user-visible: a new skill, a renamed/removed skill, a changed
+  behavior, or a breaking change. Add the entry under the current `[Unreleased]`
+  section (or open one if it is missing) in the matching `Added`/`Changed`/
+  `Fixed`/`Removed` group. Docs-only edits that do not change behavior do not
+  need a CHANGELOG entry.
+
+## Pull requests
+
+- **Branch from `master`** — create a feature branch, do not commit directly to
+  `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
+- **Open the PR against `master`.** One PR = one logical change range; keep it
+  focused and reviewable.
+- **Run the gates before pushing** — `node scripts/validate.mjs` and
+  `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every
+  push and PR; a red CI blocks merge.
+- **Link the issue** — reference the issue the PR addresses (e.g. `Closes #12`)
+  so the decision record stays connected to the change.
+- **Describe what and why** — a short PR body stating the change, the evidence
+  it was verified, and any trade-offs. "Should work" is not a description.
 
 ## What the CI checks
 
@@ -140,3 +160,12 @@ confession — apply the same standard to your own contributions and to reviews.
 No flattery, no "looks good to me" without actually checking. A review that
 cannot determine an outcome reports `uncertain` with a reason, rather than
 guessing.
+
+## License
+
+By contributing to this project you agree that your contributions are licensed
+under the [MIT License](LICENSE) that governs the repository. Code you
+contribute — including documentation and skill text — becomes part of the
+MIT-licensed project. If you are contributing on behalf of an employer or as
+part of a job, make sure you are authorized to release the contribution under
+these terms.

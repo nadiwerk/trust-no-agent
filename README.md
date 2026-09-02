@@ -144,11 +144,43 @@ An **agent/orchestrator** is an orchestration layer that runs *on top of* a harn
 
 Then apply the rules into your project — copy `AGENTS.md` + `WORKFLOW.md` as shown in [Install](#install). Full mapping in `docs/omo-integration.md`; verified compatibility matrix across other orchestrators (omp, OpenClaw, and more): [docs/compatibility.md](docs/compatibility.md).
 
-**Contributing** — see [CONTRIBUTING.md](CONTRIBUTING.md): development setup, how to run the validator and evals locally, activating the pre-commit + Conventional Commits hooks, and convention for changing skills, the router, or evals. At a glance, structural checks run in CI on every push and PR, and the same gate runs locally once you activate the bundled hooks:
+## Contributing
 
-```bash
-git config core.hooksPath scripts/hooks
+Contributions are welcome — and they follow the same discipline as the framework: **work only counts when it exits zero.** Every change is verified by a mechanical gate before it is accepted. Full guide: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ```
+trust-no-agent/
+├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
+├── WORKFLOW.md          # core rules (non-negotiable)
+├── skills/              # the 11 skills, three tiers
+│   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
+│   │                    #   expect-fail, root-cause, roast-my-code
+│   ├── discipline/      #   receipts, no-thanks
+│   └── meta/            #   ship-log
+├── docs/                # design, philosophy, installation, per-skill use cases
+├── evals/               # static scenarios + live end-to-end results
+├── scripts/
+│   ├── validate.mjs     # structural validator (exit 0 or rejected)
+│   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
+│   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
+└── .github/workflows/   # CI runs validate + eval on every push and PR
+```
+
+**How to contribute:**
+
+- **Run the gates before you push** — `node scripts/validate.mjs` and `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every push and PR.
+- **Activate the local hooks once** so the same gate runs on every commit:
+
+  ```bash
+  git config core.hooksPath scripts/hooks
+  ```
+
+- **Branch from `master`, open the PR against `master`** — one PR = one logical change, linked to an issue.
+- **Conventional Commits** — `<type>(<scope>): <description>`; update `CHANGELOG.md` for user-visible changes.
+- **Changing a skill?** Keep frontmatter `name` = folder, the invocation axis consistent, and descriptions trigger-shaped.
+- **Changing the router or Iron Laws?** High-stakes — the MANDATORY skills and "writing tests is never `fast`" are HARD checks; weakening them fails CI.
+- **Adding an eval?** Static checks go in `scripts/eval.mjs`; live scenarios in `evals/scenarios.md`; results in `evals/live-results.md`.
+- **Reporting a bug?** Open an issue with the exact command, output, and expected vs. observed. Security issues go through the private path in [SECURITY.md](SECURITY.md).
 
 ## Portability
 
