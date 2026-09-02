@@ -144,7 +144,7 @@ An **agent/orchestrator** is an orchestration layer that runs *on top of* a harn
 
 Then apply the rules into your project — copy `AGENTS.md` + `WORKFLOW.md` as shown in [Install](#install). Full mapping in `docs/omo-integration.md`; verified compatibility matrix across other orchestrators (omp, OpenClaw, and more): [docs/compatibility.md](docs/compatibility.md).
 
-**Contributing to this repo** — structural checks run in CI on every push and PR. To get the same gate locally on every commit (pre-commit validation + Conventional Commits enforcement), activate the bundled hooks once:
+**Contributing** — see [CONTRIBUTING.md](CONTRIBUTING.md): development setup, how to run the validator and evals locally, activating the pre-commit + Conventional Commits hooks, and convention for changing skills, the router, or evals. At a glance, structural checks run in CI on every push and PR, and the same gate runs locally once you activate the bundled hooks:
 
 ```bash
 git config core.hooksPath scripts/hooks
