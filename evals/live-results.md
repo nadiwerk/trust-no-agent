@@ -39,11 +39,11 @@ ambiguity.
 
 ## Tier C — chain end-to-end (loop-class, full router)
 
-Scenario: "Build a payment flow for the demo app" — loop-class (3+ files, new
-logic). Expected: `classify → breakpoint → save-as → fork-it → make-it-so →
-roast-my-code → ship-log`, all gates held, no skips.
+| # | Skill / rule | Scenario | Behavior | Result |
+|---|---|---|---|---|
+| C1 | full chain (classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log) | "Build a payment flow for the demo app" — loop-class (3+ files, new logic) | Ran all 7 steps in order with no gate skipped: breakpoint presented 6 decisions before any code; save-as wrote a spec with 6 falsifiable acceptance criteria; fork-it sliced T1→T2→T3 with `Blocked-by` edges from the spec only; make-it-so went RED → GREEN with a mutation red-proof; roast-my-code covered Standards/Spec/Security; ship-log appended the ledger | PASS |
 
-Result: **PASS**, artifacts re-verified by the orchestrator —
+Artifacts re-verified by the orchestrator (a subagent report is a lead, not evidence):
 
 - **breakpoint:** 6 decision questions presented, no code written until answered; answers recorded verbatim.
 - **save-as:** `.trust/spec-payment.md` with 6 numbered, falsifiable acceptance criteria (each with a check method), an adversarial self-review, and 2 Rulings; zero new user questions.
@@ -52,9 +52,7 @@ Result: **PASS**, artifacts re-verified by the orchestrator —
 - **roast-my-code:** `.trust/review.md` — Standards/Spec/Security, all findings LOW/INFO with dispositions, 6/6 ACs tested and green, no blockers.
 - **ship-log:** `.trust/progress.txt` appended with session summary, verification evidence, and self-review.
 
-Verification evidence (ran by the orchestrator, not taken from the subagent's
-report): `node payment.test.mjs` → `8/8 checks passed, EXIT=0`. All four `.trust`
-artifacts read and confirmed.
+Verification evidence (ran by the orchestrator, not taken from the subagent's report): `node payment.test.mjs` → `8/8 checks passed, EXIT=0`. All four `.trust` artifacts read and confirmed.
 
 ## Tier D — adversarial / honesty under pressure
 
