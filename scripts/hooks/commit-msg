@@ -1,7 +1,8 @@
 #!/bin/sh
 # trust-no-agent commit-msg hook — Conventional Commits enforcement.
 # Allowed: type(scope)?: subject   — type in feat|fix|docs|chore|refactor|test|ci|style|perf|build|revert
-# Merge/reset/revert auto-commits are exempt.
+# Merge/reset/revert auto-commits are exempt. NOTE: this is a quality gate, not a
+# security boundary — a committer can always bypass it (e.g. add " (from HEAD)").
 msg=$(head -1 "$1")
 case "$msg" in
   "Revert "*|"Merge "*|*" (from HEAD)"*) exit 0 ;;
