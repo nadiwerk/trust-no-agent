@@ -168,12 +168,15 @@ trust-no-agent/
 
 **How to contribute:**
 
-- **Run the gates before you push** — `node scripts/validate.mjs` and `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every push and PR.
-- **Activate the local hooks once** so the same gate runs on every commit:
+Activate the local hooks once so the same gate runs on every commit:
 
-  ```bash
-  git config core.hooksPath scripts/hooks
-  ```
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+Then follow these rules:
+
+- **Run the gates before you push** — `node scripts/validate.mjs` and `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every push and PR.
 - **Branch from `master`, open the PR against `master`** — one PR = one logical change, linked to an issue.
 - **Conventional Commits** — `<type>(<scope>): <description>`; update `CHANGELOG.md` for user-visible changes.
 - **Changing a skill?** Keep frontmatter `name` = folder, the invocation axis consistent, and descriptions trigger-shaped.
