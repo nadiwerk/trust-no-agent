@@ -1,6 +1,6 @@
 ---
 name: no-thanks
-description: "Use when receiving review feedback (from the user, roast-my-code subagents, read-only consultants, or external reviewers), before implementing suggestions — requires technical rigor and verification, not performative agreement or blind implementation. The skill is named after its most-enforced rule: never say \"thanks\". Complements roast-my-code, which governs the reviewer side; this governs the receiver side."
+description: "Use when receiving review feedback from anyone — before implementing, verify each claim with evidence and push back when wrong; never perform agreement."
 ---
 
 # No Thanks

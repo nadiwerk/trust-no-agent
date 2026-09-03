@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/doctor.mjs` — installation self-check for adopters: verifies router
+  files present, `core.hooksPath` active with both hooks (and identical to the
+  tracked copies when run from a clone), all 11 skills reachable from a harness
+  discovery path (repo, project-local, or `~/.agents/skills`), and `.trust/`
+  gitignored once the ledger exists. Exit 0 = healthy, exit 1 = gaps named with
+  their fix. Pointed to from `docs/installation.md` §Post-install verification.
+- CI: a `hooks` job exercises pre-commit + commit-msg on a scratch repo
+  (valid commit passes, non-conventional message is rejected) and a `windows`
+  job runs both gates on Windows — hooks can no longer rot silently, and the
+  Windows dev surface is covered.
+- `evals/scenarios.md` scenario 13 — rerunnable self-trigger battery for the
+  MANDATORY skills: 3 tasks × 3 runs per harness, nothing pinned, graded on
+  whether the skill is actually *loaded* (not on correct behavior from general
+  judgment). Includes a self-trigger evidence log with the original 0/3 claim
+  rows and a pending row for ZCode as the third harness.
+- `docs/compatibility.md`: ZCode row (live audit 2026-09-03, 4 parallel
+  dimension reviewers) + Evidence column distinguishing doc-verified from
+  live-executed rows + ZCode adapting note (skills discovered at session start;
+  mid-session installs need a reload).
+
+### Fixed
+
+- `scripts/validate.mjs` check 7 — the mirrored `docs/skills/` pages are now
+  walked for stale backtick skill references; the pre-existing `walkFiles`
+  helper finally has a call site (it was dead code). Skill-shaped tokens only,
+  so code identifiers (`relay.ts`, `ECONNRESET`) are not false positives.
+- `scripts/eval.mjs` check 6c (HARD) — each MANDATORY skill must carry its own
+  Iron Law sentence inside its own SKILL.md body, not just be named in the
+  router trigger matrix. Proven non-tautological: stripping an Iron Law fails
+  eval with exit 1.
+- Trimmed skill descriptions (`no-thanks`, `expect-fail`, `save-as`) —
+  editorial content and redundant trigger lists removed; trigger-pure per §8
+  (context is a budget), YAML quoting preserved.
+
 ## [0.1.4] - 2026-09-03
 
 ### Fixed

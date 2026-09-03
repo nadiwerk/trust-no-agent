@@ -1,6 +1,6 @@
 ---
 name: save-as
-description: Use when the conversation has converged and a written spec is needed — pure synthesis of what was already discussed, no interview. File > Save As, but the file is a spec and the source is the conversation.
+description: "Use when the conversation has converged and a written spec is needed — pure synthesis of what was already discussed, no new questions."
 disable-model-invocation: true
 ---
 

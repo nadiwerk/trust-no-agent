@@ -1,6 +1,6 @@
 ---
 name: expect-fail
-description: Test-driven development — write the failing expectation first, then make it pass. Use when the user asks to write tests or verify behavior, or says "write tests for X", "test this", "make it pass", "it's fine trust me", "is this correct", or mentions red-green-refactor / TDD / integration tests.
+description: "Test-driven development — write the failing expectation first, then make it pass. Use when the user asks to write tests, verify behavior, or prove something is correct."
 ---
 
 # Expect Fail
