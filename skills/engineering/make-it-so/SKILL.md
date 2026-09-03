@@ -32,7 +32,7 @@ When a verification step breaks (typecheck, test, lint, build):
 2. Before each retry, classify the failure: missing capability, wrong instruction, environment gap, or context gap (the window lacked material the pass needed — never fetched, compacted away, or stale; repair by restoring the context, not by retrying the same window). Prefer the fix that repairs the class (a rule, a test, a config), not just this instance.
 3. Prove progress before retrying: if the workspace is unchanged since the failure (same `git diff HEAD` plus untracked files), a re-run cannot pass — the failing command and the code it tests are identical. Make a real change first (fix, config, dependency), then retry. Only a change that alters the tested input/output counts.
 4. Change only the diagnosed subject per round. No drive-by refactors.
-5. Max two focused correction rounds for the same failure. Continue only while the objective error count reaches a new minimum. If two consecutive rounds do not improve, STOP: revert the failing chunk to last-known-good and report the diagnosis, both attempts, and remaining hypotheses to the user truthfully.
+5. Max two focused correction rounds for the same failure — then STOP: revert the failing chunk to last-known-good and report the diagnosis, both attempts, and remaining hypotheses to the user truthfully. No third round, even if the error count is still falling.
 6. A non-zero exit can never be reported as done. Every completed ticket cites its verification evidence.
 
 ## Termination contract
