@@ -162,6 +162,7 @@ trust-no-agent/
 ├── scripts/
 │   ├── validate.mjs     # structural validator (exit 0 or rejected)
 │   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
+│   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger)
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
 └── .github/workflows/   # CI runs validate + eval on every push and PR
 ```
