@@ -26,3 +26,50 @@ jobs:
 
       - name: Eval consistency
         run: node scripts/eval.mjs
+
+  hooks:
+    name: Git hooks gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+
+      # The hooks rot silently when nothing exercises them (audit finding P8).
+      # A contributor activates them with `git config core.hooksPath scripts/hooks`
+      # (README → Contributing); this job reproduces that exact setup on a local
+      # clone and proves a valid commit passes both hooks while a non-conventional
+      # message is rejected by commit-msg.
+      - name: Exercise hooks on a scratch commit
+        run: |
+          set -eux
+          git clone --quiet . "$RUNNER_TEMP/hook-test"
+          git -C "$RUNNER_TEMP/hook-test" config user.email ci@example.com
+          git -C "$RUNNER_TEMP/hook-test" config user.name CI
+          git -C "$RUNNER_TEMP/hook-test" config core.hooksPath scripts/hooks
+          # valid conventional message must pass both hooks
+          git -C "$RUNNER_TEMP/hook-test" commit --allow-empty -m "chore(test): valid commit passes the hooks"
+          # non-conventional message must be rejected by commit-msg
+          if git -C "$RUNNER_TEMP/hook-test" commit --allow-empty -m "not a conventional message"; then
+            echo "expected commit-msg rejection, but commit succeeded" >&2
+            exit 1
+          fi
+          echo "hooks gate: PASS"
+
+  windows:
+    name: Validate on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+
+      - name: Validate structure
+        run: node scripts/validate.mjs
+
+      - name: Eval consistency
+        run: node scripts/eval.mjs
