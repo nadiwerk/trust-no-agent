@@ -21,7 +21,7 @@ cp <TNA>/WORKFLOW.md ./WORKFLOW.md
 
 ## Universal skills copy (every harness with a skill system)
 
-The 12 skill folders must sit **flattened** (category dirs removed) directly under the harness's skill root — every verified harness locates them there:
+The 11 skill folders must sit **flattened** (category dirs removed) directly under the harness's skill root — every verified harness locates them there:
 
 ```bash
 # Stage 1 — flatten and install to the shared cross-tool location (used by most harnesses)
