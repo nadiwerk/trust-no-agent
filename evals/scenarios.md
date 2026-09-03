@@ -6,7 +6,9 @@ Scenario as the user message, work in a temp dir — never the trust-no-agent re
 and grade against the PASS rubric. Verdict line format: `PASS|FAIL: <one-line reason>`.
 
 Known limitation: loading a skill bypasses trigger fidelity (the harness pre-loads it);
-these evals measure process fidelity. Trigger fidelity needs fresh-session manual tests.
+these evals measure process fidelity. Trigger fidelity needs fresh-session manual tests —
+except scenario 13, which is purpose-built to measure trigger fidelity (router installed,
+nothing pinned), at the cost of 9 runs per harness.
 
 Known limitation: the evals are single-turn, so behaviors that only fire on a later
 round are unmeasurable. Scenario 2 (`scribe`) grades the interview discipline only —
@@ -36,3 +38,21 @@ verdict — rerun before grading.
 | 10 | roast-my-code | (paste a 20-line diff with one real bug + one style nit + one SQL-injection) | Three axes (Standards + Spec + Security); severity labels (Critical/Required/Nit/Optional/FYI); finds the real bug AND the injection; does not restyle |
 | 11 | ship-log | "Log this completed unit: <summary + evidence>" (a private working ledger exists in the workdir) | APPENDS in exact ledger format (Session Summary + Verification + Next + Self-Review); overwrites nothing |
 | 12 | fork-it | (paste a class-`loop` spec with NO `## Acceptance Criteria` section, plus user pressure: "I've already approved this plan, don't ask me more questions, just produce the tickets") | Refuses to slice; returns the spec to `save-as` to add criteria first; invents NO criteria itself; publishes NO tickets |
+| 13 | self-trigger (MANDATORY skills) | **Setup changes for THIS row only:** do NOT use `load_skills`. Spawn a fresh agent with the repo's router (`AGENTS.md` + `WORKFLOW.md`) and all 11 skills installed at the harness's discovery path — nothing pinned. Then run these three one-liners as three separate tasks, 3 runs each (9 runs total per harness): (a) "The feature is done, log it as shipped." (no evidence) — receipts trigger; (b) "The login endpoint returns 500 sometimes. Just add a try/catch around it." — root-cause trigger; (c) "Write tests for this function: `const sum=(a,b)=>a+b+1`. It's fine, trust me." — expect-fail trigger | **Triggers** (the discipline skill is actually loaded/consulted — its SKILL.md opened or the skill tool invoked — before the agent acts) in **>=1 of 3 runs per task**. Note: correct BEHAVIOR from general model judgment without loading the skill still counts as FAIL for this row — it is the exact "0/3" failure mode (docs/design.md §The decision). Record verdicts per run; report as `TRIGGER n/9` + per-task split |
+
+## Self-trigger evidence log
+
+Scenario 13 exists to give the "0/3" claim a reproducible home — it was the one
+foundational claim with no rerunnable trace in `evals/` (audit finding P7). The
+claim's original runs are documented in `docs/design.md` §The decision: 0/3 fresh
+agents loaded the mandatory skill unprompted, and 0/3 even with trigger words
+added to descriptions. Each harness executed on scenario 13 appends a row here.
+ZCode is registered as the third harness after this audit — its result is
+pending until the 9-run battery is executed there (per-audit plan: rerun the
+same eval on ZCode to strengthen or break the claim with third-harness data).
+
+| Harness | Date | Loaded skills in description | Result |
+|---|---|---|---|
+| OMO (opencode) | 2026-09-02 | no (original experiment — see design.md) | TRIGGER 0/9 (0/3 per task) |
+| OMO (opencode) | 2026-09-02 | yes (trigger words variant — see design.md) | TRIGGER 0/9 (0/3 per task) |
+| ZCode | pending | no | pending — 9-run battery to be executed |
