@@ -25,6 +25,12 @@
  *     fork-it traceability gate, expect-fail acceptance-test Iron Law, router
  *     gate line (HARD → ERROR). Upstream gate: specifications are proven
  *     testable BEFORE fork-it slices them, class `loop` only.
+ * 13. Canonical large-feature chain identical in WORKFLOW.md, AGENTS.md,
+ *     docs/skills/README.md (+ root README), with explicit scribe/classify
+ *     placement rules in WORKFLOW.md rule 2 (HARD → ERROR).
+ * 14. Trigger matrix routes auto-classified large features to `breakpoint`
+ *     (HARD → ERROR).
+ * 15. fork-it publish gate runs the ticket-graph validator (HARD → ERROR).
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -259,6 +265,57 @@ if (!/No fork-it without executable acceptance criteria/.test(agentsText2))
 function forkItCheck() {
   return readFileSync(join(SKILLS, 'engineering', 'fork-it', 'SKILL.md'), 'utf8');
 }
+
+// ---- 13. Canonical large-feature chain identical across docs (HARD) ----
+// Field exhibit (omx audit 2026-09-03, Required): the chain appeared as 6
+// skills (WORKFLOW.md, AGENTS.md) vs 7 with a `classify` prefix
+// (docs/skills/README.md, root README) — reconcilable readings, not provably
+// one chain. The canonical chain is the 6 skill stages; classify is the router
+// decision made BEFORE the chain (AGENTS.md §1), and scribe is the variant
+// that replaces breakpoint+save-as (WORKFLOW.md rule 2). Every doc quotes the
+// identical fenced chain line; dropping or rewording any fails CI.
+const CANON_CHAIN = ['breakpoint', 'save-as', 'fork-it', 'make-it-so', 'roast-my-code', 'ship-log'];
+const fencedChain = (text) => {
+  const found = [];
+  for (const m of text.matchAll(/```[^\n]*\n([\s\S]*?)```/g))
+    for (const line of m[1].split('\n')) {
+      const nodes = line.split('→').map((s) => s.trim()).filter(Boolean);
+      if (nodes.length > 1 && nodes.every((n) => /^[a-z][a-z-]*$/.test(n))) found.push(nodes);
+    }
+  return found;
+};
+for (const [label, text] of [
+  ['WORKFLOW.md', readFileSync(join(ROOT, 'WORKFLOW.md'), 'utf8')],
+  ['AGENTS.md', agentsText2],
+  ['docs/skills/README.md', readFileSync(join(ROOT, 'docs', 'skills', 'README.md'), 'utf8')],
+  ['README.md', readFileSync(join(ROOT, 'README.md'), 'utf8')],
+]) {
+  const chains = fencedChain(text);
+  if (chains.length !== 1 || chains[0].join('|') !== CANON_CHAIN.join('|'))
+    err(`${label}: must quote the canonical chain fenced verbatim — exactly one chain line [${CANON_CHAIN.join(' → ')}], found ${chains.length ? chains.map((c) => `[${c.join(' → ')}]`).join(', ') : 'none'}`);
+}
+const workflowText = readFileSync(join(ROOT, 'WORKFLOW.md'), 'utf8');
+if (!/`?scribe`? replaces breakpoint and save-as/.test(workflowText))
+  err('WORKFLOW.md rule 2: missing scribe-placement rule ("scribe replaces breakpoint and save-as" when decisions are recorded)');
+if (!/classify sits before the chain/.test(workflowText))
+  err('WORKFLOW.md rule 2: missing classify-placement rule ("classify sits before the chain" — router decision, not a stage)');
+
+// ---- 14. Trigger matrix binds auto-classified large features to the chain (HARD) ----
+// Audit premise check (finding 2.2): the large-feature row loading `breakpoint`
+// EXISTS in the matrix — the real gap is nothing binds that row to the
+// canonical chain, so matrix and chain can drift apart silently. The row must
+// load `breakpoint` AND name the chain source.
+if (!/\| Large feature about to start[^\n]*\|[^\n]*`breakpoint`/.test(agentsText2))
+  err('AGENTS.md trigger matrix: missing large-feature row loading `breakpoint`');
+if (!/\| Large feature about to start[^\n]*chain[^\n]*\|/.test(agentsText2))
+  err('AGENTS.md trigger matrix: large-feature row must name the canonical chain (matrix↔chain binding — "chain: WORKFLOW.md rule 2")');
+
+// ---- 15. fork-it publish gate runs the ticket-graph validator (HARD) ----
+// Audit finding 3.1: a malformed ticket graph passed all repo gates. Local
+// tickets published under .trust/<slug>/issues/ must pass scripts/tickets.mjs
+// (blockers resolve, numbered blockers-first, acyclic) before work starts.
+if (!/node scripts\/tickets\.mjs/.test(forkItCheck()))
+  err('fork-it: missing publish gate running `node scripts/tickets.mjs` on the issues dir (ticket graph must validate: blockers resolve, acyclic)');
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }

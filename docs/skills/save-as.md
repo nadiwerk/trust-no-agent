@@ -22,7 +22,7 @@
 
 - Consumes the output of **`breakpoint`** / **`scribe`** — the confirmed understanding becomes the spec.
 - Feeds **`fork-it`**, which turns the spec into tickets — and refuses to slice a spec that has no acceptance criteria. Verification proves behavior, not intent; the spec gate forces testability upstream, where intent is still cheap to fix.
-- Runs inside the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for
 

@@ -21,7 +21,7 @@
 
 - Consumes tickets from **`fork-it`**.
 - Loads **`expect-fail`** while coding; runs **`roast-my-code`** when done; closes with **`ship-log`**. The strongest chaining hub in the framework.
-- Runs inside the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for
 

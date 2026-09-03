@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dimension reviewers) + Evidence column distinguishing doc-verified from
   live-executed rows + ZCode adapting note (skills discovered at session start;
   mid-session installs need a reload).
+- `scripts/tickets.mjs` + `scripts/tickets.test.mjs` — mechanical ticket-graph
+  validator for `fork-it` local tickets (`.trust/<slug>/issues/`): blockers
+  resolve, numbering stays blockers-first, graph is acyclic (Kahn). Wired into
+  CI (validate + windows jobs), pre-commit, and the `fork-it` publish gate.
+- `scripts/eval.mjs` checks 13/14/15 (HARD) — canonical large-feature chain
+  identical across WORKFLOW.md, AGENTS.md, docs/skills/README.md, root README;
+  trigger-matrix large-feature row bound to the chain; `fork-it` publish gate
+  marker present. Closes all 3 Required findings of the 2026-09-03 omx audit.
 
 ### Fixed
 

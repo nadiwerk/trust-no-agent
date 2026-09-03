@@ -27,6 +27,12 @@ jobs:
       - name: Eval consistency
         run: node scripts/eval.mjs
 
+      - name: Ticket-graph validator self-test
+        run: node scripts/tickets.test.mjs
+
+      - name: Ticket-graph validator smoke
+        run: node scripts/tickets.mjs
+
   hooks:
     name: Git hooks gate
     runs-on: ubuntu-latest
@@ -73,3 +79,6 @@ jobs:
 
       - name: Eval consistency
         run: node scripts/eval.mjs
+
+      - name: Ticket-graph validator self-test
+        run: node scripts/tickets.test.mjs

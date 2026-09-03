@@ -23,7 +23,7 @@ Plus the 4-dimension self-review — readability, maintainability, performance, 
 
 ## Chaining
 
-- Closes the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → **ship-log**`.
+- Closes the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → **ship-log**` (canonical chain, WORKFLOW.md rule 2).
 - Closes the bug path too: `root-cause` → `expect-fail` → fix → `receipts` → **`ship-log`**.
 - Its recipes feed **`fork-it`** (reads `.trust/recipes.md` as priors) — the loop compounds.
 - Runs after **`receipts`**: the ledger entry cites the receipt's evidence.

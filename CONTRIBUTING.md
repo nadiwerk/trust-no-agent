@@ -83,9 +83,9 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — `node scripts/validate.mjs` and
-  `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every
-  push and PR; a red CI blocks merge.
+- **Run the gates before pushing** — `node scripts/validate.mjs`,
+  `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` must all exit 0.
+  CI runs the same three checks on every push and PR; a red CI blocks merge.
 - **Link the issue** — reference the issue the PR addresses (e.g. `Closes #12`)
   so the decision record stays connected to the change.
 - **Describe what and why** — a short PR body stating the change, the evidence
@@ -98,8 +98,9 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
+3. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
 
-If either fails, the PR is not mergeable. Run both locally before pushing.
+If any fails, the PR is not mergeable. Run all three locally before pushing.
 
 ## Changing a skill
 

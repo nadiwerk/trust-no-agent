@@ -17,7 +17,7 @@
 
 - Same gate position as `breakpoint` — pick ONE of the two entry skills. No documents wanted? `breakpoint` alone is the stateless default.
 - Exits into **`save-as`**, which uses the freshly written ADRs and glossary as spec material.
-- Runs inside the main loop: `classify → scribe → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop as the scribe variant: `scribe → fork-it → make-it-so → roast-my-code → ship-log` (scribe replaces breakpoint and save-as — WORKFLOW.md rule 2).
 
 ## Not for
 

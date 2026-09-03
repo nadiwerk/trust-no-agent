@@ -20,7 +20,7 @@
 
 - Consumes the spec from **`save-as`** — and refuses to slice a spec without numbered, falsifiable acceptance criteria. Criteria invented at slicing time are implementation wishes, not requirements.
 - Feeds **`make-it-so`**, which executes one ticket at a time, each in a fresh session.
-- Runs inside the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for
 

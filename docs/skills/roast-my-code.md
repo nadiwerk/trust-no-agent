@@ -19,7 +19,7 @@
 - Called by **`make-it-so`** at the end of every execution, or directly on any branch/PR.
 - Findings go to the receiver side: **`no-thanks`** — verify before implementing, push back when a finding is wrong.
 - Accepted findings that recur become permanent router rules — the fix lands as a rule, not as a story in a transcript.
-- Runs inside the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for
 

@@ -5,8 +5,10 @@ Every skill has one page: what it's for, 2-3 concrete scenarios, a sample moment
 ## The chain
 
 ```
-classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
+breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
 ```
+
+Classify sits before the chain (the router decision, WORKFLOW.md rule 2 — not a stage).
 
 Bug path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`
 

@@ -13,7 +13,13 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
 
 1. **Classify first**: `fast` (1 step, glance-verifiable) → answer directly; `full` (2-4 steps) → short todos + verification; `loop` (multi-stage/multi-file) → full chain + verify each stage. Can't be checked at a glance = not `fast`.
 
-2. **Large features run the chain** (at least 2 of: 3+ files, >30 min, new logic): `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`. No coding before spec & tickets exist.
+2. **Large features run the canonical chain** (at least 2 of: 3+ files, >30 min, new logic). No coding before spec & tickets exist:
+
+   ```
+   breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
+   ```
+
+   Placement rules: classify sits before the chain — it is the router decision (AGENTS.md §1), not a stage, so `fast`/`full` work never enters the chain. `scribe` replaces breakpoint and save-as when decisions should be recorded as ADRs/glossary — same gate, extra paperwork.
 
 3. **The four Iron Laws**:
    - No acting until the user confirms shared understanding.

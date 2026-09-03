@@ -42,8 +42,10 @@ breakpoint opens → make-it-so executes → receipts closes
 ## The core loop
 
 ```
-classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
+breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
 ```
+
+Classify sits before the chain — only `loop`-class work enters it.
 
 - **Classify** the task: `fast` (one step, verifiable at a glance) / `full` (2-4 steps) / `loop` (multi-stage). Don't run the full ceremony on a typo.
 - **breakpoint** — execution pauses here: the agent interviews YOU until shared understanding. Facts are the agent's job; decisions are yours.
@@ -162,9 +164,11 @@ trust-no-agent/
 ├── scripts/
 │   ├── validate.mjs     # structural validator (exit 0 or rejected)
 │   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
+│   ├── tickets.mjs        # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
+│   ├── tickets.test.mjs   # fail-first self-test for tickets.mjs (exit 0 or rejected)
 │   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger)
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
-└── .github/workflows/   # CI runs validate + eval on every push and PR
+└── .github/workflows/   # CI runs validate + eval + tickets self-test on every push and PR
 ```
 
 **How to contribute:**
@@ -177,7 +181,7 @@ git config core.hooksPath scripts/hooks
 
 Then follow these rules:
 
-- **Run the gates before you push** — `node scripts/validate.mjs` and `node scripts/eval.mjs` must both exit 0. CI runs the same two checks on every push and PR.
+- **Run the gates before you push** — `node scripts/validate.mjs`, `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` must all exit 0. CI runs the same three checks on every push and PR.
 - **Branch from `master`, open the PR against `master`** — one PR = one logical change, linked to an issue.
 - **Conventional Commits** — `<type>(<scope>): <description>`; update `CHANGELOG.md` for user-visible changes.
 - **Changing a skill?** Keep frontmatter `name` = folder, the invocation axis consistent, and descriptions trigger-shaped.

@@ -23,7 +23,7 @@ The agent stops like a debugger breakpoint. Nothing past that line executes unti
 
 - Exits into **`save-as`** — the confirmed understanding becomes the spec.
 - Variant for the same gate: **`scribe`** (ADRs + glossary wanted — scribe mode records decisions while the interview runs).
-- Runs inside the main loop: `classify → breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log`.
+- Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for
 

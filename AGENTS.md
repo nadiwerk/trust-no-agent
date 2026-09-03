@@ -16,7 +16,7 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 
 | Situation | Load |
 |---|---|
-| Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) | `breakpoint` (variant: `scribe` when decisions should be recorded as ADRs/glossary) |
+| Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) | `breakpoint` — runs the canonical chain (WORKFLOW.md rule 2; variant: `scribe` when decisions should be recorded as ADRs/glossary) |
 | User wants to stress-test a plan | `breakpoint` |
 | Conversation converged, need a written spec | `save-as` |
 | Spec ready, need tickets | `fork-it` |
