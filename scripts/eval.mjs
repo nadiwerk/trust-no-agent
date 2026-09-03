@@ -13,7 +13,9 @@
  *  3. Descriptions are trigger-shaped (soft check → WARN, never ERROR).
  *  4. Deterministic-picker gates present in quality-gate skills.
  *  5. Mechanical-seam markers present (soft check → WARN).
- *  6. MANDATORY discipline skills enforced in the router (HARD check → ERROR).
+ *  6. MANDATORY discipline skills enforced in the router (HARD check → ERROR):
+ *     6a trigger-matrix row carries the MANDATORY marker, 6b the delegation
+ *     contract forces load_skills, 6c each skill's own body carries its Iron Law.
  *  7. Test-writing is never `fast` (HARD check → ERROR).
  *  8. Canonical-ledger contract present in ship-log + router (HARD → ERROR).
  *  9. Operational-claims class present in receipts + make-it-so (HARD → ERROR).
@@ -51,6 +53,15 @@ for (const cat of readdirSync(SKILLS).filter((d) => statSync(join(SKILLS, d)).is
     declared.set(skill, { axis: USER_INVOKED.has(skill) ? 'user' : 'model', cat, fm: fm[1] });
   }
 }
+
+// Full SKILL.md body of a declared skill (frontmatter included), or '' if missing.
+const skillBody = (name) => {
+  for (const [n, { cat }] of declared) if (n === name) {
+    const p = join(SKILLS, cat, n, 'SKILL.md');
+    return existsSync(p) ? readFileSync(p, 'utf8') : '';
+  }
+  return '';
+};
 
 // ---- 1. frontmatter + openai.yaml flags match the canonical axis ----
 for (const [name, { axis, cat, fm }] of declared) {
@@ -108,13 +119,7 @@ const MECHANICAL_SEAMS = new Map([
   ['receipts', ['fail-first proven', 'mechanical seam']],
 ]);
 for (const [name, re] of PICKER_GATES) {
-  const text = (() => {
-    for (const [n, { cat }] of declared) if (n === name) {
-      const p = join(SKILLS, cat, n, 'SKILL.md');
-      return existsSync(p) ? readFileSync(p, 'utf8') : '';
-    }
-    return '';
-  })();
+  const text = skillBody(name);
   if (!text) { warn(`${name}: skill not found for picker-gate check`); continue; }
   if (!re.test(text)) warn(`${name}: missing deterministic-picker gate (${re.source})`);
 }
@@ -124,13 +129,7 @@ for (const [name, re] of PICKER_GATES) {
 // it. Dropping the marker is how a discipline silently regresses into a soft
 // self-assessment; this check makes that regression visible.
 for (const [name, markers] of MECHANICAL_SEAMS) {
-  const text = (() => {
-    for (const [n, { cat }] of declared) if (n === name) {
-      const p = join(SKILLS, cat, n, 'SKILL.md');
-      return existsSync(p) ? readFileSync(p, 'utf8') : '';
-    }
-    return '';
-  })();
+  const text = skillBody(name);
   if (!text) { warn(`${name}: skill not found for mechanical-seam check`); continue; }
   for (const marker of markers) {
     if (typeof marker === 'string' && !text.includes(marker))
@@ -157,6 +156,25 @@ for (const name of MANDATORY_SKILLS) {
   // 6b. the delegation contract must force load_skills for it
   if (!new RegExp(`load_skills: \\["${name}"\\]`).test(agentsText2))
     err(`AGENTS.md delegation contract: missing forced load_skills: ["${name}"]`);
+}
+
+// 6c. each MANDATORY skill carries its own Iron Law in its body (HARD).
+// The router mandate (6a) proves the skill is *named*, not that the skill
+// *enforces* anything once loaded — a body that lost its Iron Law would still
+// pass 6a. Depth check: every MANDATORY skill must contain the exact Iron Law
+// sentence inside its own SKILL.md. Literal markers (like every other HARD
+// check in this file); a regex loose enough to match paraphrases is loose
+// enough to miss the real sentence.
+const IRON_LAW_BODIES = new Map([
+  ['expect-fail', 'NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST'],
+  ['root-cause', 'NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST'],
+  ['receipts', 'Receipts or it didn\'t happen'],
+]);
+for (const [name, marker] of IRON_LAW_BODIES) {
+  const body = skillBody(name);
+  if (!body) { err(`${name}: skill body not found for Iron-Law check`); continue; }
+  if (!body.includes(marker))
+    err(`${name}: body missing its own Iron Law ("${marker}") — router mandate without in-skill enforcement`);
 }
 
 // ---- 7. test-writing is never `fast` (HARD) ----
