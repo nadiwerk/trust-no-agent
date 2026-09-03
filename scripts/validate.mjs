@@ -16,6 +16,8 @@
  *  6. No unquoted frontmatter value contains ': ' — strict YAML parsers
  *     (e.g. the `npx skills` CLI) reject such scalars as nested mappings and
  *     silently skip the whole skill.
+ *  7. Backtick references in the mirrored docs/skills/ pages resolve to real
+ *     skill folders (or known non-skill terms) — skill-shaped tokens only.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
@@ -91,6 +93,7 @@ const NON_SKILL_TERMS = new Set([
   'fast', 'full', 'loop',
   'CONTEXT.md', 'CONTRIBUTING.md', '01', 'HEAD', 'Critical', 'Required', 'Nit', 'Optional', 'FYI',
   'yes', 'no', 'low', 'medium', 'high', 'block',
+  'outbox', 'currency',
 ]);
 const extractBacktickRefs = (text) =>
   [...text.matchAll(/`([A-Za-z0-9][A-Za-z0-9.-]*?)`/g)].map((m) => m[1]);
@@ -138,6 +141,25 @@ for (const cat of categories) {
     const skillFile = join(SKILLS, cat, skill, 'SKILL.md');
     if (!existsSync(skillFile)) continue;
     checkRefs(readFileSync(skillFile, 'utf8'), `skills/${cat}/${skill}`);
+  }
+}
+
+// ---- 7. mirrored docs/skills/ references resolve ----
+// SKILL.md bodies and the router are not the only files that name skills:
+// the docs/skills/ mirror pages do too. A stale backtick ref there used to
+// pass every gate. This walk is the mirror-side half of check 4/5; it uses
+// the same walkFiles tree traversal (which now finally has a call site).
+// Skill folder names follow `[a-z]+(-[a-z]+)*`; the mirror pages also backtick
+// code identifiers (relay.ts, ECONNRESET, PaymentService.charge) that cannot be
+// skill references, so only skill-shaped tokens are scanned here.
+const SKILL_SHAPED = /^[a-z]+(?:-[a-z]+)*$/;
+for (const p of walkFiles(join(ROOT, 'docs', 'skills'))) {
+  const text = readFileSync(p, 'utf8');
+  for (const ref of new Set([...extractBacktickRefs(text), ...extractFencedChainRefs(text)])) {
+    if (!SKILL_SHAPED.test(ref)) continue;
+    if (NON_SKILL_TERMS.has(ref)) continue;
+    if (!declaredNames.has(ref) && !folderNames.has(ref))
+      err(`${relPath(p)} references unknown skill: \`${ref}\``);
   }
 }
 
