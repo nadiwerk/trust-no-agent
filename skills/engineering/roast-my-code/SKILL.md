@@ -76,6 +76,8 @@ Send a single message with three parallel subagent calls.
 
 If the spec is missing, skip the Spec subagent and note this in the final report.
 
+**Serial fallback** — if the harness cannot spawn parallel subagents (no delegation tool, or single-threaded delegation), run the same three prompts **sequentially**, treating each axis as its own fresh context: finish one axis's report before starting the next, and carry nothing but the axis briefs between them. The isolation goal — no axis contaminating another's context — matters more than the parallelism; aggregation (step 5) is unchanged.
+
 **Security subagent prompt** — include:
 
 - The diff command plus the commit list.

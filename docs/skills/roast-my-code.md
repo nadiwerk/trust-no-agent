@@ -5,7 +5,7 @@
 ## When this is the skill you need
 
 1. **Before you believe "done."** The agent finished the tickets. `roast-my-code` reviews the actual diff: does the code follow the repo's documented standards (plus a fixed Fowler smell baseline)? Does it faithfully implement the originating spec/ticket? Does it introduce a vulnerability — injection, auth bypass, data exposure, secrets? A completion claim that passes the gate is only trustworthy if the gate checks what matters.
-2. **Reviewing a PR or branch.** "Review since `main`" — the skill pins the fixed point, confirms the diff is non-empty *before* spawning subagents, and runs all three axes in parallel so they don't pollute each other's context. Findings come back with a closed severity set (`Critical` → `Required` → `Nit` → `Optional` → `FYI`) — the closed set makes tallies deterministic.
+2. **Reviewing a PR or branch.** "Review since `main`" — the skill pins the fixed point, confirms the diff is non-empty *before* spawning subagents, and runs all three axes in parallel so they don't pollute each other's context (on harnesses without parallel delegation it falls back to running the same three reviews sequentially, one fresh context per axis). Findings come back with a closed severity set (`Critical` → `Required` → `Nit` → `Optional` → `FYI`) — the closed set makes tallies deterministic.
 3. **The spec existed and you want to know if it survived.** The Spec axis finds the originating issue or spec file and checks the code against *what was asked*, not against vibes. Silent scope creep and missing acceptance criteria get named.
 
 ## What it looks like
