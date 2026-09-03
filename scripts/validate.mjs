@@ -96,7 +96,7 @@ const extractBacktickRefs = (text) =>
   [...text.matchAll(/`([A-Za-z0-9][A-Za-z0-9.-]*?)`/g)].map((m) => m[1]);
 
 // All tracked-content files (markdown/scripts/configs), skipping gitignored dirs.
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.trust', '.omo', '.codegraph']);
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.trust', '.omo', '.omx', '.codegraph']);
 const walkFiles = (dir) => {
   const out = [];
   for (const entry of readdirSync(dir)) {

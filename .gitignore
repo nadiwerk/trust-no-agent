@@ -10,6 +10,7 @@ node_modules/
 .trust/
 *.local
 .omo/
+.omx/
 
 # Logs
 *.log
