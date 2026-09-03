@@ -14,15 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.omx/` (orchestrator runtime dir) is now gitignored and excluded from the
   validator's file walk, so runtime junk cannot leak into commits or confuse
   the backtick-reference scan.
+- `CHANGELOG.md` is no longer gitignored — the contributing contract requires
+  updating it, which was impossible while it was ignored.
+- `make-it-so` repair loop: the cap is now unambiguously a hard two-round
+  stop (previously the "continue while improving" clause contradicted the cap
+  and the mirror doc).
+- `roast-my-code`: added a serial fallback for harnesses whose delegation
+  tool cannot spawn three parallel subagents — the same axis briefs run
+  sequentially in fresh contexts, preserving the context-isolation goal.
+- `docs/installation.md` skill-folder count corrected to 11 (was "12"), and
+  `docs/compatibility.md` OMO setup now includes `root-cause` in the
+  model-invoked list (it was the one skill missing from both lists).
 
 ### Notes
 
 - This release applies the first batch of findings from a full read-only audit
   of the repo (skills / workflow-router / harness / graph-loop dimensions).
-  Remaining audit findings (doc consistency, skill portability, enforcement
-  depth) land in subsequent patch releases.
-- `CHANGELOG.md` is no longer gitignored — the contributing contract requires
-  updating it, which was impossible while it was ignored.
+  Remaining audit findings (enforcement depth, docs cleanup, description
+  trims) land in subsequent patch releases.
 
 ## [0.1.3] - 2026-09-02
 
