@@ -42,4 +42,4 @@ Append a row when a rule lands. Pre-doc rules (present before this file existed)
 
 | Rule (router section) | Origin | Scope | Undo | Added |
 |---|---|---|---|---|
-| _(none yet — first gated rule goes here)_ | | | | |
+| §6 chat receipt (4-block: Verdict/Bukti/Belum/Next) | Session 2026-09-04: user concern chat verifiable drifts without a fixed card shape | global | Delete the 2 router lines + `docs/chat-receipt.md`; ledger keeps the record | 2026-09-04 |

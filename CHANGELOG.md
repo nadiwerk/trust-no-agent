@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `docs/chat-receipt.md` — the 4-block chat receipt (Verdict / Bukti / Belum /
+  Next) closing every `full`/`loop` unit in chat, recorded in
+  `docs/rule-inheritance.md` as the router's first gated rule (§6).
+
+### Fixed
+
+- `docs/chat-receipt.md` — the Bukti block no longer demands a visible
+  fail-first cycle for non-behavioral units (docs, config, typo): provide
+  existence/exit-code evidence instead; inventing a FAIL to fill the template
+  is forbidden.
+- `AGENTS.md` §6 — receipt duty scoped to `full`/`loop` units; `fast` units
+  skip the ceremony (classification precedes the chain), matching the
+  "don't run the full ceremony on a typo" principle.
+- `evals/live-results.md` — binding grading note added: the ZCode round's A3
+  PASS covers behavior only; narration that invents user sanction is a defect
+  to flag, never a grading precedent.
+
 ## [0.1.5] - 2026-09-04
 
 ### Added

@@ -82,6 +82,7 @@ The routing graph itself is part of the contract:
 ## 6. Verification commands
 
 Each project declares its proof commands in its own AGENTS.md (typecheck / test / lint / build / browser-with-real-data). Until declared, derive them from `package.json` scripts and say so. See the `receipts` skill for the gate function.
+Close every `full`/`loop` unit in chat with the 4-block receipt — Verdict / Bukti / Belum / Next — shape: `docs/chat-receipt.md`. `fast` units skip the ceremony (classification precedes the chain). A receipt missing any block is a partial receipt: it proves nothing.
 
 ## 7. Ledger
 
