@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   section with a without/with contrast (wall-of-diff vs scoped, AC-bound,
   severity-labeled review) and a sample interview dialog showing decisions
   arriving to the user as questions.
+- README — "honest" completes the trio: a "What 'honest' means" section that
+  points back at the receipt's own Belum line as the proof ("nothing forced
+  that line to exist"), a gate-semantics line, and the self-applied twist —
+  the framework states its own limits (The honest limits).
 
 ## [0.1.5] - 2026-09-04
 

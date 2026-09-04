@@ -51,6 +51,20 @@ Upstream, the same discipline runs as questions. Before a single line of code:
 
 Decisions come to you as questions. Facts are the agent's job; decisions are yours.
 
+## What "honest" means
+
+Without it:
+
+> **Agent:** "Done! Fixed." — the browser was never opened, and you find out in production.
+
+With it — you've already seen it. The `Belum:` line in the receipt above? That's honest:
+
+> **Belum:** browser check on real data
+
+Nothing forced that line to exist. A gate that passed proves only what it measured — the gap is named because hiding it is how "done" lies.
+
+Honest isn't what the agent says when it succeeds — it's the Belum line, the named gap, and a README that states its own limits. The framework applies the paranoia to itself: see [The honest limits](#the-honest-limits).
+
 ## Install
 
 **One line — skills + router together** (run inside your project):
