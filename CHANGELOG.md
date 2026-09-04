@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PASS covers behavior only; narration that invents user sanction is a defect
   to flag, never a grading precedent.
 
+### Changed
+
+- README — "verifiable" is now shown, not just named: a one-line concrete
+  definition ("every 'done' ships with the command, the output, and the exit
+  code from this session — if you can't re-run it, it isn't done") plus a
+  side-by-side claim-vs-evidence section ("What 'verifiable' means") placed
+  right after the philosophy one-liner.
+
 ## [0.1.5] - 2026-09-04
 
 ### Added

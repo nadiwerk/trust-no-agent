@@ -11,9 +11,26 @@ Every developer running AI coding agents has lived this: the agent declares vict
 
 The paranoia is the feature: an agent's claim is not evidence, a subagent's "success" report is not evidence, and "should work" is a confession. **Work only counts when it exits zero.**
 
+**Verifiable, concretely:** every "done" ships with the command, the output, and the exit code from this session. If you can't re-run it, it isn't done.
+
 > **Workflow + skills for AI coding agents that don't trust anyone, including themselves.**
 
 > **Philosophy in one line:** an agent that can't prove its work is a liability, no matter how fast it is. — [docs/philosophy.md](docs/philosophy.md)
+
+## What "verifiable" means
+
+Without it:
+
+> **Agent:** "Done! All tests pass." ✅
+> No output. No exit code. Trust it — or re-check everything yourself.
+
+With it:
+
+> ✅ DONE fix-login | `vitest 1/1 EXIT 0`
+> **Bukti:** FAIL pre-impl (500) → PASS post-impl (401)
+> **Belum:** browser check on real data
+
+You don't read a claim. You read the run.
 
 ## Install
 
