@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code from this session — if you can't re-run it, it isn't done") plus a
   side-by-side claim-vs-evidence section ("What 'verifiable' means") placed
   right after the philosophy one-liner.
+- README — "reviewable" gets the same treatment: a "What 'reviewable' means"
+  section with a without/with contrast (wall-of-diff vs scoped, AC-bound,
+  severity-labeled review) and a sample interview dialog showing decisions
+  arriving to the user as questions.
 
 ## [0.1.5] - 2026-09-04
 

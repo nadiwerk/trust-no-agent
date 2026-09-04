@@ -32,6 +32,25 @@ With it:
 
 You don't read a claim. You read the run.
 
+## What "reviewable" means
+
+Without it:
+
+> **Agent:** "Here's everything I did!" — a wall of diff with no boundaries. The reviewer starts from zero and guesses what matters.
+
+With it:
+
+> `Scope: diff 91df587..d396c26 (2 files)` — claims tied to numbered acceptance criteria, findings severity-labeled with file:line, feedback verified before it's implemented.
+
+Reviewable isn't "go check it yourself" — work arrives ready to check: scoped, falsifiable, and labeled.
+
+Upstream, the same discipline runs as questions. Before a single line of code:
+
+> **Agent:** "Payment flow — which gateway? On timeout, how many retries? Card data stored or tokenized?"
+> **You:** answer. The agent guesses nothing.
+
+Decisions come to you as questions. Facts are the agent's job; decisions are yours.
+
 ## Install
 
 **One line — skills + router together** (run inside your project):
