@@ -91,6 +91,15 @@ Class rules:
 - **Receipt each part of a multi-part operation** — a fix spanning several tables/regions/channels is only "done" when every part shows its own state; a silently half-applied operation becomes the next incident's root cause.
 - **Partial success gets a recovery decision on record** — complete the remainder, roll back, or accept-and-log; the choice is stated with evidence, not defaulted to silence.
 
+## Lesson capture
+
+A repair that leaves no lesson behind will be repeated. The corrective tier (`.trust/lessons.md`) must be fed on every repair — regardless of which skill drove the fix:
+
+- **Before accepting a fixed/done/repair claim**, check the lesson exists: the root cause and its imperative correction are in `.trust/lessons.md` (feature-named root cause, imperative correction — the make-it-so repair format). A missing lesson is a hole in the receipt: either the driving skill writes it (make-it-so repair loop does), or write the one-line lesson yourself in the same message — root-cause has already produced the material.
+- The check is a read, not a ceremony: one appended line, not a new process. What is forbidden is silence — a "fixed" receipt whose incident left no trace in the corrective tier.
+
+This rule lives in receipts, not only in make-it-so, because receipts is MANDATORY — forced into every delegation and loaded before any done claim — so the corrective tier cannot depend on the user remembering to invoke a user-invoked skill.
+
 ## Proof Command Template
 
 Each repo declares its own proof commands in its own AGENTS.md. The table shape:

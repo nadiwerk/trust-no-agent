@@ -36,6 +36,9 @@
  * 17. Reflection-at-rotation + Tags line present in ship-log (HARD → ERROR):
  *     rotation scans for recurring patterns and surfaces rule-inheritance
  *     candidates to the user; every entry carries a Tags line for grepability.
+ * 18. Lesson capture enforced in receipts + observable in doctor (HARD →
+ *     ERROR): receipts (MANDATORY) demands the lesson before accepting a
+ *     repair's done; doctor warns when the corrective tier is starving.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -355,6 +358,29 @@ if (!/rule-inheritance/i.test(shipLogText))
   err('ship-log: reflection section must name rule-inheritance as the destination of recurring findings (candidates go to the user, never auto-landed)');
 if (!/^- Tags: .+$/m.test(shipLogText))
   err('ship-log: Log Format missing a "Tags: " line (per-entry tags make the ledger grep-retrievable)');
+
+// ---- 18. Lesson capture enforced + observable (HARD) ----
+// Gap (2026-09-05, user-approved): .trust/lessons.md had exactly one writer —
+// the make-it-so repair loop, a USER-invoked skill. A user who never invokes
+// make-it-so (or fixes bugs via the parallel root-cause path) never feeds the
+// corrective tier, silently — the same trap as model self-trigger, inverted:
+// dependence on user-trigger. Two closures: (a) receipts is MANDATORY (forced
+// load_skills, loaded before any done claim), so it must demand the lesson
+// before accepting a repair's done — the tier then rides a skill that cannot
+// be skipped; (b) doctor.mjs must make a starving corrective tier visible
+// (ledger entries but no lessons file ⇒ WARN), so the drift is a signal, not
+// silence. Encode twice: prose in receipts, this mechanical check.
+const doctorText = readFileSync(join(ROOT, 'scripts', 'doctor.mjs'), 'utf8');
+for (const marker of [
+  /## Lesson capture/,
+  /\.trust\/lessons\.md/,
+  /before accepting a (fixed|done|repair)/i,
+])
+  if (!marker.test(receiptsText))
+    err(`receipts: missing lesson-capture marker ${marker} (corrective tier must not depend on make-it-so being invoked)`);
+for (const marker of [/lessons\.md/, /corrective/i])
+  if (!marker.test(doctorText))
+    err(`doctor.mjs: missing corrective-tier check marker ${marker} (a starving lessons file must WARN, not stay silent)`);
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }

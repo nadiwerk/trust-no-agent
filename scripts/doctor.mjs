@@ -16,6 +16,8 @@
  *      .cursor skills dirs, or ~/.agents/skills (agentskills.io standard).
  *  C4. Ledger ready: .trust/ either absent-but-creatable on first ship-log
  *      (warn) or present and confirmed gitignored.
+ *  C5. Corrective tier observable: a ledger with entries but no
+ *      .trust/lessons.md warns — lessons were skipped, not captured.
  */
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -133,6 +135,23 @@ if (!existsSync(trust)) {
     try { execFileSync('git', ['rev-parse', '--git-dir'], { cwd, encoding: 'utf8' }); fail('.trust/ exists but is NOT gitignored — add .trust/ to .gitignore (private ledger)'); }
     catch { warn('not inside a git repo — cannot verify .trust/ is gitignored'); }
   }
+}
+
+// ---- C5. corrective tier observability ----
+// lessons.md is the corrective memory tier; its only writer used to be the
+// make-it-so repair loop (user-invoked — see eval.mjs check 18). A ledger
+// that grows while lessons.md never appears means lessons are being skipped.
+// receipts now demands lesson capture on every repair; this check catches the
+// drift either way — visible signal, not silence.
+if (existsSync(trust)) {
+  const lessonsPath = join(trust, 'lessons.md');
+  const progressPath = join(trust, 'progress.txt');
+  let ledgerHasEntries = false;
+  if (existsSync(progressPath)) {
+    try { ledgerHasEntries = readFileSync(progressPath, 'utf8').trim().length > 0; } catch { ledgerHasEntries = true; }
+  }
+  if (ledgerHasEntries && !existsSync(lessonsPath))
+    warn('.trust/progress.txt has entries but .trust/lessons.md does not exist — the corrective tier is starving; record a lesson on every repair (receipts lesson capture / make-it-so repair loop)');
 }
 
 // ---- summary ----
