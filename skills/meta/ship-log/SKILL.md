@@ -23,6 +23,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 2. Append a new entry at the bottom of the file.
 3. Never overwrite or delete old logs — this is the project's work history.
 4. Confirm the ledger path is gitignored before relying on it as private.
+5. Append the entry's one-line summary to the recovery index at `.trust/index.md` (see Recovery index).
 
 ## Log Format
 
@@ -32,6 +33,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - Verification: <evidence, e.g. tsc EXIT 0; vitest 42/42 pass>
 - Next: <the single open action, or "none">
 - Recipe: task_type = <type of task, e.g. "add-validation"> | steps = <2-8 generalizable steps, no task-specific entities>
+- Tags: <2-5 short tags, comma-separated, e.g. "evals, harness, fail-first">
 
 ### Self-Review (4 Dimensions)
 - [x] **Readability**: descriptive names, comments explain "why" not "what", no unexplained magic numbers
@@ -58,6 +60,16 @@ Ruling: <decision> — <why> — <cost if wrong>
 
 When a ruling must outlive one developer (a team repo, a shared decision), it is **promoted explicitly** to a tracked artifact — an ADR, a glossary term, a tracker ticket — per the memory-modes doctrine in `docs/design.md`. Never publish the private ledger itself.
 
+## Recovery index
+
+Recovery after compaction or a fresh session must not require reading every full entry. The ledger keeps a companion index at `.trust/index.md` (gitignored like the ledger, created on first entry):
+
+- **One line per entry**: `- <YYYY-MM-DD> <open|closed> - <short title>` — the same title as the ledger entry's `### Session Summary` heading, dated, with its status (an entry whose `Next:` is not "none" is open).
+- **Index-first recovery**: on resume, read the index first to see what was done and what is still open, then read only the specific ledger entries that matter. The index answers "where are we?"; the ledger answers "how exactly?".
+- **Rotation trims it in lockstep**: when ledger entries rotate to the archive, their index lines rotate with them (the archive keeps full text; the index keeps only live entries).
+
+The index is redundant by design — it can be rebuilt from the ledger at any time — but redundancy is what makes recovery cheap: a one-line scan instead of a full-ledger read. `scripts/eval.mjs` mechanically guards this contract's markers.
+
 ## Rotation (keeping recovery cheap)
 
 The recovery rule ("re-read the ledger") reads the whole live ledger — so the live ledger must stay small enough that the read is cheap. Append-only means **never delete history**, not keep it all in one hot file:
@@ -66,6 +78,14 @@ The recovery rule ("re-read the ledger") reads the whole live ledger — so the 
 - The pointer section keeps one line per rotated entry (title + Verification + commit ref, oldest first); full text lives in the archive.
 - Archives are append-only too and are read **only on demand** ("when did we fix X?") — routine recovery reads the live file only.
 - Log the rotation itself as an entry (`Recipe: task_type = ledger-rotation`) so the act is part of the history it reshaped.
+
+## Reflection at rotation
+
+Rotation is the one moment the whole ledger gets read — so it is where reflection belongs. While moving entries to the archive, scan the older entries for **recurring patterns**: the same lesson hit twice, the same kind of verification skipped, the same tool failing the same way. yith-archive calls this a reflection pass (`mem::patterns`); here it is a bounded scan, not a pipeline:
+
+- For each recurring pattern found (2+ independent entries, not the same bug retold), prepare a **candidate rule line**: what recurred, the evidence (entry dates + tags), and the proposed 1-3 line rule for the router.
+- Candidates go **to the user** — recurring findings are rule-inheritance candidates (`docs/rule-inheritance.md`), and rule entry is gated and user-decided. The agent never auto-lands a router rule from its own reflection.
+- Record the pass itself in the rotation entry (`Tags: rotation, reflection`), listing candidates surfaced and the user's decision on each. A pass that finds nothing says so — silence is not a scan.
 
 ## Canonical ledger & worktree handoff
 

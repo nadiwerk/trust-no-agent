@@ -31,6 +31,11 @@
  * 14. Trigger matrix routes auto-classified large features to `breakpoint`
  *     (HARD → ERROR).
  * 15. fork-it publish gate runs the ticket-graph validator (HARD → ERROR).
+ * 16. Recovery index present in ship-log (HARD → ERROR): one-line-per-entry
+ *     index at .trust/index.md, read first on recovery, trimmed by rotation.
+ * 17. Reflection-at-rotation + Tags line present in ship-log (HARD → ERROR):
+ *     rotation scans for recurring patterns and surfaces rule-inheritance
+ *     candidates to the user; every entry carries a Tags line for grepability.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -316,6 +321,40 @@ if (!/\| Large feature about to start[^\n]*chain[^\n]*\|/.test(agentsText2))
 // (blockers resolve, numbered blockers-first, acyclic) before work starts.
 if (!/node scripts\/tickets\.mjs/.test(forkItCheck()))
   err('fork-it: missing publish gate running `node scripts/tickets.mjs` on the issues dir (ticket graph must validate: blockers resolve, acyclic)');
+
+// ---- 16. Recovery index present in ship-log (HARD) ----
+// Gap analysis vs yith-archive (2026-09-05, user-approved proposal #1): yith
+// recovers via a context bundle (index-first); the ledger's recovery rule says
+// "re-read the ledger", which reads every full entry. ship-log must define a
+// one-line-per-entry recovery index at .trust/index.md — title + date + status
+// (open/closed) — read FIRST on recovery, then specific entries; rotation
+// trims the index in lockstep. Encode twice: prose in ship-log, this
+// mechanical check for the boundary.
+for (const marker of [
+  /## Recovery index/,
+  /\.trust\/index\.md/,
+  /one line per entry/i,
+  /read the index first/i,
+])
+  if (!marker.test(shipLogText))
+    err(`ship-log: missing recovery-index marker ${marker} (recovery must be index-first, not full-ledger scan)`);
+
+// ---- 17. Reflection-at-rotation + Tags line present (HARD) ----
+// yith-adapt proposals #2 and #3 (2026-09-05, user-approved). #2: yith's
+// mem::patterns/reflect surface recurring patterns as rule candidates — the
+// ledger's rotation step already reads every older entry, so that is where a
+// pattern scan belongs; recurring pain must surface as rule-inheritance
+// candidates to the USER (rule-inheritance.md: entry is gated, user-decided),
+// never auto-landed as a router rule. #3: yith tags memories for retrieval;
+// the ledger equivalent is a per-entry `Tags:` line — grep is the
+// markdown-native recall (AGENTS.md §8 lookup ladder). Encode twice: prose in
+// ship-log, this mechanical check for the boundary.
+if (!/## Reflection at rotation/.test(shipLogText))
+  err('ship-log: missing "## Reflection at rotation" section (rotation must scan for recurring patterns and surface rule-inheritance candidates to the user)');
+if (!/rule-inheritance/i.test(shipLogText))
+  err('ship-log: reflection section must name rule-inheritance as the destination of recurring findings (candidates go to the user, never auto-landed)');
+if (!/^- Tags: .+$/m.test(shipLogText))
+  err('ship-log: Log Format missing a "Tags: " line (per-entry tags make the ledger grep-retrievable)');
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
