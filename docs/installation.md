@@ -2,7 +2,7 @@
 
 Step-by-step install for the framework core (`AGENTS.md` router + `WORKFLOW.md` core rules) and the 11 skills on each verified harness. Companion to `compatibility.md` — that page says what works, this page says how to install it.
 
-All commands assume you have cloned this repo (or reference it directly). Replace `<TNA>` with the path to your trust-no-agent checkout.
+All commands assume you have cloned this repo (or reference it directly). Replace `<trust-no-agent>` with the path to your trust-no-agent checkout.
 
 ## Universal core (every harness)
 
@@ -12,8 +12,8 @@ The router and core rules are plain files every harness reads. Two options:
 # Option 1 — copy into your project (recommended for adoption)
 # Already have an AGENTS.md of your own? Stop — read "Adopting into an existing
 # project" below first. Copying over a project router destroys the project's rules.
-cp <TNA>/AGENTS.md   ./AGENTS.md
-cp <TNA>/WORKFLOW.md ./WORKFLOW.md
+cp <trust-no-agent>/AGENTS.md   ./AGENTS.md
+cp <trust-no-agent>/WORKFLOW.md ./WORKFLOW.md
 
 # Option 2 — reference the repo directly; the agent reads the files from there.
 # No copy needed — AGENTS.md in the checkout IS the canonical router.
@@ -26,7 +26,7 @@ The 11 skill folders must sit **flattened** (category dirs removed) directly und
 ```bash
 # Stage 1 — flatten and install to the shared cross-tool location (used by most harnesses)
 mkdir -p ~/.agents/skills
-cp -r <TNA>/skills/*/* ~/.agents/skills/
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 ```
 
 Per-harness location overrides below. If a harness has no skill system, the AGENTS.md trigger matrix tells the agent to open the SKILL.md files on demand — nothing to install.
@@ -72,7 +72,7 @@ One repo can host several packages — the framework survives it if the scopes a
 ```bash
 # AGENTS.md: auto-read by opencode (re-injected after compaction). Already at project root.
 # Skills: the shared cross-tool location is read natively.
-cp -r <TNA>/skills/*/* ~/.agents/skills/
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 # Invocation split: the framework's frontmatter flag is NOT read by OMO.
 # Encode the 4 user-invoked skills (scribe, save-as, fork-it, make-it-so)
 # in OMO config (skills.disable or agent gating) so the model does not auto-fire them.
@@ -85,16 +85,16 @@ Delegation uses `task(category, load_skills, run_in_background)` — the framewo
 echo "@/path/to/trust-no-agent/AGENTS.md" >> CLAUDE.md   # or symlink AGENTS.md into CLAUDE.md's @-import
 # Skills:
 mkdir -p .claude/skills ~/.claude/skills
-cp -r <TNA>/skills/*/* .claude/skills/     # project-wide
-cp -r <TNA>/skills/*/* ~/.claude/skills/   # or user-wide
+cp -r <trust-no-agent>/skills/*/* .claude/skills/     # project-wide
+cp -r <trust-no-agent>/skills/*/* ~/.claude/skills/   # or user-wide
 ```
 
 ### Codex
 ```bash
 # AGENTS.md: read natively (root → cwd concatenation), nothing to do.
 # Skills:
-cp -r <TNA>/skills/*/* .agents/skills/     # repo
-cp -r <TNA>/skills/*/* ~/.agents/skills/   # or user
+cp -r <trust-no-agent>/skills/*/* .agents/skills/     # repo
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
 ```
 
 ### Hermes Agent
@@ -102,7 +102,7 @@ cp -r <TNA>/skills/*/* ~/.agents/skills/   # or user
 # AGENTS.md: read natively (priority chain); nothing to do at project root.
 # Skills: point Hermes at the shared location, or use project-local skills.
 mkdir -p ~/.agents/skills
-cp -r <TNA>/skills/*/* ~/.agents/skills/
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 # Add to ~/.hermes/config.yaml:
 #   skills:
 #     external_dirs:
@@ -116,10 +116,10 @@ cp -r <TNA>/skills/*/* ~/.agents/skills/
 ### oh-my-pi (omp) / Senpi
 ```bash
 # Skills are discovered NON-recursively — flatten (already done by skills/*/*):
-cp -r <TNA>/skills/*/* ~/.agents/skills/
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 # AGENTS.md: read at session start, but NOT re-injected after compaction.
 # Mirror the router's trigger matrix into a sticky top-level RULES.md:
-cp <TNA>/AGENTS.md RULES.md   # omp treats RULES.md as always-apply and sticky
+cp <trust-no-agent>/AGENTS.md RULES.md   # omp treats RULES.md as always-apply and sticky
 # Worktree isolation per parallel writer is NOT native — enforce externally
 # (one git worktree per concurrent writer), or run fork-it serial.
 # Invocation flag IS honored (kebab-case normalized).
@@ -129,8 +129,8 @@ cp <TNA>/AGENTS.md RULES.md   # omp treats RULES.md as always-apply and sticky
 ```bash
 # AGENTS.md: read natively (workspace + project).
 # Skills: / .agents/skills/** read at priority 2 of 6.
-cp -r <TNA>/skills/*/* .agents/skills/     # project
-cp -r <TNA>/skills/*/* ~/.agents/skills/   # or user
+cp -r <trust-no-agent>/skills/*/* .agents/skills/     # project
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
 # Ensure skill dir name equals frontmatter `name`. Invocation flag honored.
 ```
 
@@ -138,7 +138,7 @@ cp -r <TNA>/skills/*/* ~/.agents/skills/   # or user
 ```bash
 # AGENTS.md: read natively (project root + subdirs, nested combine).
 # Skills: / .agents/skills/, .cursor/skills/, plus Claude Code/Codex compatibility dirs.
-cp -r <TNA>/skills/*/* .agents/skills/
+cp -r <trust-no-agent>/skills/*/* .agents/skills/
 ```
 Load timing for AGENTS.md is not documented by Cursor — unknown whether session-start or lazy; the trigger-matrix prose carries the split regardless.
 
@@ -148,16 +148,16 @@ Load timing for AGENTS.md is not documented by Cursor — unknown whether sessio
 # Add to settings.json (context.fileName):
 #   "context": { "fileName": ["AGENTS.md"] }
 # Skills:
-cp -r <TNA>/skills/*/* ~/.agents/skills/     # user
-cp -r <TNA>/skills/*/* .agents/skills/       # workspace
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/     # user
+cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
 ```
 
 ### Zed
 ```bash
 # AGENTS.md: primary instruction file — read natively.
 # Skills:
-cp -r <TNA>/skills/*/* ~/.agents/skills/             # global
-cp -r <TNA>/skills/*/* <worktree>/.agents/skills/    # project-local (trusted worktrees)
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/             # global
+cp -r <trust-no-agent>/skills/*/* <worktree>/.agents/skills/    # project-local (trusted worktrees)
 ```
 
 ---
@@ -174,4 +174,4 @@ On any harness, confirm the framework is active:
 2. Fire one movement skill, e.g. `scribe` (user-invoked) on a planning task — it should interview, not implement.
 3. Confirm `node scripts/validate.mjs`, `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` all exit 0 (structural + ownership + ticket-graph gates).
 4. Optional: add the CI workflow from `.github/workflows/ci.yml` to your repo to keep validation running automatically.
-5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, `core.hooksPath` active with both hooks (and, in a clone, identical to the tracked copies), all 11 skills reachable from a harness discovery location, and `.trust/` gitignored once the ledger exists. Run it from the adopting project (`node <TNA>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
+5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, `core.hooksPath` active with both hooks (and, in a clone, identical to the tracked copies), all 11 skills reachable from a harness discovery location, and `.trust/` gitignored once the ledger exists. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
