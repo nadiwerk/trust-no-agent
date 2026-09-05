@@ -43,3 +43,5 @@ Append a row when a rule lands. Pre-doc rules (present before this file existed)
 | Rule (router section) | Origin | Scope | Undo | Added |
 |---|---|---|---|---|
 | §6 chat receipt (4-block: Verdict/Bukti/Belum/Next) | Session 2026-09-04: user concern chat verifiable drifts without a fixed card shape | global | Delete the 2 router lines + `docs/chat-receipt.md`; ledger keeps the record | 2026-09-04 |
+| §6 narration claims graded as claims (each claim needs its own artifact) | A3 narration defect, recurring across DSH/Codex/ZCode-1 live rounds (promotion claimed, no ADR written; user sanction invented) — absent in Pi/[CC]/ZCode-2 after the check was applied | global | Delete the router line + this register row; ledger keeps the record | 2026-09-06 |
+| §6 ad-hoc verification never earns SHIPPED (at most IMPLEMENTED-UNVERIFIED) | D2 strict-reading precedent: strict in DSH/Pi/[CC] vs loose in ZCode-1 — 3/4 majority across harnesses | global | Delete the router line + this register row; ledger keeps the record | 2026-09-06 |

@@ -73,6 +73,7 @@ Send a single message with three parallel subagent calls.
 - The diff command, plus the commit list.
 - The spec itself: its path, or the fetched contents.
 - The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Assign a severity. Under 400 words."
+- **Test-strategy check (part of this axis, no extra subagent):** tests in the diff are the instruments that verify the spec, so examine them for two verified failure classes — (i) *tautological assertions* (`assert.ok(true)` placeholders, expectations recomputed from the code's own output like `=== (2+3)` instead of intent-derived literals like `=== 5`, tests that cannot fail by construction); (ii) *test/impl contract mismatch* (the test reads path A while the implementation writes path B, different function/flag/shape names — a suite that passes while testing nothing real). Both are at minimum `Required`: a green suite either way is a certificate with no exam. Live exhibits: C1 rounds on DSH/Codex (`assert.ok(true)` ×2 plus `ledger.test.jsonl` vs `ledger.jsonl`).
 
 If the spec is missing, skip the Spec subagent and note this in the final report.
 

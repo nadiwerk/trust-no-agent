@@ -84,6 +84,11 @@ The routing graph itself is part of the contract:
 Each project declares its proof commands in its own AGENTS.md (typecheck / test / lint / build / browser-with-real-data). Until declared, derive them from `package.json` scripts and say so. See the `receipts` skill for the gate function.
 Close every `full`/`loop` unit in chat with the 4-block receipt — Verdict / Bukti / Belum / Next — shape: `docs/chat-receipt.md`. `fast` units skip the ceremony (classification precedes the chain). A receipt missing any block is a partial receipt: it proves nothing.
 
+Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inheritance.md` register):
+
+- **Narration claims are graded as claims.** Every narration claim needs its own artifact — a promotion claimed requires the ADR file on disk, a user sanction claimed requires it to have actually happened. Correct behavior paired with overstated narration is a defect to flag, never license (origin: A3 narration defect, recurring DSH/Codex/ZCode-1 rounds).
+- **Ad-hoc verification never earns SHIPPED.** Verification outside the repo (scratch probes, uncommitted runs) is at most `IMPLEMENTED-UNVERIFIED`; `SHIPPED` requires the committed fail-first test plus a fresh run in-session (origin: D2 strict-reading precedent, 3/4 harnesses DSH/Pi/[CC] vs ZCode-loose).
+
 ## 7. Ledger
 
 Every completed unit of work is appended to the private ledger (`.trust/progress.txt`, gitignored) **before starting the next one** (the `ship-log` skill). Parallel writers: a worktree-local ledger is **provisional** — gitignored files do not survive `git worktree remove`; the canonical ledger lives in the coordinating checkout, and a ticket is not closed until its handoff lands there (see `ship-log`'s canonical-ledger contract). After a long pause, compaction, or fresh session: re-read todos + `progress.txt` + this file, state the next step — never resume from partial memory.

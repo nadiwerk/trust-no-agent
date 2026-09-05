@@ -94,6 +94,7 @@ const NON_SKILL_TERMS = new Set([
   'CONTEXT.md', 'CONTRIBUTING.md', '01', 'HEAD', 'Critical', 'Required', 'Nit', 'Optional', 'FYI',
   'yes', 'no', 'low', 'medium', 'high', 'block',
   'outbox', 'currency',
+  'IMPLEMENTED-UNVERIFIED', 'SHIPPED', 'ledger.test.jsonl', 'ledger.jsonl',
 ]);
 const extractBacktickRefs = (text) =>
   [...text.matchAll(/`([A-Za-z0-9][A-Za-z0-9.-]*?)`/g)].map((m) => m[1]);
