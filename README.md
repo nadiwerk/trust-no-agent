@@ -136,6 +136,7 @@ Before any task, the router's registry check runs once: the agent must propose t
 - **Situational, not competitive.** Whatever fits the task gets proposed — external skills included — through the same gate.
 - **Approval stays with you.** The agent proposes, you decide; no skill fires uninvited.
 - **Zero migration.** Drop in the router (`AGENTS.md` + `WORKFLOW.md`) and your existing collection keeps working.
+- **Gate routes, you vet.** The registry check routes skills; it doesn't audit them. Before approving an external skill for real work, run the audit checklist: [docs/skill-vetting.md](docs/skill-vetting.md).
 
 Other skills make your agent capable. trust-no-agent is the gate that keeps it from working carelessly.
 
@@ -153,7 +154,8 @@ Before pushing, all four gates must exit 0 — `node scripts/validate.mjs && nod
 
 - **It verifies testability, not intent.** The upstream gate forces specs to be *testable*, not *true* — an intent that is wrong but cleanly testable still passes. The gate makes wrong intent cheap to catch, not impossible to have.
 - **It does not make a weak model strong.** It catches silent failures and forbids dishonest claims. Output quality still comes from the model, the harness, and the direction you give it.
-- **It does not enforce itself.** Skills are text; a model's promise to comply is not evidence. The parts that never depend on the model are the mechanical ones: `validate.mjs`, `eval.mjs`, CI, and the pre-commit hooks.
+- **It does not enforce itself.** Skills are text; a model's promise to comply is not evidence. The parts that never depend on the model are the mechanical ones: the four verification gates, CI, and the pre-commit hooks.
+- **It routes external skills, it does not vet them.** The registry check proposes any matching skill — external ones included — but approval without audit is trust without evidence. The vetting checklist lives in [docs/skill-vetting.md](docs/skill-vetting.md); meanwhile the verification gates keep auditing everything an external skill produces.
 
 ## License
 
