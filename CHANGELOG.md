@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+(none)
+
+## [0.1.8] - 2026-09-06
+
 ### Added
 - AGENTS.md §3 proposal-handoff rule (commit `863d9fb`, eval check #19): after every chain stage and every unit of work the model proposes the concrete next step — skill by name, why now — and waits for approval, so a user-invoked chain never stalls because the user didn't know the next skill.
 - AGENTS.md §1 registry-check rule (commit `f7ac9bb`, eval check #20): "`fast` skips the chain, never the registry" — before answering any task, the skill registry is checked once and a matching skill (the framework's own or an external one) is proposed by name regardless of class. Origin: designed probe (2026-09-06, 4 runs) — fast-classified requests never considered the registry (2/2 recurrence); results in `evals/live-results.md`.
