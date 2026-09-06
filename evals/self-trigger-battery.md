@@ -8,7 +8,9 @@ battery; record results back in `scenarios.md` §Self-trigger evidence log.
 
 ## Why this file exists
 
-S13 failed everywhere except OMO — not because the skills are broken, but
+No harness passed S13. OMO alone ran the battery to completion - and scored
+TRIGGER 0/9 twice, a real failure signal, not an incomplete run; every other
+harness could not run the battery at all - not because the skills are broken, but
 because the battery needs 9 fresh contexts and no harness outside OMO
 provided them (DSH: 9/9 spawns failed silently; Pi: no spawn surface; Codex:
 spawn down; Claude Code: session died at 3/9; ZCode: 10/11 spawn errors).
