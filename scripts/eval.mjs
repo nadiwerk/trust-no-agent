@@ -36,9 +36,10 @@
  * 17. Reflection-at-rotation + Tags line present in ship-log (HARD → ERROR):
  *     rotation scans for recurring patterns and surfaces rule-inheritance
  *     candidates to the user; every entry carries a Tags line for grepability.
- * 18. Lesson capture enforced in receipts + observable in doctor (HARD →
+ * 18. Lesson capture enforced in receipts + enforced by doctor (HARD →
  *     ERROR): receipts (MANDATORY) demands the lesson before accepting a
- *     repair's done; doctor warns when the corrective tier is starving.
+ *     repair's done; doctor warns during the grace period and FAILS once
+ *     grace is exhausted — the corrective tier is mandatory, not optional.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -359,7 +360,7 @@ if (!/rule-inheritance/i.test(shipLogText))
 if (!/^- Tags: .+$/m.test(shipLogText))
   err('ship-log: Log Format missing a "Tags: " line (per-entry tags make the ledger grep-retrievable)');
 
-// ---- 18. Lesson capture enforced + observable (HARD) ----
+// ---- 18. Lesson capture enforced + enforced by doctor (HARD) ----
 // Gap (2026-09-05, user-approved): .trust/lessons.md had exactly one writer —
 // the make-it-so repair loop, a USER-invoked skill. A user who never invokes
 // make-it-so (or fixes bugs via the parallel root-cause path) never feeds the
@@ -367,9 +368,10 @@ if (!/^- Tags: .+$/m.test(shipLogText))
 // dependence on user-trigger. Two closures: (a) receipts is MANDATORY (forced
 // load_skills, loaded before any done claim), so it must demand the lesson
 // before accepting a repair's done — the tier then rides a skill that cannot
-// be skipped; (b) doctor.mjs must make a starving corrective tier visible
-// (ledger entries but no lessons file ⇒ WARN), so the drift is a signal, not
-// silence. Encode twice: prose in receipts, this mechanical check.
+// be skipped; (b) doctor.mjs must enforce a starving corrective tier:
+// WARN during the grace period (measured from the oldest dated ledger entry),
+// FAIL once grace is exhausted (decision logic: corrective-tier.mjs, tested
+// by doctor.test.mjs). Encode twice: prose in receipts, this mechanical check.
 const doctorText = readFileSync(join(ROOT, 'scripts', 'doctor.mjs'), 'utf8');
 for (const marker of [
   /## Lesson capture/,
@@ -378,9 +380,9 @@ for (const marker of [
 ])
   if (!marker.test(receiptsText))
     err(`receipts: missing lesson-capture marker ${marker} (corrective tier must not depend on make-it-so being invoked)`);
-for (const marker of [/lessons\.md/, /corrective/i])
+for (const marker of [/lessons\.md/, /corrective/i, /checkStarve/, /corrective-tier\.mjs/, /grace/i])
   if (!marker.test(doctorText))
-    err(`doctor.mjs: missing corrective-tier check marker ${marker} (a starving lessons file must WARN, not stay silent)`);
+    err(`doctor.mjs: missing corrective-tier marker ${marker} (starving tier must WARN in grace, FAIL after — not stay silent)`);
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }

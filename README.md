@@ -166,6 +166,8 @@ trust-no-agent/
 │   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
 │   ├── tickets.mjs        # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
 │   ├── tickets.test.mjs   # fail-first self-test for tickets.mjs (exit 0 or rejected)
+│   ├── corrective-tier.mjs # C5 decision logic: lessons.md mandatory after a 14-day grace period
+│   ├── doctor.test.mjs      # fail-first self-test for the C5 grace logic (exit 0 or rejected)
 │   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger)
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
 └── .github/workflows/   # CI runs validate + eval + tickets self-test on every push and PR
@@ -181,7 +183,7 @@ git config core.hooksPath scripts/hooks
 
 Then follow these rules:
 
-- **Run the gates before you push** — `node scripts/validate.mjs`, `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` must all exit 0. CI runs the same three checks on every push and PR.
+- **Run the gates before you push** — `node scripts/validate.mjs`, `node scripts/eval.mjs`, `node scripts/tickets.test.mjs`, and `node scripts/doctor.test.mjs` must all exit 0. CI runs the same four checks on every push and PR.
 - **Branch from `master`, open the PR against `master`** — one PR = one logical change, linked to an issue.
 - **Conventional Commits** — `<type>(<scope>): <description>`; update `CHANGELOG.md` for user-visible changes.
 - **Changing a skill?** Keep frontmatter `name` = folder, the invocation axis consistent, and descriptions trigger-shaped.

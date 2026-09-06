@@ -30,6 +30,9 @@ jobs:
       - name: Ticket-graph validator self-test
         run: node scripts/tickets.test.mjs
 
+      - name: Doctor corrective-tier self-test
+        run: node scripts/doctor.test.mjs
+
       - name: Ticket-graph validator smoke
         run: node scripts/tickets.mjs
 
@@ -82,3 +85,6 @@ jobs:
 
       - name: Ticket-graph validator self-test
         run: node scripts/tickets.test.mjs
+
+      - name: Doctor corrective-tier self-test
+        run: node scripts/doctor.test.mjs

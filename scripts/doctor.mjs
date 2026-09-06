@@ -16,14 +16,18 @@
  *      .cursor skills dirs, or ~/.agents/skills (agentskills.io standard).
  *  C4. Ledger ready: .trust/ either absent-but-creatable on first ship-log
  *      (warn) or present and confirmed gitignored.
- *  C5. Corrective tier observable: a ledger with entries but no
- *      .trust/lessons.md warns — lessons were skipped, not captured.
+ *  C5. Corrective tier enforced: a ledger with entries but no .trust/lessons.md
+ *      warns during a 14-day grace period (measured from the oldest dated
+ *      ledger entry, ship-log `## YYYY-MM-DD` headers), then FAILS — after
+ *      grace, lesson capture is mandatory, not optional. Test override:
+ *      TNA_DOCTOR_GRACE_DAYS. Decision logic lives in corrective-tier.mjs.
  */
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
+import { checkStarve, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -137,21 +141,30 @@ if (!existsSync(trust)) {
   }
 }
 
-// ---- C5. corrective tier observability ----
-// lessons.md is the corrective memory tier; its only writer used to be the
-// make-it-so repair loop (user-invoked — see eval.mjs check 18). A ledger
-// that grows while lessons.md never appears means lessons are being skipped.
-// receipts now demands lesson capture on every repair; this check catches the
-// drift either way — visible signal, not silence.
+// ---- C5. corrective tier enforced (grace, then hard) ----
+// lessons.md is the corrective memory tier; its writers are the make-it-so
+// repair loop and the receipts lesson capture (see eval.mjs check 18). A
+// ledger that grows while lessons.md never appears means lessons are being
+// skipped. checkStarve (corrective-tier.mjs) turns that drift into a signal:
+// WARN during the grace period, FAIL once grace is exhausted — after grace,
+// lesson capture is mandatory, not optional.
 if (existsSync(trust)) {
   const lessonsPath = join(trust, 'lessons.md');
   const progressPath = join(trust, 'progress.txt');
-  let ledgerHasEntries = false;
+  let ledgerText = '';
   if (existsSync(progressPath)) {
-    try { ledgerHasEntries = readFileSync(progressPath, 'utf8').trim().length > 0; } catch { ledgerHasEntries = true; }
+    try { ledgerText = readFileSync(progressPath, 'utf8'); } catch { ledgerText = 'unreadable'; }
   }
-  if (ledgerHasEntries && !existsSync(lessonsPath))
-    warn('.trust/progress.txt has entries but .trust/lessons.md does not exist — the corrective tier is starving; record a lesson on every repair (receipts lesson capture / make-it-so repair loop)');
+  const graceDays = Number(process.env.TNA_DOCTOR_GRACE_DAYS ?? '') || DEFAULT_GRACE_DAYS;
+  const res = checkStarve({
+    ledgerText,
+    lessonsExists: existsSync(lessonsPath),
+    today: new Date(),
+    graceDays,
+  });
+  if (res.level === 'fail') fail(res.message);
+  else if (res.level === 'warn') warn(res.message);
+  else pass('corrective tier healthy (lessons.md exists)');
 }
 
 // ---- summary ----

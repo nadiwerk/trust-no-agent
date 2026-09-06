@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `evals/self-trigger-battery.md` — standalone protocol for scenario 13 (`evals/scenarios.md` S13): tests whether fresh agents load MANDATORY discipline skills unprompted across harnesses (OMO, DSH, Pi, Codex, Claude Code, ZCode). Includes pre-flight checks, launch procedure (9 runs per harness), grading rubric, and anti-manufacture rules to ensure honest evaluation of self-triggering capability.
+
+## [Unreleased]
+
+### Added
+
+- `scripts/doctor.mjs` C5 raised from WARN to grace-then-HARD (user-approved
+  2026-09-06): a ledger with entries but no `.trust/lessons.md` warns during a
+  14-day grace period measured from the oldest dated entry (ship-log
+  `## YYYY-MM-DD` headers), then FAILS with exit 1 — after grace, lesson
+  capture is mandatory, not optional. Decision logic extracted to
+  `scripts/corrective-tier.mjs` (`checkStarve`, testable without doctor's CLI
+  side effects); a ledger with no parseable dates degrades to WARN. Test
+  override: `TNA_DOCTOR_GRACE_DAYS`.
+- `scripts/doctor.test.mjs` — fail-first self-test for the grace logic
+  (7 expectations: warn/fail boundary, lessons-exists, no-dates, empty
+  ledger). Wired into CI (validate + windows jobs) and pre-commit; the
+  contributing gate list grows from three to four commands.
+
 ## [0.1.7] - 2026-09-06
 
 ### Removed
