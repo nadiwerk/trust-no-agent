@@ -11,7 +11,7 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
 
 ## Rules
 
-1. **Classify first**: `fast` (1 step, glance-verifiable) → answer directly; `full` (2-4 steps) → short todos + verification; `loop` (multi-stage/multi-file) → full chain + verify each stage. Can't be checked at a glance = not `fast`.
+1. **Classify first**: `fast` (1 step, glance-verifiable) → answer directly; `full` (2-4 steps) → short todos + verification; `loop` (multi-stage/multi-file) → full chain + verify each stage. Can't be checked at a glance = not `fast`. Any class: the skill registry is checked once before answering — a matching skill (the framework's own or an external one) is proposed by name and waits for approval. `fast` skips the chain, never the registry (AGENTS.md §1).
 
 2. **Large features run the canonical chain** (at least 2 of: 3+ files, >30 min, new logic). No coding before spec & tickets exist:
 

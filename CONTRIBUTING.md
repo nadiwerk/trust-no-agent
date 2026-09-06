@@ -84,8 +84,9 @@ This installs two hooks:
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
 - **Run the gates before pushing** — `node scripts/validate.mjs`,
-  `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` must all exit 0.
-  CI runs the same three checks on every push and PR; a red CI blocks merge.
+  `node scripts/eval.mjs`, `node scripts/tickets.test.mjs`, and
+  `node scripts/doctor.test.mjs` must all exit 0.
+  CI runs the same four checks on every push and PR; a red CI blocks merge.
 - **Link the issue** — reference the issue the PR addresses (e.g. `Closes #12`)
   so the decision record stays connected to the change.
 - **Describe what and why** — a short PR body stating the change, the evidence
@@ -99,8 +100,34 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
 3. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
+4. `node scripts/doctor.test.mjs` — corrective-tier grace logic self-test.
 
-If any fails, the PR is not mergeable. Run all three locally before pushing.
+If any fails, the PR is not mergeable. Run all four locally before pushing.
+
+## Repository layout
+
+```
+trust-no-agent/
+├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
+├── WORKFLOW.md          # core rules (non-negotiable)
+├── skills/              # the 11 skills, three tiers
+│   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
+│   │                    #   expect-fail, root-cause, roast-my-code
+│   ├── discipline/      #   receipts, no-thanks
+│   └── meta/            #   ship-log
+├── docs/                # design, philosophy, installation, per-skill use cases
+├── evals/               # static scenarios + live end-to-end results
+├── scripts/
+│   ├── validate.mjs     # structural validator (exit 0 or rejected)
+│   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
+│   ├── tickets.mjs      # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
+│   ├── tickets.test.mjs # fail-first self-test for tickets.mjs (exit 0 or rejected)
+│   ├── corrective-tier.mjs # C5 decision logic: lessons.md mandatory after a 14-day grace period
+│   ├── doctor.test.mjs  # fail-first self-test for the C5 grace logic (exit 0 or rejected)
+│   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger)
+│   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
+└── .github/workflows/   # CI runs all four gates on every push and PR
+```
 
 ## Changing a skill
 
@@ -128,6 +155,10 @@ contract. Changes here are high-stakes:
   `receipts`) are enforced by `eval.mjs` HARD checks. Dropping a mandate
   silently re-opens the gap the evals exposed — it will fail CI.
 - **"Writing tests is never `fast`"** is a HARD check. Do not weaken it.
+- **"The model proposes, the user approves"** (§3 proposal handoff) and
+  **"`fast` skips the chain, never the registry"** (§1 registry check) are
+  HARD checks (eval #19 and #20). Weakening either re-opens the
+  classification/chain gaps the probes exposed.
 - **Accepted review findings become permanent router rules** — gated, scoped,
   and reversible (see [docs/rule-inheritance.md](docs/rule-inheritance.md)).
   A one-off session lesson does not become a rule.

@@ -45,19 +45,11 @@ breakpoint opens → make-it-so executes → receipts closes
 breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
 ```
 
-Classify sits before the chain — only `loop`-class work enters it.
-
-- **Classify** the task: `fast` (one step, verifiable at a glance) / `full` (2-4 steps) / `loop` (multi-stage). Don't run the full ceremony on a typo.
-- **breakpoint** — execution pauses here: the agent interviews YOU until shared understanding. Facts are the agent's job; decisions are yours.
-- **save-as** — File > Save As: synthesize the conversation into a spec. No new questions, no speculative answers.
-- **fork-it** — fork the work into vertical slices with blocking edges. One branch per piece of work, just like git.
-- **make-it-so** — test-first at agreed seams, verify ruthlessly, repair with receipts.
-- **roast-my-code** — three-axis review (Standards + Spec + Security) run as parallel subagents.
-- **ship-log** — append to a private, gitignored working ledger. A log that dies with the conversation was a decision made in secret.
+Classify sits before the chain — only `loop`-class work enters it: `fast` (one step, glance-verifiable) / `full` (2-4 steps) / `loop` (multi-stage). But no class skips the **registry check**: before answering any task, the agent checks the skill registry once and proposes a matching skill by name — trust-no-agent's own **or an external one** — and waits for approval. `fast` skips the chain, never the registry.
 
 Bugs take their own parallel path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`. Both paths meet at the same gates.
 
-**Per-skill use cases:** every skill has a page with 2-3 concrete scenarios, a sample dialog, and its chaining neighbors — [docs/skills/](docs/skills/) · [index](docs/skills/README.md)
+**Per-skill detail:** every skill has a page with 2-3 concrete scenarios, a sample dialog, and its chaining neighbors — [docs/skills/](docs/skills/) · [index](docs/skills/README.md)
 
 ## The four Iron Laws
 
@@ -83,20 +75,11 @@ Most agent frameworks optimize for *speed* — more tokens, more parallel subage
 | Subagent "success" | Taken at face value | A lead, not evidence — the orchestrator verifies |
 | Failing verification | Retry until it passes (or looks like it) | Bounded repair loop: classify, fix the class, cap at 2 rounds, then report honestly |
 | Session ends / context compacts | Work context evaporates | `ship-log` ledger + recipes survive; next session resumes from state, not memory |
+| New task | Starts from scratch | Three memory tiers — ledger, lessons, recipes — plus adoption bootstrapped from git history; each task starts from the last time it was solved |
+| Review findings | Fixed once, forgotten | Accepted findings become permanent router rules — a fix that lands once guards every future session |
+| UI "works" | Fixture-based unit tests | Checked in a browser with real data — real data catches the bugs fixtures can't |
 | Review feedback | "You're absolutely right!" → blind implementation | `no-thanks`: verify before implementing, push back when the feedback is wrong |
-
-## The gaps it closes
-
-Most frameworks leave these holes open. This one closes them:
-
-- **A permanent private working ledger.** Conversation memory dies with compaction; the ledger doesn't. Every finished unit is logged to a gitignored `.trust/progress.txt` with its verification evidence, rulings (`Ruling: <decision> — <why> — <cost if wrong>`), and a 4-dimension self-review — so a fresh or compacted session resumes from state, not from memory.
-- **Memory that compounds.** Three private tiers: chronological (the ledger), corrective (what broke and how — the lessons file `make-it-so` writes to `.trust/lessons.md`), procedural (how tasks like this were solved — `.trust/recipes.md`). Each new task starts from the last time it was solved, not from scratch.
-- **Adoption that keeps the past.** A long-running project adopting the framework doesn't start from an empty ledger — an optional one-time bootstrap seeds it from git history (grouped into completed units, marked as reconstructed evidence, never backfilled with fake recipes), so early recovery doesn't depend on git archaeology.
-- **Four first principles, written as rules.** Surface assumptions before building, simplicity first, surgical changes, verifiable goals. Quality behavior is a rule, not a vibe.
-- **A delegation contract.** Every subagent prompt carries 3 repo rules + 6 sections. A subagent's "success" is a lead, not evidence — the orchestrator verifies. Accepted review findings become permanent router rules, so a fix that landed once guards every future session.
-- **Real-data UI verification.** Unit-test fixtures lie. UI changes are checked in a browser with real data before they're called done — real data catches the bugs fixtures can't: duplicate names, empty columns, rows that render as separate entities.
-- **An upstream spec gate (built into `save-as`, not a new skill).** Verification proves behavior, not intent — a wrong spec that passes its tests still ships wrong code. So `save-as` now writes numbered, falsifiable acceptance criteria (one per requirement, each with its check method) and runs an adversarial self-review — ambiguity, contradictions, hidden assumptions, untestable criteria — before publishing; `fork-it` refuses to slice a spec without them. Class `loop`: discipline scales with stakes.
-- **Lazy by default.** Skill descriptions are the only always-on cost — a few short lines that say *when* to load, never *what* the workflow does. Deep reference material loads on demand. The framework's standing cost is tiny, so it doesn't tax every request forever.
+| Standing cost | Every token counts, forever | Descriptions are the only always-on cost; deep material loads on demand (lazy by default) |
 
 ## All 11 skills
 
@@ -134,79 +117,29 @@ Most frameworks leave these holes open. This one closes them:
 - **Your agent writes tests that always pass** → `expect-fail`
 - **Long-running projects** where context compaction wipes what the agent knew → `ship-log`
 
-Not every task needs the ceremony. The router classifies first: `fast` tasks (a typo, a one-liner) skip the chain entirely. Discipline scales with stakes — that's what keeps the framework from being abandoned after week one.
-
-### Agent / orchestrator layers — add parallelism, worktrees, routing on top
-
-An **agent/orchestrator** is an orchestration layer that runs *on top of* a harness and adds parallel subagents, worktree isolation, and category routing. These are accelerators, not dependencies — the core works without them:
-
-| Orchestrator | Runs on | Install |
-|---|---|---|
-| **OMO (OhMyOpenAgent)** | on opencode (harness plugin) | `cp -r skills/*/* ~/.agents/skills/` |
-
-Then apply the rules into your project — copy `AGENTS.md` + `WORKFLOW.md` as shown in [Install](#install). Full mapping in `docs/omo-integration.md`; verified compatibility matrix across other orchestrators (omp, OpenClaw, and more): [docs/compatibility.md](docs/compatibility.md).
-
-## Contributing
-
-Contributions are welcome — and they follow the same discipline as the framework: **work only counts when it exits zero.** Every change is verified by a mechanical gate before it is accepted. Full guide: [CONTRIBUTING.md](CONTRIBUTING.md).
-
-```
-trust-no-agent/
-├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
-├── WORKFLOW.md          # core rules (non-negotiable)
-├── skills/              # the 11 skills, three tiers
-│   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
-│   │                    #   expect-fail, root-cause, roast-my-code
-│   ├── discipline/      #   receipts, no-thanks
-│   └── meta/            #   ship-log
-├── docs/                # design, philosophy, installation, per-skill use cases
-├── evals/               # static scenarios + live end-to-end results
-├── scripts/
-│   ├── validate.mjs     # structural validator (exit 0 or rejected)
-│   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
-│   ├── tickets.mjs        # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
-│   ├── tickets.test.mjs   # fail-first self-test for tickets.mjs (exit 0 or rejected)
-│   ├── corrective-tier.mjs # C5 decision logic: lessons.md mandatory after a 14-day grace period
-│   ├── doctor.test.mjs      # fail-first self-test for the C5 grace logic (exit 0 or rejected)
-│   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger)
-│   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
-└── .github/workflows/   # CI runs validate + eval + tickets self-test on every push and PR
-```
-
-**How to contribute:**
-
-Activate the local hooks once so the same gate runs on every commit:
-
-```bash
-git config core.hooksPath scripts/hooks
-```
-
-Then follow these rules:
-
-- **Run the gates before you push** — `node scripts/validate.mjs`, `node scripts/eval.mjs`, `node scripts/tickets.test.mjs`, and `node scripts/doctor.test.mjs` must all exit 0. CI runs the same four checks on every push and PR.
-- **Branch from `master`, open the PR against `master`** — one PR = one logical change, linked to an issue.
-- **Conventional Commits** — `<type>(<scope>): <description>`; update `CHANGELOG.md` for user-visible changes.
-- **Changing a skill?** Keep frontmatter `name` = folder, the invocation axis consistent, and descriptions trigger-shaped.
-- **Changing the router or Iron Laws?** High-stakes — the MANDATORY skills and "writing tests is never `fast`" are HARD checks; weakening them fails CI.
-- **Adding an eval?** Static checks go in `scripts/eval.mjs`; live scenarios in `evals/scenarios.md`; results in `evals/live-results.md`.
-- **Reporting a bug?** Open an issue with the exact command, output, and expected vs. observed. Security issues go through the private path in [SECURITY.md](SECURITY.md).
+Discipline scales with stakes — that's what keeps the framework from being abandoned after week one. And the chain never dead-ends: after every stage the agent proposes the next step by name and waits, so you never have to remember the map.
 
 ## Portability
 
-The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. No subagents, no MCP servers, no background tasks required; those are accelerators, not dependencies (see AGENTS.md §5 and §8).
+The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md` (Claude Code, Codex, opencode, Cursor, Gemini CLI, Zed). No subagents, no MCP servers, no background tasks required — those are accelerators, not dependencies (AGENTS.md §5 and §8).
 
-Two layers, kept deliberately separate:
-
-- **Harness** — the runtime that reads `AGENTS.md` and executes the agent (Claude Code, Codex, opencode, Cursor, Gemini CLI, Zed). The framework core needs only this.
-- **Agent / orchestrator** — an optional orchestration layer on top (OMO on opencode) that adds parallel subagents, worktree isolation, and category routing. These are accelerators: they make the framework faster, never required.
+- **Harness** — the runtime that reads `AGENTS.md` and executes the agent. The framework core needs only this.
+- **Agent / orchestrator** (optional) — a layer on top that adds parallel subagents, worktree isolation, and category routing. Recommended: **OMO on opencode**. Verified compatibility matrix across other orchestrators: [docs/compatibility.md](docs/compatibility.md) · OMO mapping: [docs/omo-integration.md](docs/omo-integration.md).
 
 Beneath the workflow sits a deliberately simple engine, expressed as rules, not code:
 
 - **A task graph with blocking edges** — `fork-it` decomposes work into vertical slices where each ticket declares what it depends on, so independent work parallelizes without a single line of orchestration code.
 - **A bounded repair loop** — `make-it-so` classifies every failing verification (capability / instruction / environment / context gap), commits to a minimal fix, and caps retries at two rounds; a loop that is allowed to retry forever is not a loop, it is a guess repeated.
-- **A harness-agnostic core** — the chain, the ledger, and the gates have no dependency on any orchestrator; the model is a commodity, the stack around it is the engineering.
 
-**Recommended setup: OMO (OhMyOpenAgent) on opencode** — the orchestrator layer on top of the opencode harness, adding parallel orchestration, category routing, and worktree isolation (details above).
+## Contributing
+
+Contributions follow the same discipline: **work only counts when it exits zero.** Full guide — repository layout, hook setup, branch rules: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+git config core.hooksPath scripts/hooks   # once — the same gate then runs on every commit
+```
+
+Before pushing, all four gates must exit 0 — `node scripts/validate.mjs && node scripts/eval.mjs && node scripts/tickets.test.mjs && node scripts/doctor.test.mjs` (CI runs the same four on every push and PR). Conventional Commits; `CHANGELOG.md` updated for user-visible changes; security issues via the private path in [SECURITY.md](SECURITY.md).
 
 ## The honest limits
 
