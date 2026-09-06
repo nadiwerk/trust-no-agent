@@ -35,7 +35,34 @@ Per-harness location overrides below. If a harness has no skill system, the AGEN
 
 ## Adopting into an existing project
 
-The copy commands above are the greenfield path. Most repos are not empty: they already carry a router (`AGENTS.md`, `CLAUDE.md`, rules files) and sometimes their own skill ecosystem. For those, adoption is a **merge, not a copy**:
+The copy commands above are the greenfield path. Most repos are not empty: they already carry a router (`AGENTS.md`, `CLAUDE.md`, rules files) and sometimes their own skill ecosystem. For those, adoption is a **merge, not a copy** — nothing in your project is overwritten, replaced, or deleted.
+
+### The adoption interview (interactive)
+
+Before touching anything, the agent runs this short interview. It should ask the questions and **wait for your answers** — no file is read, merged, or written until you have answered and confirmed:
+
+1. **"Does this project already have a router — `AGENTS.md`, `CLAUDE.md`, `RULES.md`, or similar at the root?"**
+   - *No* → greenfield path: the plain copy commands at the top of this page apply; the interview ends here.
+   - *Yes* → continue to question 2.
+2. **"What does your router already cover — task classification, planning stages, review, logging, delegation rules?"**
+   - The agent reads your router and marks the overlap itself (step 1 below), then reports back: *"Your router covers X, Y; trust-no-agent would add the gates it lacks: Z."* You confirm which parts to adopt.
+3. **"Where should skills live — project-local (`.agents/skills/`, `.claude/skills/`) or a shared global dir?"**
+   - Actively developed project → project-local is the safe default (step 4 below): a global dir collides with whatever the project already has.
+4. **"Any chain stage you want mapped to a local name instead of adopted?"**
+   - If your router already has a stage under a different name, the local name stays and a mapping is recorded (step 3 below) — the project is never renamed around the framework.
+
+Only after your answers does the agent produce a **merge plan** — which lines go where, what stays untouched — shows it to you, and waits for an explicit "yes" before writing. Each step below is then applied additively; the diff is shown, and any step you dislike is reverted before the next one runs.
+
+### Why this cannot break your existing router
+
+Adoption touches your project additively only:
+
+- **The project's router stays the only router.** Nothing copies over it, nothing replaces it — framework rules are cherry-picked *into* the file you already have, under its existing structure. Your rules keep their priority; the framework only fills gaps.
+- **No overlap means no conflict.** The audit in step 1 marks what your router already covers; those parts are skipped, not duplicated. Two routers claiming the same session is exactly the failure this flow exists to prevent — the merge guarantees there is still only one.
+- **Skills are additive files in a new directory.** Skill folders land in a dedicated skills dir; they add files, they do not modify existing ones. If your project has its own skill with the same name, the interview surfaces the collision and you pick the location — nothing is silently overwritten.
+- **Reversible by construction.** The merged router is version-controlled — a normal `git diff` shows every added line, and `git checkout -- AGENTS.md` undoes the whole adoption. The ledger (`.trust/`) is new and gitignored; deleting it removes nothing of the project's.
+
+With the interview answered and the merge plan confirmed, adoption proceeds as a merge in five steps:
 
 1. **Audit the overlap first.** Read the project's router and mark what it already covers — task classification, interview/spec/ticket stages, review, logging, delegation rules. Mature routers usually cover part of the chain under different names. The framework's adoption value is usually its **gates** (fail-first, fresh-evidence receipts, human sign-off), not a second chain.
 2. **One router.** The project's router stays the only router. Cherry-pick the framework rules it lacks — a MANDATORY discipline-skills section, a trigger-matrix row — **into** that router instead of copying `AGENTS.md` wholesale. Two routers claiming the same session silently disagree, and the model arbitrates by forgetting one of them.
