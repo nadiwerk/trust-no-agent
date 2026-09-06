@@ -40,13 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `docs/chat-receipt.md` — the 4-block chat receipt (Verdict / Bukti / Belum /
-  Next) closing every `full`/`loop` unit in chat, recorded in
+- `docs/chat-receipt.md` — the 4-block chat receipt (Verdict / Evidence /
+  Open / Next) closing every `full`/`loop` unit in chat, recorded in
   `docs/rule-inheritance.md` as the router's first gated rule (§6).
 
 ### Fixed
 
-- `docs/chat-receipt.md` — the Bukti block no longer demands a visible
+- `docs/chat-receipt.md` — the Evidence block no longer demands a visible
   fail-first cycle for non-behavioral units (docs, config, typo): provide
   existence/exit-code evidence instead; inventing a FAIL to fill the template
   is forbidden.
@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   severity-labeled review) and a sample interview dialog showing decisions
   arriving to the user as questions.
 - README — "honest" completes the trio: a "What 'honest' means" section that
-  points back at the receipt's own Belum line as the proof ("nothing forced
+  points back at the receipt's own Open line as the proof ("nothing forced
   that line to exist"), a gate-semantics line, and the self-applied twist —
   the framework states its own limits (The honest limits).
 

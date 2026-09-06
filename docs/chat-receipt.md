@@ -1,37 +1,37 @@
-# Chat receipt — kartu 1-layar penutup unit verifiable
+# Chat receipt — the one-screen card that closes every verifiable unit
 
-Setiap unit verifiable ditutup di chat dengan 4 blok ini, dalam urutan ini. Chat = bukti hidup (run fresh THIS message); file = arsip. Ledger/tiket hanya mengutip, tidak menggantikan run.
+Every verifiable unit closes in chat with these 4 blocks, in this order. Chat = live evidence (run fresh THIS message); files = archive. The ledger/tickets quote the run — they never replace it.
 
-## Bentuk
+## Shape
 
 ```md
-<✅ DONE | ❌ NOT done> <ticket-id> — <judul singkat> | <perintah>: <hasil + exit>
-Bukti: <FAIL pre-impl> → <PASS post-impl> | <AC yang terpenuhi>
-Belum: <yang tidak dibuktikan, atau "none">
-Next: <satu aksi / none> — <lokasi arsip>
+<✅ DONE | ❌ NOT done> <ticket-id> — <short title> | <command>: <result + exit>
+Evidence: <pre-impl FAIL> → <post-impl PASS> | <ACs satisfied>
+Open: <what was not proven, or "none">
+Next: <one action / none> — <archive location>
 ```
 
-## Aturan blok
+## Block rules
 
-1. **Verdict** — 1 baris pertama = verdict + angka exit. Tanpa scroll sudah tahu hasil.
-2. **Bukti** — output verbatim ditempel di chat, bukan "cek file X". Untuk unit perilaku (code change, test), siklus fail-first wajib terlihat (FAIL sebelum, PASS sesudah). Untuk unit non-perilaku (docs, config, typo) yang tidak punya FAIL pre-impl jujur: isi dengan bukti keberadaannya atau exit code verifikasi yang relevan; jangan mengarang FAIL demi memenuhi template.
-3. **Belum** — tiap receipt tulis apa yang belum terbukti (misal browser check real data). Tidak boleh kosong tanpa kata "none".
-4. **Next** — satu aksi terkecil berikutnya + lokasi arsip (ledger/tiket). A receipt missing any block is a partial receipt: it proves nothing.
+1. **Verdict** — first line = verdict + exit code. The result is known without scrolling.
+2. **Evidence** — verbatim output pasted in chat, not "see file X". For behavioral units (code change, test), the fail-first cycle must be visible (FAIL before, PASS after). For non-behavioral units (docs, config, typo) that honestly have no pre-impl FAIL: fill with existence evidence or the relevant verification exit code; never invent a FAIL to fill the template.
+3. **Open** — every receipt states what remains unproven (e.g. browser check with real data). Never empty unless it says "none".
+4. **Next** — the smallest next action + archive location (ledger/ticket). A receipt missing any block is a partial receipt: it proves nothing.
 
-## Contoh
+## Example
 
 ```md
 ✅ DONE T01-login-guard | tsc EXIT 0; vitest 1/1
-Bukti: FAIL pre-impl (500) → PASS post-impl (401) | AC1 ✔
-Belum: browser check real data
+Evidence: pre-impl FAIL (500) → post-impl PASS (401) | AC1 ✔
+Open: browser check with real data
 Next: none — ledger `.trust/progress.txt` updated
 ```
 
-## Sumber per blok
+## Source per block
 
-| Blok | Skill sumber |
+| Block | Source skill |
 |---|---|
-| Verdict | `receipts` — 5 boolean + exit code |
-| Bukti | `expect-fail` + `make-it-so` repair receipt |
-| Belum | `receipts` gate semantics |
-| Next + arsip | `ship-log` (AC dikutip dari `save-as`) |
+| Verdict | `receipts` — 5 booleans + exit code |
+| Evidence | `expect-fail` + `make-it-so` repair receipt |
+| Open | `receipts` gate semantics |
+| Next + archive | `ship-log` (ACs quoted from `save-as`) |
