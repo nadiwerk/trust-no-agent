@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `evals/self-trigger-battery.md` — standalone protocol for scenario 13 (`evals/scenarios.md` S13): tests whether fresh agents load MANDATORY discipline skills unprompted across harnesses (OMO, DSH, Pi, Codex, Claude Code, ZCode). Includes pre-flight checks, launch procedure (9 runs per harness), grading rubric, and anti-manufacture rules to ensure honest evaluation of self-triggering capability.
 - `scripts/doctor.mjs` C5 raised from WARN to grace-then-HARD (user-approved 2026-09-06): a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period measured from the oldest dated entry (ship-log `## YYYY-MM-DD` headers), then FAILS with exit 1 — after grace, lesson capture is mandatory, not optional. Decision logic extracted to `scripts/corrective-tier.mjs` (`checkStarve`, testable without doctor's CLI side effects); a ledger with no parseable dates degrades to WARN. Test override: `TNA_DOCTOR_GRACE_DAYS`.
 - `scripts/doctor.test.mjs` — fail-first self-test for the grace logic (7 expectations: warn/fail boundary, lessons-exists, no-dates, empty ledger). Wired into CI (validate + windows jobs) and pre-commit; the contributing gate list grows from three to four commands.
+- AGENTS.md trigger-matrix row (commit `ebf3a3c`): an external skill proposed by the registry check opens `docs/skill-vetting.md` — audited BEFORE the user's approval — closing the gap where the checklist existed but nothing in the always-read router pointed to it.
+- `docs/skill-vetting.md` — red-flag response ladder (commit `976a87a`): refuse approval first, ask the publisher (or the proposing agent) to explain, continue only on an explanation that holds; unexplained, the rejection is permanent — deleting the skill from disk stays the user's call ("a gate refuses, it does not remove"). Two red-flag categories added — data exfiltration beyond credentials, persistence and side channels — bringing the list to six.
+
+### Changed
+- `evals/self-trigger-battery.md` — S13 result framing reworded to the honest outcome (commit `976a87a`): "No harness passed S13. OMO alone ran the battery to completion - and scored TRIGGER 0/9 twice, a real failure signal, not an incomplete run"; a battery another harness could not run is never recorded as a pass.
 
 ## [0.1.7] - 2026-09-06
 
