@@ -29,6 +29,7 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 | Review requested / changes since a fixed point | `roast-my-code` |
 | Review feedback received (from anyone) | `no-thanks` |
 | A ticket/feature finished | `ship-log` |
+| External skill proposed (registry check hit an outside skill) | open `docs/skill-vetting.md` — audit BEFORE the user's approval |
 
 Check this table **before responding**, including before asking clarifying questions. If there is even a 1% chance a skill applies, load it. One invariant: a user-invoked skill is invoked by a human only — it may load model-invoked skills, but never another user-invoked one (that way lies an orchestration cycle). When delegating, skills reach subagents only via the delegation tool's skill-loading parameter — an unloaded skill is a dead skill.
 
