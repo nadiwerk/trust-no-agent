@@ -64,6 +64,7 @@ Most agent frameworks optimize for *speed* — more tokens, more parallel subage
 
 | | Speed-first frameworks | trust-no-agent |
 |---|---|---|
+| External skills | Replaced, fenced off, or fought | A gate over them — anything fits, nothing fires uninvited; other skills make it capable, the gate keeps it honest |
 | Plausible-but-wrong spec | Straight to tickets, straight to code | Upstream spec gate: falsifiable acceptance criteria + adversarial self-review before `fork-it` |
 | "It's done" | A claim from the agent | A receipt: verification run fresh, output read, exit zero |
 | Ambiguous request | Agent guesses and builds | `breakpoint` pauses execution; the agent interviews you first |
@@ -126,19 +127,6 @@ Beneath the workflow sits a deliberately simple engine, expressed as rules, not 
 
 - **A task graph with blocking edges** — `fork-it` decomposes work into vertical slices where each ticket declares what it depends on, so independent work parallelizes without a single line of orchestration code.
 - **A bounded repair loop** — `make-it-so` classifies every failing verification (capability / instruction / environment / context gap), commits to a minimal fix, and caps retries at two rounds; a loop that is allowed to retry forever is not a loop, it is a guess repeated.
-
-## Combine with other skills
-
-trust-no-agent is a gate, not a walled garden. Skills from other collections — testing helpers, browser automation, doc generators — keep working; what changes is that nothing fires without the check-in.
-
-Before any task, the router's registry check runs once: the agent must propose the right skill for the job — trust-no-agent's own **or an external one** — and wait for your approval (AGENTS.md §1). Your skills do the domain work; trust-no-agent decides when work starts, how it's verified, and whether "done" is a fact or a rumor.
-
-- **Situational, not competitive.** Whatever fits the task gets proposed — external skills included — through the same gate.
-- **Approval stays with you.** The agent proposes, you decide; no skill fires uninvited.
-- **Zero migration.** Drop in the router (`AGENTS.md` + `WORKFLOW.md`) and your existing collection keeps working.
-- **Gate routes, you vet.** The registry check routes skills; it doesn't audit them. Before approving an external skill for real work, run the audit checklist: [docs/skill-vetting.md](docs/skill-vetting.md).
-
-Other skills make your agent capable. trust-no-agent is the gate that keeps it from working carelessly.
 
 ## Contributing
 
