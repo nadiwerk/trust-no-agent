@@ -105,6 +105,10 @@ MANDATORY is reserved for skills that are (a) **model-invoked** (self-trigger, p
 
 - **"Writing tests is never `fast`"** — a test-writing task is always `full` or `loop`, never `fast`, because a test that "passes immediately" is exactly the tautological anti-pattern `expect-fail` exists to catch. Enforced by a HARD mechanical check (check #7). Re-tested: the agent now classifies test-writing as `full`, refuses the tautology, and asks for seam confirmation.
 
+### The residual gap, generalized: `fast` classification skipped the registry
+
+The test-writing fix (check #7) carved out one domain, but the probe that followed showed the pattern is not about tests. With the full registry installed and no skill named in the prompt, fresh agents proposed a matching external skill on full-class tasks 2/2 (`archify`, `prototype`) yet on fast-classified teaching requests answered directly 2/2 — correct-looking output from general judgment, the registry never consulted, the matching skill (`teach`) never proposed. The failure lives one layer earlier than self-trigger: the classification step itself hides the gap, because every downstream check assumed the registry was already considered. The fix generalized the carve-out into a rule — **"`fast` skips the chain, never the registry"**: before answering any task, the skill registry is checked once and a matching skill (the framework's own or an external one) is proposed by name and waits for approval, regardless of class. Enforced by a HARD mechanical check (check #20), verified fail-first (rule removed → exit 1, restored → exit 0). Evidence: `evals/live-results.md` §External-skill registry probe (2026-09-06).
+
 ### The upstream spec gate (decision: 2026-09-02)
 
 Downstream verification (receipts, tests) proves behavior, not intent: a wrong spec that passes its tests still ships wrong code. The decision was to focus the framework's next lever UPSTREAM — forcing specification testability before execution — without adding a skill:
