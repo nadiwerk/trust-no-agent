@@ -43,6 +43,14 @@
  * 19. Proposal handoff present in AGENTS.md §3 (HARD → ERROR): the model
  *     proposes the next chain step by name and waits for approval — a
  *     user-invoked chain never stalls because the user didn't know the way.
+ * 20. Registry check never skipped by `fast` classification (HARD → ERROR):
+ *     before answering, the skill registry is checked once and a matching
+ *     skill — trust-no-agent's own or an external one — is proposed by name,
+ *     regardless of class. Probe evidence (2026-09-06, 2 runs): teaching
+ *     requests classified `fast` were answered without ever considering the
+ *     registry — correct-looking output from general judgment, matching skill
+ *     never consulted; same invisible-failure pattern as self-trigger (6),
+ *     one layer earlier: the classification step itself hides the gap.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -397,6 +405,21 @@ for (const marker of [/lessons\.md/, /corrective/i, /checkStarve/, /corrective-t
 for (const marker of [/The model proposes, the user approves/, /skill by name, why now/])
   if (!new RegExp(marker.source).test(agentsText2))
     err(`AGENTS.md §3: missing proposal-handoff marker ${marker} (user-invoked chain must never dead-end on an uninformed user)`);
+
+// ---- 20. Registry check never skipped by `fast` classification (HARD) ----
+// Probe evidence (2026-09-06, 2 runs): fresh agents given teaching requests
+// classified the task `fast` and answered directly — correct-looking output
+// from general judgment, but the skill registry was never consulted, so the
+// matching skill (teach, an external one) was never proposed. This is the
+// self-trigger pattern (6) one layer earlier: the classification step itself
+// hides the gap, because every downstream check assumed the registry was
+// already considered. Closure: `fast` skips the chain, never the registry —
+// a matching skill (trust-no-agent's own or external) is proposed by name and
+// waits for approval, regardless of class. Encode twice: prose in AGENTS.md
+// §1, this mechanical check for the boundary.
+for (const marker of [/`fast` skips the chain, never the registry/, /propose it by name and wait for approval, regardless of class/])
+  if (!new RegExp(marker.source).test(agentsText2))
+    err(`AGENTS.md §1: missing fast-skips-chain-never-registry marker ${marker} (classification must not bypass the skill-registry check)`);
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }

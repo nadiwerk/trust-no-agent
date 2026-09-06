@@ -12,6 +12,8 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 
 **Writing tests is never `fast`.** A test-writing task is always `full` or `loop` — never `fast` — because a test that "passes immediately" is exactly the tautological anti-pattern `expect-fail` exists to catch (evals: an agent classified a test task as `fast` and skipped the skill, writing a tautological test — evidence: docs/design.md §The residual gap). Classifying test-writing as `fast` is how the fail-first discipline silently drops.
 
+**`fast` skips the chain, never the registry.** Before answering any task, check the skill registry once: if a skill matches — trust-no-agent's own or an external one — propose it by name and wait for approval, regardless of class. Probe evidence (2026-09-06, 2 runs): fast-classified teaching requests never considered the registry — correct-looking output from general judgment, matching skill never consulted; the same invisible-failure pattern as self-trigger, one layer earlier.
+
 ## 2. Trigger matrix
 
 | Situation | Load |

@@ -499,3 +499,46 @@ re-verification; the A3 narration defect class from rounds 1–3 did not recur.
    narration-vs-action class is now absent on two of five rounds and its
    grading note (narration claims graded as claims) held as a check this
    round without being triggered.
+
+## External-skill registry probe — 2026-09-06 (3 fresh agents + 1 retest, 4 runs)
+
+Question: with the full registry installed and no skill named in the prompt,
+does a fresh agent propose a matching **external** skill (one outside
+trust-no-agent's 11) by name? Full-class tasks were already covered by the
+proposal-handoff rule (check #19); the open surface was the classification
+step itself. All runs read-only, standard delegation contract (3 repo rules +
+6 sections), Indonesian prompts deliberately free of skill names.
+
+| Run | Expected external skill | Classified | Proposed by name? | Verdict |
+|---|---|---|---|---|
+| A — interactive CI-architecture diagram | archify | `full` | YES — "Skill match: archify" | PASS |
+| B — teach why always-passing tests are a threat | teach | `fast` | NO — answered directly, registry never considered | FAIL |
+| C — throwaway prototype for ledger-recovery design | prototype | `full` | YES — "Skill check: prototype skill matches" | PASS |
+| B-retest (rephrased prompt, same target) | teach | `fast` | NO — same mechanism | FAIL |
+
+### Temuan yang bisa dikembangkan (registry probe)
+
+1. **The failure lives in classification, not in proposal-handoff.**
+   Full-class tasks proposed 2/2 (check #19's rule doing its job); both
+   failures share one mechanism — `fast` classification skipped registry
+   consideration entirely. This is the self-trigger pattern (0/3,
+   docs/design.md) one layer earlier: correct-looking output from general
+   judgment, the gap invisible until a hard case arrives.
+2. **Output quality is the trap.** Both FAIL runs produced genuinely good
+   teaching content (accurate analogies, real repo citations, correct
+   tautology examples) — the same "framework looks like it works while the
+   skill never ran" illusion design.md documents, here at the classification
+   layer.
+3. **Closure (user-approved conditional: fail-again => encode).** AGENTS.md
+   §1 now carries "**`fast` skips the chain, never the registry**" — before
+   answering any task the skill registry is checked once; a matching skill
+   (trust-no-agent's own or external) is proposed by name and waits for
+   approval, regardless of class. Enforced twice: eval check #20 (HARD,
+   fail-first verified: rule removed => 2 ERRORs exit 1, restored => exit 0)
+   + register row in docs/rule-inheritance.md (scope global, undo documented).
+4. **Method notes.** The retest rephrased scenario B to rule out prompt
+   memorization; grading used the same rubric as the self-trigger battery
+   (PASS = proposed by name / loaded, PARTIAL = weighed but not proposed,
+   FAIL = registry ignored). The 2/2 recurrence with one shared mechanism met
+   the global-scope bar ("survived at least one recurrence") in
+   rule-inheritance.md's gate.
