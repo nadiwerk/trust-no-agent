@@ -52,6 +52,7 @@ Rules:
 - **Upstream spec gate (class `loop` only):** No fork-it without executable acceptance criteria — a spec that cannot be tested cannot be decomposed. Verification proves behavior, not intent; the gate forces testability upstream where intent is still cheap to fix. See `save-as` §Acceptance Criteria and §Adversarial self-review; `fork-it` refuses to slice a spec without them.
 - Each ticket execution starts **fresh** — the previous ticket's context is disposable.
 - Work the **frontier**: any ticket whose blockers are all done.
+- **The model proposes, the user approves — never a dead end.** User-invoked skills are gated by approval, but proposing the next step is the agent's job: after every chain stage (and every unit of work), the agent must offer the concrete next step — skill by name, why now — and wait. The chain never stalls because the user didn't know what comes next; the arrow to the next stage is provided by the model, never left for the user to invent.
 
 ## 4. Division of labor (every session)
 

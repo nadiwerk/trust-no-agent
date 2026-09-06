@@ -40,6 +40,9 @@
  *     ERROR): receipts (MANDATORY) demands the lesson before accepting a
  *     repair's done; doctor warns during the grace period and FAILS once
  *     grace is exhausted — the corrective tier is mandatory, not optional.
+ * 19. Proposal handoff present in AGENTS.md §3 (HARD → ERROR): the model
+ *     proposes the next chain step by name and waits for approval — a
+ *     user-invoked chain never stalls because the user didn't know the way.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -383,6 +386,17 @@ for (const marker of [
 for (const marker of [/lessons\.md/, /corrective/i, /checkStarve/, /corrective-tier\.mjs/, /grace/i])
   if (!marker.test(doctorText))
     err(`doctor.mjs: missing corrective-tier marker ${marker} (starving tier must WARN in grace, FAIL after — not stay silent)`);
+
+// ---- 19. Proposal handoff present in the router (HARD) ----
+// The user-invoked chain (save-as → fork-it → make-it-so) stalls whenever the
+// user doesn't know the next skill — the same trap as model self-trigger,
+// inverted: dependence on the user remembering the map. Closure: the agent
+// proposes the concrete next step (skill by name, why now) after every chain
+// stage and waits for approval. Encode twice: prose in AGENTS.md §3, this
+// mechanical check for the boundary.
+for (const marker of [/The model proposes, the user approves/, /skill by name, why now/])
+  if (!new RegExp(marker.source).test(agentsText2))
+    err(`AGENTS.md §3: missing proposal-handoff marker ${marker} (user-invoked chain must never dead-end on an uninformed user)`);
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
