@@ -35,10 +35,6 @@ Project **already has its own router**? Don't copy over it — [adopt instead](d
 | **`make-it-so`** | *Executes the work.* Test-first at agreed seams, a bounded repair loop (max 2 rounds — no infinite "one more try"), and built-in chaining to review and logging. | Tickets are approved → code gets written red-green, every failure classified and repaired, not thrashed. → [use cases](docs/skills/make-it-so.md) |
 | **`receipts`** | *Closes the work.* "Done" without fresh verification evidence = didn't happen. Typecheck, tests, lint, build — run in THIS message, output read, exit code checked. | Agent says "tests pass" → before accepting, the gate demands the actual run from this session. Receipts or it didn't happen. → [use cases](docs/skills/receipts.md) |
 
-```
-breakpoint opens → make-it-so executes → receipts closes
-```
-
 ## The core loop
 
 ```
