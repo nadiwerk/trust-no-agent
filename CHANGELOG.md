@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [1.8.0] - 2026-09-06
+
+### Added
+- Interactive adoption interview in `docs/installation.md`: before any merge into a project that already has a router, the agent asks four questions (existing router?, what it covers — with the overlap audit performed by the agent, skill location, name mapping), presents a merge plan, and waits for explicit confirmation before writing a single line.
+- Merge-safety guarantees section ("Why this cannot break your existing router"): the project's router stays the only router, overlapping rules are skipped rather than duplicated, skills land as new files in their own directory (name collisions surfaced in the interview, never silently overwritten), and the whole adoption is reversible via `git diff` / `git checkout`.
+- README install section now states the adoption safety contract inline: guided interview → merge, not a copy → additive, reversible, no overwrite of the existing setup.
+
 ## [0.1.8] - 2026-09-06
 
 ### Added
