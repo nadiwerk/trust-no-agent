@@ -9,28 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `evals/self-trigger-battery.md` — standalone protocol for scenario 13 (`evals/scenarios.md` S13): tests whether fresh agents load MANDATORY discipline skills unprompted across harnesses (OMO, DSH, Pi, Codex, Claude Code, ZCode). Includes pre-flight checks, launch procedure (9 runs per harness), grading rubric, and anti-manufacture rules to ensure honest evaluation of self-triggering capability.
-
-## [Unreleased]
-
-### Added
-
-- `scripts/doctor.mjs` C5 raised from WARN to grace-then-HARD (user-approved
-  2026-09-06): a ledger with entries but no `.trust/lessons.md` warns during a
-  14-day grace period measured from the oldest dated entry (ship-log
-  `## YYYY-MM-DD` headers), then FAILS with exit 1 — after grace, lesson
-  capture is mandatory, not optional. Decision logic extracted to
-  `scripts/corrective-tier.mjs` (`checkStarve`, testable without doctor's CLI
-  side effects); a ledger with no parseable dates degrades to WARN. Test
-  override: `TNA_DOCTOR_GRACE_DAYS`.
-- `scripts/doctor.test.mjs` — fail-first self-test for the grace logic
-  (7 expectations: warn/fail boundary, lessons-exists, no-dates, empty
-  ledger). Wired into CI (validate + windows jobs) and pre-commit; the
-  contributing gate list grows from three to four commands.
+- `scripts/doctor.mjs` C5 raised from WARN to grace-then-HARD (user-approved 2026-09-06): a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period measured from the oldest dated entry (ship-log `## YYYY-MM-DD` headers), then FAILS with exit 1 — after grace, lesson capture is mandatory, not optional. Decision logic extracted to `scripts/corrective-tier.mjs` (`checkStarve`, testable without doctor's CLI side effects); a ledger with no parseable dates degrades to WARN. Test override: `TNA_DOCTOR_GRACE_DAYS`.
+- `scripts/doctor.test.mjs` — fail-first self-test for the grace logic (7 expectations: warn/fail boundary, lessons-exists, no-dates, empty ledger). Wired into CI (validate + windows jobs) and pre-commit; the contributing gate list grows from three to four commands.
 
 ## [0.1.7] - 2026-09-06
 
-### Removed
+### Added
+- `scripts/corrective-tier.mjs` — corrective tier starvation check for doctor.mjs C5
+- `scripts/doctor.test.mjs` — fail-first test for doctor C5
+- `evals/self-trigger-battery.md` — standalone protocol for scenario 13 self-trigger battery
 
+### Changed
+- `scripts/doctor.mjs` — C5 now enforces corrective tier with a 14-day grace period before failing; uses checkStarve from corrective-tier.mjs; added TNA_DOCTOR_GRACE_DAYS test override
+- `evals/scenarios.md` — updated S13 description to clarify battery completion steps and added note about updating three places when a battery completes
+
+### Removed
 - README — the "What 'verifiable' means", "What 'reviewable' means", and
   "What 'honest' means" sections from 0.1.6 are reverted after user review.
   The trio keeps its one-line mention in the intro; the depth stays in
