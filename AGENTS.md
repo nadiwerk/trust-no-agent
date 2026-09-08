@@ -43,6 +43,8 @@ Three skills are **MANDATORY**, not advisory. Self-trigger is proven unreliable 
 
 These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." The mechanical check in `scripts/eval.mjs` verifies this section stays present; dropping it fails CI.
 
+**Audit trail for MANDATORY loads.** Every ledger entry for work in a MANDATORY skill's domain carries a `Loaded: <skill>` line naming the skill actually loaded. Self-trigger is unreliable (0/3 in evals) and without the line, compliance is indistinguishable from a dead skill — the line turns discipline into a countable fact. A domain-relevant entry missing it means the skill was not loaded: either fix the gap or treat it as evidence the discipline silently dropped (eval finding 2026-09-09: components relying on runtime initiative fail silently; components backed by written artifacts work).
+
 ## 3. The chain (for `loop`-class work)
 
 ```
@@ -61,7 +63,7 @@ Rules:
 
 - **Facts are the agent's job** — look them up in the codebase, don't ask.
 - **Decisions are the user's job** — put each one to the user and wait.
-- Any decision the agent makes on its own gets a `Ruling:` entry in the ledger: `Ruling: <decision> — <why> — <cost if wrong>`.
+- Any decision the agent makes on its own gets a `Ruling:` line in the ledger — the lightweight form `Ruling: <decision> — <why>` is the default; the full `— <cost if wrong>` form for weighty calls (see `ship-log` §Rulings).
 
 ## 5. Delegation discipline
 

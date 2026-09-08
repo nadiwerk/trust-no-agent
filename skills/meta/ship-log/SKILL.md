@@ -30,6 +30,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 ```markdown
 ### Session Summary - <short title>
 - <Modified/Created/Fixed> '<path/file>' - <short description of the change>
+- Loaded: <MANDATORY skill used, e.g. "expect-fail"; omit only for work outside all three domains>
 - Verification: <evidence, e.g. tsc EXIT 0; vitest 42/42 pass>
 - Next: <the single open action, or "none">
 - Recipe: task_type = <type of task, e.g. "add-validation"> | steps = <2-8 generalizable steps, no task-specific entities>
@@ -52,13 +53,13 @@ The entry carries the smallest set of information required to continue correctly
 
 ## Rulings
 
-Any architecture/scope decision the agent made on its own (not a user order) is recorded at the time it's made, inside the entry:
+Any architecture/scope decision the agent made on its own (not a user order) is recorded. To keep this alive instead of silently dead, the lightweight form is the default: a `Ruling:` fragment on the entry's own lines — `Ruling: <decision> — <why>` — is enough when the cost of being wrong is obvious or small. Use the full three-part form below only for weighty calls, and record it **at the time it's made**, inside the entry:
 
 ```
 Ruling: <decision> — <why> — <cost if wrong>
 ```
 
-When a ruling must outlive one developer (a team repo, a shared decision), it is **promoted explicitly** to a tracked artifact — an ADR, a glossary term, a tracker ticket — per the memory-modes doctrine in `docs/design.md`. Never publish the private ledger itself.
+A ruling recorded in conversation but absent from the ledger was made in secret — the ledger line is what makes it count. When a ruling must outlive one developer (a team repo, a shared decision), it is **promoted explicitly** to a tracked artifact — an ADR, a glossary term, a tracker ticket — per the memory-modes doctrine in `docs/design.md`. Never publish the private ledger itself.
 
 ## Recovery index
 

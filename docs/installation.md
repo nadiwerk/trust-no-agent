@@ -66,10 +66,29 @@ With the interview answered and the merge plan confirmed, adoption proceeds as a
 
 1. **Audit the overlap first.** Read the project's router and mark what it already covers — task classification, interview/spec/ticket stages, review, logging, delegation rules. Mature routers usually cover part of the chain under different names. The framework's adoption value is usually its **gates** (fail-first, fresh-evidence receipts, human sign-off), not a second chain.
 2. **One router.** The project's router stays the only router. Cherry-pick the framework rules it lacks — a MANDATORY discipline-skills section, a trigger-matrix row — **into** that router instead of copying `AGENTS.md` wholesale. Two routers claiming the same session silently disagree, and the model arbitrates by forgetting one of them.
-3. **Map the names; don't rename the project.** Where a chain stage already exists under a local name, keep the local name and record the mapping so the skills still resolve. The mapping is the project's own — write it from the project's router, not from any external list.
+3. **Map the names; don't rename the project — but never keep a dead name.** Where a chain stage already exists under a local name, keep the local name and record the mapping so the skills still resolve. The mapping is the project's own — write it from the project's router, not from any external list. The premise of a mapping is that the name **still resolves**: if the skill behind a local name is later removed or migrated, drop the mapping with it — a mapping that outlives its target is dead weight the router keeps citing for weeks with nothing detecting it.
 
 4. **Skills project-local, not global.** An actively developed project keeps its skills in its own repo directory (`.opencode/skills/`, `.claude/skills/`) — a global skills dir is shared across projects and collides with whatever the project already has.
 5. **Verify against the merged router.** Run the post-install verification below, but point it at the project's router: the Iron Laws must be recitable from the project's own files, not from this checkout. If a law cannot be recited from the project router, the merge missed a gate.
+6. **Verify every name resolves (post-adoption sweep).** After adoption — and again whenever skills are removed or migrated — check that every skill name the router mentions resolves in a registry the harness actually discovers (grep the router for skill names, then confirm each exists as a skill dir at the project-local or global discovery location). A name in the trigger matrix with no skill behind it is a dead reference: fix it by removing the mapping or restoring the skill, not by leaving both to rot.
+
+### De-adoption: retiring skills and old routing
+
+Adoption is forward-looking; so is removal. A framework that documents how to install but not how to retire leaves zombie skills alive — a retired chain stage keeps "resurrecting" from a global dir or registry long after the project moved on (observed: a pre-adoption skill chain survived in the global skills dir and could still fire weeks after adoption):
+
+1. **Remove the skill files** from every install location they were copied to (project-local dir, global dir). A skill left in the global dir outlives the project's adoption — global dirs are shared across projects and nothing in the project repo signals it is dead.
+2. **Clean the router.** Remove or re-point every trigger-matrix row, mapping, and prose mention that cites the retired skill (step 3's dead-name rule applies: the mapping goes when the target goes).
+3. **Verify nothing still references it.** Grep the repo for the skill name; check `docs/skills/` mirrors if present. Then run the post-adoption sweep above — every name the router cites must resolve.
+4. **Log the retirement** in the ledger (`Recipe: task_type = skill-deadoption`) so the removal is part of the history — a skill that vanishes without a trace invites re-installation.
+
+### Precedence: global vs project-local skills
+
+When the same skill name exists in both a project-local dir and a global dir, the harness picks one — and the choice is per-harness and under-documented (some prefer project-local, some prefer global, some merge). Two rules hold regardless of which wins:
+
+- **One skill, one location per project.** If a project owns its copy of a skill, remove or update the global copy's intent accordingly — updating a skill in one location while a stale copy sits in the other changes behavior with **no diff in the repo** to explain it. When in doubt, install project-local (step 4 of the merge) and treat the global dir as the fallback for projects without their own copy.
+- **Treat the global dir as shared infrastructure, not project state.** Whatever lands in `~/.agents/skills/` (or any user-level dir) affects every project on the machine — retiring a project's skills from there is part of de-adoption, and archiving (move to a subfolder outside the discovery path) is safer than deletion when other projects may still use them.
+
+
 
 ### Bootstrap the ledger (optional, one session)
 
