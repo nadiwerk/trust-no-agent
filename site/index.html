@@ -38,10 +38,13 @@ main > .wrap, main > section > .wrap, header .wrap, footer .wrap {
 .hero > *, main section .wrap > * { margin-left: 0; padding-left: 0; }
 
 header { border-bottom: 1px solid var(--rule); padding: 1rem 0; }
-header .wrap { display: flex; justify-content: space-between; align-items: baseline; }
-.brand { font-weight: 700; font-size: 0.95rem; text-decoration: none; }
+/* Header layout: brand + nav share one row; nav links are nowrap flex items.
+   On tight mobile the nav scrolls sideways instead of stacking (owner request). */
+header .wrap { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.brand { font-weight: 700; font-size: 0.95rem; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
 .brand::before { content: "$ "; color: var(--green); }
-nav a { margin-left: 1.4rem; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; }
+nav { display: flex; flex-shrink: 0; overflow-x: auto; }
+nav a { margin-left: 1.4rem; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 
 /* Hero: prompt line as focal point; real command, real output */
 .hero { padding: 4rem 0 3.5rem; }
@@ -129,9 +132,6 @@ td.dim { color: var(--grey); }
   .laws { padding-left: 1rem; }
   .btn { width: 100%; text-align: center; } /* stacked full-width CTAs, still 44px+ tall */
   .hero .cta { gap: 0.7rem; }
-  header .wrap { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
-  nav { display: flex; gap: 1rem; width: 100%; }
-  nav a { margin-left: 0; padding: 0.5rem 0; }
 }
 
 /* Phones (<=40rem): base mobile rhythm, 44px tap targets */
@@ -140,10 +140,7 @@ td.dim { color: var(--grey); }
   /* Hero rhythm matches section rhythm: equal gaps above/below like sections have */
   .hero { padding: 2.2rem 0 2.2rem; }
   section { padding: 2.2rem 0; }
-  /* Header stacks: brand on its own line, nav below, no crowding (R-03) */
-  header .wrap { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-  nav { display: flex; gap: 1.1rem; width: 100%; }
-  nav a { margin-left: 0; padding: 0.5rem 0; font-size: 0.9rem; }
+  nav a { padding: 0.5rem 0; font-size: 0.9rem; }
   td, th { padding-right: 0.5rem; }
 }
 
