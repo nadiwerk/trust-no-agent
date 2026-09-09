@@ -50,8 +50,8 @@ export function checkStale({ installedVersion, upstreamVersion }) {
   if (!upstreamVersion) return { level: 'unknown', message: '' };
   if (!installedVersion)
     return {
-      level: 'stale',
-      message: `skills carry no version marker (upstream is ${upstreamVersion}) — update available: re-run the install, see docs/installation.md "Updating"`,
+      level: 'unstamped',
+      message: `install carries no version stamp — detection cannot tell stale from current. Stamp it now: mkdir -p .trust && printf '<upstream-version>' > .trust/tna-version (see docs/installation.md "Updating")`,
     };
   const cmp = compareSemver(installedVersion, upstreamVersion);
   if (cmp < 0)

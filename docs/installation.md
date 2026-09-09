@@ -220,7 +220,11 @@ Skills are copied frozen at install time — an upstream release does not reach 
 2. **The model proposes** — when a check shows an update is available, the agent reports it to the user with the version delta and the relevant CHANGELOG entries, then asks whether to update. This is a router obligation, not a judgment call.
 3. **The user approves** — only on an explicit "yes" does the agent re-run the install (`npx skills add nadiwerk/trust-no-agent`, re-copy the router, re-run the post-install verification), then stamp the new version: `printf '<new-version>' > .trust/tna-version`. Removing or overwriting an existing install without approval is the same gate as de-adoption.
 
+**Stamping is part of install, not an afterthought.** Every install path ends by stamping the installed version — `mkdir -p .trust && printf '<upstream-version>' > .trust/tna-version` — because a check that can only detect staleness *after* a stamp exists misses exactly the installs that never got one (observed 2026-09-09: a testbed install without `.trust/` at all produced no detection; the remind happened only because the user asked). An unstamped install reads as "version unknown", not "up to date". Read `<upstream-version>` from the highest `## [x.y.z]` heading in the trust-no-agent CHANGELOG, or ask the agent to run doctor, which names it in the warning.
+
 A reference-style install (Option 2 at the top of this page) needs only `git pull` in the trust-no-agent checkout — the version stamp does not apply.
+
+One honest limit the detection cannot cover: skills are files, but the **router is prose** — an upstream change to AGENTS.md/WORKFLOW.md rules does not propagate into a project's cherry-picked router by re-running any command. The doctor's version warning is the trigger; the update act for the router is a **re-merge** (repeat the adoption steps 1–2 against the new upstream rules), and that is inherently a user-reviewed diff, not a copy.
 
 ## No-skill-system fallback (any harness reading AGENTS.md)
 

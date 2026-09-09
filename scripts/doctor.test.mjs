@@ -100,10 +100,12 @@ if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); pro
 console.log('\nOK: doctor C5 behaves as specified.');
 
 // ---- C6 update-check (checkStale) ----
-// 8. No version marker installed, upstream has one → stale (update available)
+// 8. No version stamp installed, upstream has one → UNSTAMPED (not "stale":
+//    an unstamped install is unknown, not outdated — stamping is the fix)
 {
   const res = checkStale({ installedVersion: '', upstreamVersion: '0.1.10' });
-  check('missing-installed-version is stale', res.level === 'stale', JSON.stringify(res));
+  check('missing-installed-version is unstamped', res.level === 'unstamped', JSON.stringify(res));
+  check('unstamped message says stamp, not update', /Stamp it now/.test(res.message), res.message);
 }
 
 // 9. Installed older than upstream → stale

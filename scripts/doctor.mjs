@@ -139,6 +139,7 @@ else
   const installedVersion = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : '';
   const res = checkStale({ installedVersion, upstreamVersion });
   if (res.level === 'stale') warn(res.message);
+  else if (res.level === 'unstamped') warn(res.message);
   else if (res.level === 'current' && installedVersion)
     pass(`skills version current (v${installedVersion})`);
   // 'unknown' (no upstream changelog or nothing installed) degrades silently
