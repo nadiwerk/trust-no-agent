@@ -122,6 +122,9 @@ td.dim { color: var(--grey); }
   .laws { padding-left: 1rem; }
   .btn { width: 100%; text-align: center; } /* stacked full-width CTAs, still 44px+ tall */
   .hero .cta { gap: 0.7rem; }
+  header .wrap { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+  nav { display: flex; gap: 1rem; width: 100%; }
+  nav a { margin-left: 0; padding: 0.5rem 0; }
 }
 
 /* Phones (<=40rem): base mobile rhythm, 44px tap targets */
@@ -130,7 +133,10 @@ td.dim { color: var(--grey); }
   .hero { padding: 3.2rem 0 2.8rem; }
   .hero .logo { margin-bottom: 1.6rem; }
   section { padding: 2.2rem 0; }
-  nav a { margin-left: 0.9rem; padding: 0.5rem 0; display: inline-block; }
+  /* Header stacks: brand on its own line, nav below, no crowding (R-03) */
+  header .wrap { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  nav { display: flex; gap: 1.1rem; width: 100%; }
+  nav a { margin-left: 0; padding: 0.5rem 0; font-size: 0.9rem; }
   td, th { padding-right: 0.5rem; }
 }
 
