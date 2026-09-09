@@ -35,6 +35,19 @@ The **Evidence** column distinguishes two proof levels: **doc** (verified agains
 - **Gemini CLI**: add `AGENTS.md` to `context.fileName` in settings, or mirror the router into the native `GEMINI.md`.
 - **ZCode**: skills are read from `~/.agents/skills/` (the agentskills.io standard path) on session start; a skill copied in mid-session is not discovered until a fresh session / settings reload — install first, then start the session.
 
+## Porting checklist — harness-specific failure modes we already hit
+
+Every item below was a real failure on a real harness (origin noted), not a hypothesis. When porting the framework to a harness not in the matrix above, or when an adopter reports "it works on the dev's machine but not mine", walk this list before diagnosing anything new:
+
+1. **Absolute paths in every delegation prompt.** Subagent sessions drift to a stale cwd and review the wrong repo (origin: 2026-08-30/31 review lane). State the target path explicitly or verify the workspace first.
+2. **Background-task registries may not survive harness restarts — subagent sessions do.** Recover completed research from the session store (`session.list` + `session.messages`), never re-run it (origin: 2026-08-31 3-repo comparison).
+3. **Skills installed mid-session are invisible until re-discovery.** Registries load at session start; use file-injection (read the SKILL.md path directly) in the current session and re-trigger discovery in a fresh one (origin: 2026-08-31 eval harness, reproduced on ZCode 2026-09-03).
+4. **Flatten on install, hash-verify after copy.** `cp -r skills/*` nests category dirs; non-recursive discoverers see nothing. Always `cp -r skills/*/*` and verify each SKILL.md (origin: 2026-08-31 eval finding, re-confirmed 2026-09-03 omp).
+5. **The private ledger is worktree-provisional.** Gitignored files do not exist in fresh worktrees; hand off ledger entries to the canonical checkout before `worktree remove` (origin: 2026-09-01, proven empirically).
+6. **Fixtures for regression batteries must be built pristine.** Copying fixtures from a directory that already applied its fix makes the regression cells difficulty-incomparable (origin: 2026-09-04 ZCode battery).
+7. **Exit 0 is not an operational receipt.** A script that matched 0 rows "succeeded". Prove state-changing claims from the target's terminal state — counts, migration tables, live output (origin: 2026-09-01 R0 dogfood; now the receipts Operational-claims class).
+8. **Degrade environment failures to WARN/SKIP.** A check that assumes git produces false "installation unhealthy" verdicts where git is unavailable; the environment's gap is not the installation's (origin: 2026-09-04 DSH round).
+
 ## Evidence integrity
 
 All rows above were verified against each harness's official documentation and repositories. Two verification waves: 2026-08-31 (OMO, Hermes Agent, omp/Senpi, OpenClaw) and a follow-up wave (Codex, [Claude Code] CLI, Cursor, Gemini CLI, Zed). Items marked "unverified", "unknown", or "no evidence found" are stated as such — they were not assumed to be absent. A cross-tool note from the second wave: all Agent Skills standard tools converge on `~/.agents/skills/` + `.agents/skills/` as the shared path — that, alongside AGENTS.md, is the actual interoperability seam.
