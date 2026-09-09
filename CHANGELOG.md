@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
-## [1.9.0] - 2026-09-09
+## [0.1.10] - 2026-09-09
 - Skill-load audit trail (external-eval finding 2026-09-09, ads-tracker testbed): ledger entries for work in a MANDATORY skill's domain now carry a `Loaded: <skill>` line (AGENTS.md §2 + ship-log log format), turning self-trigger discipline into a countable fact — previously compliance was indistinguishable from a dead skill (0 Ruling lines, ~5 skill mentions across 79 sessions).
 - De-adoption section in `docs/installation.md`: how to retire skills and old routing (remove files from every install location, clean the router, verify no references remain, log the retirement) — closing the gap where a pre-adoption skill chain survives in a global dir and resurrects weeks later.
 - Precedence note (global vs project-local skills) in `docs/installation.md`: same-named skills in both locations change behavior with no repo diff; one skill, one location per project; global dir treated as shared infrastructure.
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adoption step 3 (name mapping) now states its premise — a mapping only lives while the name resolves; dead names are dropped, with a post-adoption sweep added as merge step 6 (every skill name the router cites must resolve in a discovered registry).
 - `Ruling:` format lightened (AGENTS.md §4 + ship-log §Rulings): the two-part `Ruling: <decision> — <why>` is the default; the three-part cost-if-wrong form reserved for weighty calls. Origin: 79 sessions produced 0 Ruling lines — a ceremony nobody performs dies silently.
 
-## [1.8.0] - 2026-09-06
+## [0.1.9] - 2026-09-06
 
 ### Added
 - Interactive adoption interview in `docs/installation.md`: before any merge into a project that already has a router, the agent asks four questions (existing router?, what it covers — with the overlap audit performed by the agent, skill location, name mapping), presents a merge plan, and waits for explicit confirmation before writing a single line.
