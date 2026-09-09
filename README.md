@@ -1,4 +1,4 @@
-# trust-no-agent
+<p align="center"><img src="assets/logo-readme.png" alt="trust-no-agent" width="480"></p>
 
 [![CI](https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -14,6 +14,26 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 > **Workflow + skills for AI coding agents that don't trust anyone, including themselves.**
 
 > **Philosophy in one line:** an agent that can't prove its work is a liability, no matter how fast it is. — [docs/philosophy.md](docs/philosophy.md)
+
+## What makes this different
+
+Most agent frameworks optimize for *speed* — more tokens, more parallel subagents, more autonomy. This one optimizes for *trust*, because the expensive failures are never about speed: they are the moment your agent said "done" and you believed it.
+
+| | Speed-first frameworks | trust-no-agent |
+|---|---|---|
+| "It's done" | A claim from the agent | A receipt: verification run fresh, output read, exit zero |
+| Plausible-but-wrong spec | Straight to tickets | Upstream spec gate: falsifiable acceptance criteria before `fork-it` |
+| Ambiguous request | Agent guesses and builds | `breakpoint` pauses execution; the agent interviews you first |
+| Bug appears | Try a fix, hope it sticks | `root-cause`: no fix before root-cause investigation; 3 failed fixes → question the architecture |
+| Subagent "success" | Taken at face value | A lead, not evidence — the orchestrator verifies |
+| Failing verification | Retry until it passes | Bounded repair loop: classify, fix the class, cap at 2 rounds, report honestly |
+| Session ends / context compacts | Work context evaporates | `ship-log` ledger + recipes survive; next session resumes from state |
+| New task | Starts from scratch | Three memory tiers — ledger, lessons, recipes — each task starts from the last time it was solved |
+| Review findings | Fixed once, forgotten | Accepted findings become permanent router rules — a fix that lands once guards every future session |
+| UI "works" | Fixture-based unit tests | Checked in a browser with real data — real data catches the bugs fixtures can't |
+| Review feedback | "You're absolutely right!" → blind implementation | `no-thanks`: verify before implementing, push back when the feedback is wrong |
+| External skills | Replaced, fenced off, or fought | A gate over them — anything fits, nothing fires uninvited; other skills make it capable, the gate keeps it honest |
+| Standing cost | Every token counts, forever | Descriptions are the only always-on cost; deep material loads on demand (lazy by default) |
 
 ## Install
 
@@ -58,26 +78,6 @@ NO EXPENSIVE, IRREVERSIBLE, OR SHARED-SYSTEM ACTION WITHOUT EXPLICIT HUMAN SIGN-
 
 These are not guidelines. Three are enforced by **mandatory skills** the router loads before the relevant work starts — the model does not decide whether the discipline applies. (Eval: fresh agents self-triggered the skills **0 out of 3 times**, even with explicit trigger words. Self-trigger is unreliable; forcing is the design — [docs/design.md](docs/design.md).)
 
-## What makes this different
-
-Most agent frameworks optimize for *speed* — more tokens, more parallel subagents, more autonomy. This one optimizes for *trust*. The difference shows up in the moments that cost you real time:
-
-| | Speed-first frameworks | trust-no-agent |
-|---|---|---|
-| External skills | Replaced, fenced off, or fought | A gate over them — anything fits, nothing fires uninvited; other skills make it capable, the gate keeps it honest |
-| Plausible-but-wrong spec | Straight to tickets | Upstream spec gate: falsifiable acceptance criteria before `fork-it` |
-| "It's done" | A claim from the agent | A receipt: verification run fresh, output read, exit zero |
-| Ambiguous request | Agent guesses and builds | `breakpoint` pauses execution; the agent interviews you first |
-| Bug appears | Try a fix, hope it sticks | `root-cause`: no fix before root-cause investigation; 3 failed fixes → question the architecture |
-| Subagent "success" | Taken at face value | A lead, not evidence — the orchestrator verifies |
-| Failing verification | Retry until it passes | Bounded repair loop: classify, fix the class, cap at 2 rounds, report honestly |
-| Session ends / context compacts | Work context evaporates | `ship-log` ledger + recipes survive; next session resumes from state |
-| New task | Starts from scratch | Three memory tiers — ledger, lessons, recipes — each task starts from the last time it was solved |
-| Review findings | Fixed once, forgotten | Accepted findings become permanent router rules — a fix that lands once guards every future session |
-| UI "works" | Fixture-based unit tests | Checked in a browser with real data — real data catches the bugs fixtures can't |
-| Review feedback | "You're absolutely right!" → blind implementation | `no-thanks`: verify before implementing, push back when the feedback is wrong |
-| Standing cost | Every token counts, forever | Descriptions are the only always-on cost; deep material loads on demand (lazy by default) |
-
 ## All 11 skills
 
 ### Engineering
@@ -118,7 +118,7 @@ Discipline scales with stakes — that keeps the framework from being abandoned 
 
 ## Portability
 
-The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. Verified on harnesses that were **live-tested end-to-end** (10-scenario eval battery per harness, [evals/live-results.md](evals/live-results.md)): **opencode/OMO, oh-my-pi, Codex, Claude Code, Pi, DeepSeek Harness, ZCode**. The full compatibility matrix with evidence levels: [docs/compatibility.md](docs/compatibility.md). No subagents, no MCP servers, no background tasks required.
+The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. The whole discipline ships as markdown: no subagents, no MCP servers, no background tasks, nothing to run or maintain beyond four verification commands. Portability details and the compatibility matrix: [docs/compatibility.md](docs/compatibility.md) · install paths per harness: [docs/installation.md](docs/installation.md).
 
 - **Harness** — the runtime that reads `AGENTS.md` and executes the agent. The framework core needs only this.
 - **Agent / orchestrator** (optional) — a layer on top that adds parallel subagents, worktree isolation, and category routing. Recommended: **OMO on opencode**. Verified compatibility matrix across other orchestrators: [docs/compatibility.md](docs/compatibility.md) · OMO mapping: [docs/omo-integration.md](docs/omo-integration.md).
