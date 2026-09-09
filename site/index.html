@@ -36,6 +36,10 @@ nav a { margin-left: 1.4rem; font-size: 0.85rem; text-decoration: underline; tex
 
 /* Hero: prompt line as focal point; real command, real output */
 .hero { padding: 4rem 0 3.5rem; }
+/* Desktop hero: match section rhythm (sections use 2.8/2.8, no extra hero weight) */
+@media (min-width: 40rem) {
+  .hero { padding: 2.8rem 0; }
+}
 .hero .logo { display: block; width: min(640px, 92%); height: auto; margin: 0 auto 5rem; }
 .hero .cmd { color: var(--grey); font-size: 0.9rem; }
 .hero .cmd::before { content: "$ "; color: var(--green); }
@@ -114,7 +118,7 @@ td.dim { color: var(--grey); }
 @media (max-width: 22.5rem) {
   body { font-size: 14px; }
   .wrap { padding: 0 0.9rem; }
-  .hero { padding: 2.4rem 0 2.2rem; }
+  .hero { padding: 1.9rem 0 2.2rem; }
   .hero .logo { margin-bottom: 1.4rem; }
   .hero h1 { font-size: 1.35rem; }
   section { padding: 1.9rem 0; }
@@ -130,7 +134,8 @@ td.dim { color: var(--grey); }
 /* Phones (<=40rem): base mobile rhythm, 44px tap targets */
 @media (max-width: 40rem) {
   body { font-size: 15px; }
-  .hero { padding: 3.2rem 0 2.8rem; }
+  /* Hero rhythm matches section rhythm: equal gaps above/below like sections have */
+  .hero { padding: 2.2rem 0 2.2rem; }
   .hero .logo { margin-bottom: 1.6rem; }
   section { padding: 2.2rem 0; }
   /* Header stacks: brand on its own line, nav below, no crowding (R-03) */
@@ -143,13 +148,11 @@ td.dim { color: var(--grey); }
 /* Landscape phones / small tablets (40-52rem): restore breathing room, keep single column */
 @media (min-width: 40rem) and (max-width: 52rem) {
   body { font-size: 16px; }
-  .hero { padding: 3.6rem 0 3.2rem; }
 }
 
 /* Tablets+ (>=52rem): two-column install, full hero scale */
 @media (min-width: 52rem) {
   .install-grid { grid-template-columns: 1.1fr 1fr; }
-  .hero { padding: 4.2rem 0 3.6rem; }
 }
 
 footer { border-top: 1px solid var(--rule); padding: 1.5rem 0 2.2rem; font-size: 0.82rem; color: var(--grey); }
