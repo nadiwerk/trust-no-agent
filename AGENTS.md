@@ -90,6 +90,8 @@ The routing graph itself is part of the contract:
 Each project declares its proof commands in its own AGENTS.md (typecheck / test / lint / build / browser-with-real-data). Until declared, derive them from `package.json` scripts and say so. See the `receipts` skill for the gate function.
 Close every `full`/`loop` unit in chat with the 4-block receipt — Verdict / Evidence / Open / Next — shape: `docs/chat-receipt.md`. `fast` units skip the ceremony (classification precedes the chain). A receipt missing any block is a partial receipt: it proves nothing.
 
+**Update reporting (framework installs).** When a doctor check (C6) or any version check shows the installed trust-no-agent skills are stale, the agent reports the update to the user — version delta + relevant CHANGELOG entries — and asks whether to update, then waits. Re-running the install without an explicit "yes" is an unauthorized write to a shared skill dir (Iron Law 4); detection is mechanical, the update is the user's decision (`docs/installation.md` §Updating).
+
 Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inheritance.md` register):
 
 - **Narration claims are graded as claims.** Every narration claim needs its own artifact — a promotion claimed requires the ADR file on disk, a user sanction claimed requires it to have actually happened. Correct behavior paired with overstated narration is a defect to flag, never license (origin: A3 narration defect, recurring DSH/Codex/ZCode-1 rounds).

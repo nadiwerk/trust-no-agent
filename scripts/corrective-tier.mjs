@@ -41,3 +41,34 @@ export function checkStarve({ ledgerText, lessonsExists, today, graceDays = DEFA
     };
   return { level: 'warn', message: STARVE_MESSAGE };
 }
+
+// ---- C6 update-check (doctor): stale-skills detection ----
+// Compares the version stamped in the installed skills' package marker against
+// the upstream version. Detection is mechanical; the UPDATE itself is a
+// user decision (installation.md "Updating") — doctor only reports.
+export function checkStale({ installedVersion, upstreamVersion }) {
+  if (!upstreamVersion) return { level: 'unknown', message: '' };
+  if (!installedVersion)
+    return {
+      level: 'stale',
+      message: `skills carry no version marker (upstream is ${upstreamVersion}) — update available: re-run the install, see docs/installation.md "Updating"`,
+    };
+  const cmp = compareSemver(installedVersion, upstreamVersion);
+  if (cmp < 0)
+    return {
+      level: 'stale',
+      message: `installed skills v${installedVersion} < upstream v${upstreamVersion} — update available: re-run the install, see docs/installation.md "Updating"`,
+    };
+  return { level: 'current', message: '' };
+}
+
+function compareSemver(a, b) {
+  const pa = a.split('.').map((n) => parseInt(n, 10));
+  const pb = b.split('.').map((n) => parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    const x = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const y = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}

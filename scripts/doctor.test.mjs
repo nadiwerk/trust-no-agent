@@ -8,7 +8,7 @@
  * pure function behind C5. Doctor's CLI wraps it with warn/fail output; this
  * test exercises the decision logic directly so fixture dates are deterministic.
  */
-import { checkStarve } from './corrective-tier.mjs';
+import { checkStarve, checkStale } from './corrective-tier.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -98,3 +98,34 @@ const ledgerWithDate = (dateStr) =>
 
 if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
 console.log('\nOK: doctor C5 behaves as specified.');
+
+// ---- C6 update-check (checkStale) ----
+// 8. No version marker installed, upstream has one → stale (update available)
+{
+  const res = checkStale({ installedVersion: '', upstreamVersion: '0.1.10' });
+  check('missing-installed-version is stale', res.level === 'stale', JSON.stringify(res));
+}
+
+// 9. Installed older than upstream → stale
+{
+  const res = checkStale({ installedVersion: '0.1.9', upstreamVersion: '0.1.10' });
+  check('older-installed is stale', res.level === 'stale', JSON.stringify(res));
+}
+
+// 10. Same version → current
+{
+  const res = checkStale({ installedVersion: '0.1.10', upstreamVersion: '0.1.10' });
+  check('equal-versions is current', res.level === 'current', JSON.stringify(res));
+}
+
+// 11. Installed NEWER than upstream (dev checkout) → current, never nag down
+{
+  const res = checkStale({ installedVersion: '0.1.11', upstreamVersion: '0.1.10' });
+  check('newer-installed is current', res.level === 'current', JSON.stringify(res));
+}
+
+// 12. Upstream version unknown (no package.json) → unknown, degrade to warn-free
+{
+  const res = checkStale({ installedVersion: '0.1.10', upstreamVersion: '' });
+  check('unknown-upstream is unknown', res.level === 'unknown', JSON.stringify(res));
+}

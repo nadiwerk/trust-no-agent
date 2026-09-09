@@ -27,7 +27,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
-import { checkStarve, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
+import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -124,6 +124,25 @@ if (missing.length)
   fail(`skills missing from every discovery location: ${missing.join(', ')}`);
 else
   pass(`${skillNames.length} skills found in harness discovery path(s)`);
+
+// ---- C6. update check (stale skills) ----
+// Detection is mechanical; the update itself is a user decision — see
+// docs/installation.md "Updating" (model proposes, user approves).
+// Installed version: .trust/tna-version, stamped at install/update time.
+// Upstream version: highest [x.y.z] heading in this clone's CHANGELOG.md.
+{
+  const changelog = join(ROOT, 'CHANGELOG.md');
+  const upstreamVersion = existsSync(changelog)
+    ? (readFileSync(changelog, 'utf8').match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || ''
+    : '';
+  const marker = join(cwd, '.trust', 'tna-version');
+  const installedVersion = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : '';
+  const res = checkStale({ installedVersion, upstreamVersion });
+  if (res.level === 'stale') warn(res.message);
+  else if (res.level === 'current' && installedVersion)
+    pass(`skills version current (v${installedVersion})`);
+  // 'unknown' (no upstream changelog or nothing installed) degrades silently
+}
 
 // ---- C4. ledger ----
 const trust = join(cwd, '.trust');

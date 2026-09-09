@@ -212,6 +212,16 @@ cp -r <trust-no-agent>/skills/*/* <worktree>/.agents/skills/    # project-local 
 
 ---
 
+## Updating
+
+Skills are copied frozen at install time — an upstream release does not reach an installed copy by itself. Detection is mechanical, the update is a decision:
+
+1. **Detect** — run `node <trust-no-agent>/scripts/doctor.mjs` in the project: check C6 compares the stamped version (`.trust/tna-version`) against the upstream release and warns when the install is stale or carries no marker.
+2. **The model proposes** — when a check shows an update is available, the agent reports it to the user with the version delta and the relevant CHANGELOG entries, then asks whether to update. This is a router obligation, not a judgment call.
+3. **The user approves** — only on an explicit "yes" does the agent re-run the install (`npx skills add nadiwerk/trust-no-agent`, re-copy the router, re-run the post-install verification), then stamp the new version: `printf '<new-version>' > .trust/tna-version`. Removing or overwriting an existing install without approval is the same gate as de-adoption.
+
+A reference-style install (Option 2 at the top of this page) needs only `git pull` in the trust-no-agent checkout — the version stamp does not apply.
+
 ## No-skill-system fallback (any harness reading AGENTS.md)
 
 If the harness has no skill system, nothing is installed: the AGENTS.md trigger matrix states *when* to load each skill, and the agent opens `skills/<name>/SKILL.md` on demand from the checkout. Cost is zero until a trigger fires.
