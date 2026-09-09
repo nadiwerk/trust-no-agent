@@ -492,6 +492,22 @@ for (const marker of [
 if (!/Context confirmed:/.test(shipLogText))
   err('ship-log: Log Format missing the "Context confirmed:" line (Iron Law 1 restatement artifact, audited by ledger-audit M3)');
 
+// ---- 26. Chat-receipt skim test (HARD) ----
+// Evidence (2026-09-10): a receipt whose Next block ends in a hanging offer
+// ("want me to...?") leaves the reader without a concrete action, and a
+// Verdict line that opens with context buries the result. The skim test is
+// the cheap audit: a reader who reads ONLY the first line and the last line
+// of the receipt must know (a) what happened and (b) what happens next.
+// Encode twice: prose in docs/chat-receipt.md §Block rules, this mechanical
+// check for the boundary.
+const chatReceiptText = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
+for (const marker of [
+  /Skim test/,
+  /reads only the first line and the last line/,
+])
+  if (!new RegExp(marker.source).test(chatReceiptText))
+    err('docs/chat-receipt.md: missing skim-test rule (first line = verdict/state, last line = one concrete next action)');
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

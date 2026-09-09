@@ -47,6 +47,7 @@ Every item below was a real failure on a real harness (origin noted), not a hypo
 6. **Fixtures for regression batteries must be built pristine.** Copying fixtures from a directory that already applied its fix makes the regression cells difficulty-incomparable (origin: 2026-09-04 ZCode battery).
 7. **Exit 0 is not an operational receipt.** A script that matched 0 rows "succeeded". Prove state-changing claims from the target's terminal state — counts, migration tables, live output (origin: 2026-09-01 R0 dogfood; now the receipts Operational-claims class).
 8. **Degrade environment failures to WARN/SKIP.** A check that assumes git produces false "installation unhealthy" verdicts where git is unavailable; the environment's gap is not the installation's (origin: 2026-09-04 DSH round).
+9. **AGENTS.md re-injection after compaction/resume is not guaranteed.** A harness that drops it leaves the Iron Laws and the MANDATORY skill contract out of context, and the ledger compensation relies on the agent's initiative to re-read — initiative fails silently (evals, docs/design.md). Wire the mechanical re-injection block (`node scripts/reinject.mjs`, derived from the live router so it cannot drift) into any session-start/resume/compact hook the harness offers; without hooks, re-print the block by hand as the first act after compaction, before resuming work (origin: 2026-09-10 harness-dependency finding; closure tested by `scripts/reinject.test.mjs`).
 
 ## Evidence integrity
 

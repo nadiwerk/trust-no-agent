@@ -104,6 +104,8 @@ Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inherit
 
 Every completed unit of work is appended to the private ledger (`.trust/progress.txt`, gitignored) **before starting the next one** (the `ship-log` skill). Parallel writers: a worktree-local ledger is **provisional** — gitignored files do not survive `git worktree remove`; the canonical ledger lives in the coordinating checkout, and a ticket is not closed until its handoff lands there (see `ship-log`'s canonical-ledger contract). After a long pause, compaction, or fresh session: re-read todos + `progress.txt` + this file, state the next step — never resume from partial memory.
 
+**Router re-injection (compaction/resume guard).** AGENTS.md re-injection after compaction is harness-dependent — where the harness drops it, the Iron Laws and the MANDATORY skill contract fall out of context and the ledger compensation depends on the agent's initiative to re-read (evals: initiative-based components fail silently). The closure is mechanical: `node scripts/reinject.mjs` prints the router's discipline floor (Iron Laws + MANDATORY section, derived from the live AGENTS.md so it cannot drift from it). On harnesses with a session-start/resume/compact hook, wire the block's injection there; on harnesses without one, re-print the block by hand as the first act after compaction or resume, before resuming work (added to the porting checklist: `docs/compatibility.md` §Porting checklist). Tested fail-first by `scripts/reinject.test.mjs`.
+
 ## 8. Context is a budget (lazy by default)
 
 The framework's entire standing cost is the skill descriptions — keep it that way:
