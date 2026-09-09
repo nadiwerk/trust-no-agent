@@ -25,7 +25,7 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .
 ```
 
-That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`. The router is the secret — without it the skills sit inert (fresh agents self-triggered them **0 out of 3 times** in evals). Already have your own router? [Adopt instead](docs/installation.md#adopting-into-an-existing-project) — a guided merge, never an overwrite. Setup details per harness: [docs/installation.md](docs/installation.md).
+That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`. The router is the secret — without it the skills sit inert (fresh agents self-triggered them **0 out of 3 times** in evals).
 
 ## The three skills to know first
 
