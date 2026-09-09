@@ -96,13 +96,14 @@ ol.chain {
   border-left: 2px solid var(--green); padding: 0.3rem 0 0.3rem 1.3rem;
 }
 ol.chain li {
-  counter-increment: step; padding: 0.5rem 0.75rem; position: relative;
+  counter-increment: step; padding: 0.5rem 0.75rem 0.5rem 3.2rem; position: relative;
   font-size: 0.92rem; color: var(--grey); background: var(--bg-soft); border-radius: 4px;
 }
 ol.chain li + li { margin-top: 0.35rem; }
 ol.chain li::before {
-  content: counter(step, decimal-leading-zero); position: absolute; left: 0.75rem; top: 0.5rem;
-  font-size: 0.8rem; color: var(--green); font-weight: 700;
+  content: counter(step, decimal-leading-zero); position: absolute; left: 0.9rem; top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem; color: var(--green); font-weight: 700; width: 1.6rem;
 }
 ol.chain b { color: var(--ink); font-weight: 600; }
 ol.chain span { color: var(--grey); font-size: 0.85rem; }
@@ -110,8 +111,10 @@ ol.chain span { color: var(--grey); font-size: 0.85rem; }
 /* Iron Laws: blockquote statute */
 .laws { border-left: 2px solid var(--green); padding-left: 1.3rem; margin-top: 1rem; }
 .laws p { padding: 0.4rem 0.75rem; margin: 0.35rem 0; font-size: 0.92rem; color: var(--grey); background: var(--bg-soft); border-radius: 4px; }
+.laws p { display: flex; align-items: baseline; gap: 0.6rem; }
+.laws p .n { flex-shrink: 0; }
 .laws b { color: var(--ink); font-weight: 600; }
-.laws .n { color: var(--green); margin-right: 0.5rem; font-weight: 700; }
+.laws .n { color: var(--green); font-weight: 700; }
 
 /* Evidence table */
 .tablewrap { overflow-x: auto; margin-top: 1rem; }
