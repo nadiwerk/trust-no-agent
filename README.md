@@ -25,7 +25,11 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .
 ```
 
-That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`. The router is the secret — without it the skills sit inert (fresh agents self-triggered them **0 out of 3 times** in evals).
+That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`.
+
+- `npx skills add` drops the 11 skills into your harness's skill-discovery directory; the `cp` adds the **router** (`AGENTS.md` + `WORKFLOW.md`) — no skill installer distributes it, and it's the part that does the real work: it forces the discipline skills to load before relevant work starts. Without the router the skills sit inert — fresh agents self-triggered them **0 out of 3 times** in evals ([docs/design.md](docs/design.md)).
+- Project **already has its own router**? Don't copy over it — [adopt instead](docs/installation.md#adopting-into-an-existing-project): a guided interview, then a **merge, not a copy** — your router stays the only router, and `git diff` shows (or undoes) every added line.
+- Harness with **no skill system**? Nothing to install — the router points the agent at `skills/<name>/SKILL.md` on demand. Per-harness paths and post-install verification: [docs/installation.md](docs/installation.md).
 
 ## The three skills to know first
 
