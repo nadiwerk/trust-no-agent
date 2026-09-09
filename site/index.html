@@ -36,11 +36,6 @@ nav a { margin-left: 1.4rem; font-size: 0.85rem; text-decoration: underline; tex
 
 /* Hero: prompt line as focal point; real command, real output */
 .hero { padding: 4rem 0 3.5rem; }
-/* Desktop hero: match section rhythm (sections use 2.8/2.8, no extra hero weight) */
-@media (min-width: 40rem) {
-  .hero { padding: 2.8rem 0; }
-}
-.hero .logo { display: block; width: min(640px, 100%); height: auto; margin: 0 auto 5rem; }
 .hero .cmd { color: var(--grey); font-size: 0.9rem; }
 .hero .cmd::before { content: "$ "; color: var(--green); }
 .hero h1 {
@@ -119,7 +114,6 @@ td.dim { color: var(--grey); }
   body { font-size: 14px; }
   .wrap { padding: 0 0.9rem; }
   .hero { padding: 1.9rem 0 2.2rem; }
-  .hero .logo { width: 100%; margin-bottom: 1.4rem; }
   .hero h1 { font-size: 1.35rem; }
   section { padding: 1.9rem 0; }
   .term, pre.term { font-size: 0.76rem; padding: 0.9rem 0.9rem; }
@@ -136,8 +130,6 @@ td.dim { color: var(--grey); }
   body { font-size: 15px; }
   /* Hero rhythm matches section rhythm: equal gaps above/below like sections have */
   .hero { padding: 2.2rem 0 2.2rem; }
-  /* Hero text edges must match section text edges: logo spans the full content box */
-  .hero .logo { width: 100%; margin-bottom: 1.6rem; }
   section { padding: 2.2rem 0; }
   /* Header stacks: brand on its own line, nav below, no crowding (R-03) */
   header .wrap { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
@@ -177,7 +169,6 @@ footer a { color: var(--grey); }
 <main id="top">
 
   <div class="hero wrap">
-    <img src="logo.png" alt="trust-no-agent logo" class="logo">
     <p class="cmd">cat README.md | head -1</p>
     <h1>An agent that can't prove its work <span class="mark">is a liability.</span></h1>
     <p class="sub">trust-no-agent is a discipline layer for AI coding agents: 11 markdown skills and a router that force fail-first tests, root-cause before fixes, receipts for every claim, and your sign-off before anything ships. It installs on the harness you already use.</p>
