@@ -96,6 +96,7 @@ Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inherit
 
 - **Narration claims are graded as claims.** Every narration claim needs its own artifact — a promotion claimed requires the ADR file on disk, a user sanction claimed requires it to have actually happened. Correct behavior paired with overstated narration is a defect to flag, never license (origin: A3 narration defect, recurring DSH/Codex/ZCode-1 rounds).
 - **Ad-hoc verification never earns SHIPPED.** Verification outside the repo (scratch probes, uncommitted runs) is at most `IMPLEMENTED-UNVERIFIED`; `SHIPPED` requires the committed fail-first test plus a fresh run in-session (origin: D2 strict-reading precedent, 3/4 harnesses DSH/Pi/[CC] vs ZCode-loose).
+- **Verify the artifact the user reads, never a proxy.** A claim about a rendered page/site is verified live (curl the deployed URL, open the page); a claim about committed content is verified via `git show`. A green receipt against the wrong target is a false receipt (origin: session 2026-09-09 — 3× false "done": pushed-commit content checked while the user read the GitHub Pages site, which carries its own copy of the text).
 
 ## 7. Ledger
 

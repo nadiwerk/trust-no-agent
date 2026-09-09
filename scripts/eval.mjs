@@ -51,6 +51,13 @@
  *     registry — correct-looking output from general judgment, matching skill
  *     never consulted; same invisible-failure pattern as self-trigger (6),
  *     one layer earlier: the classification step itself hides the gap.
+ * 21. Verify the artifact the user reads, never a proxy (HARD → ERROR):
+ *     the router must carry the wrong-target rule — rendered-page claims are
+ *     verified live (curl/open the deployed URL), committed-content claims
+ *     via `git show`. Evidence (session 2026-09-09): 3× false "done" — the
+ *     pushed commit was checked while the user read the GitHub Pages site,
+ *     which carries its own copy of the text; a green receipt against the
+ *     wrong target proves nothing.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -420,6 +427,19 @@ for (const marker of [/The model proposes, the user approves/, /skill by name, w
 for (const marker of [/`fast` skips the chain, never the registry/, /propose it by name and wait for approval, regardless of class/])
   if (!new RegExp(marker.source).test(agentsText2))
     err(`AGENTS.md §1: missing fast-skips-chain-never-registry marker ${marker} (classification must not bypass the skill-registry check)`);
+
+// ---- 21. Verify the artifact the user reads, never a proxy (HARD) ----
+// Session evidence (2026-09-09): three consecutive "done" claims were verified
+// against the pushed commit (`git show`) while the user was reading the GitHub
+// Pages site — site/index.html carries its own copy of the text, so every
+// receipt was green and every claim false for the object the user actually
+// sees. A green receipt against the wrong target is a false receipt. Closure:
+// the router carries the wrong-target rule — rendered-page claims verified
+// live, committed-content claims via `git show`. Encode twice: prose in
+// AGENTS.md §6, this mechanical check for the boundary.
+for (const marker of [/Verify the artifact the user reads, never a proxy/, /A green receipt against the wrong target is a false receipt/])
+  if (!new RegExp(marker.source).test(agentsText2))
+    err(`AGENTS.md §6: missing wrong-target-verification marker ${marker} (claims about what the user reads must be verified on that target)`);
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
