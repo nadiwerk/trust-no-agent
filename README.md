@@ -19,15 +19,13 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 
 ## Install
 
-**One line — skills + router together** (run inside your project):
+**One line** (run inside your project):
 
 ```bash
 npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .
 ```
 
-`npx skills add` installs the 11 skills into your harness's skill-discovery directory; `cp` adds the router (`AGENTS.md` + `WORKFLOW.md`) — no skill installer distributes it, and without the router the skills sit inert (self-trigger eval: fresh agents loaded the mandatory skills **0 out of 3 times** — [docs/design.md](docs/design.md)). First `npx` run executes third-party code — verify the package (`npm view skills`) before trusting it.
-
-Project **already has its own router**? Don't copy over it — [adopt instead](docs/installation.md#adopting-into-an-existing-project). Adoption is a guided interview, then a **merge, not a copy**: your router stays the only router, overlapping rules are skipped, skills land as new files, and `git diff` / `git checkout` shows or undoes every added line. When a skill or routing retires, [de-adoption](docs/installation.md#de-adoption-retiring-skills-and-old-routing) removes it as cleanly as adoption added it. When an upstream release lands, [updates](docs/installation.md#updating) are detected mechanically (doctor C6 vs the version stamp) and applied only on your approval — detection is mechanical, the update is your decision. **Harness with no skill system?** Nothing to install — the router points the agent at `skills/<name>/SKILL.md` on demand. Per-harness paths and post-install verification: [docs/installation.md](docs/installation.md).
+That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`. The router is the secret — without it the skills sit inert (fresh agents self-triggered them **0 out of 3 times** in evals). Already have your own router? [Adopt instead](docs/installation.md#adopting-into-an-existing-project) — a guided merge, never an overwrite. Setup details per harness: [docs/installation.md](docs/installation.md).
 
 ## The three skills to know first
 
