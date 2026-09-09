@@ -19,6 +19,8 @@ cp <trust-no-agent>/WORKFLOW.md ./WORKFLOW.md
 # No copy needed — AGENTS.md in the checkout IS the canonical router.
 ```
 
+If an **agent** runs this install (rather than you pasting the commands), the same gate applies: it proposes the install and waits for your explicit "yes" — writing the router into a project is an action on shared state, not a read-only lookup.
+
 ## Universal skills copy (every harness with a skill system)
 
 The 11 skill folders must sit **flattened** (category dirs removed) directly under the harness's skill root — every verified harness locates them there:
@@ -74,6 +76,8 @@ With the interview answered and the merge plan confirmed, adoption proceeds as a
 
 ### De-adoption: retiring skills and old routing
 
+De-adoption is a **user decision** — the agent prepares and proposes (grep the references, map the install locations, present the removal plan), and deletion runs only on explicit approval: removing skill files is irreversible and, for a global dir, touches every other project on the machine. What needs no sign-off is the non-destructive side — dropping a dead name from the router's prose is a fix, not a removal.
+
 Adoption is forward-looking; so is removal. A framework that documents how to install but not how to retire leaves zombie skills alive — a retired chain stage keeps "resurrecting" from a global dir or registry long after the project moved on (observed: a pre-adoption skill chain survived in the global skills dir and could still fire weeks after adoption):
 
 1. **Remove the skill files** from every install location they were copied to (project-local dir, global dir). A skill left in the global dir outlives the project's adoption — global dirs are shared across projects and nothing in the project repo signals it is dead.
@@ -85,7 +89,7 @@ Adoption is forward-looking; so is removal. A framework that documents how to in
 
 When the same skill name exists in both a project-local dir and a global dir, the harness picks one — and the choice is per-harness and under-documented (some prefer project-local, some prefer global, some merge). Two rules hold regardless of which wins:
 
-- **One skill, one location per project.** If a project owns its copy of a skill, remove or update the global copy's intent accordingly — updating a skill in one location while a stale copy sits in the other changes behavior with **no diff in the repo** to explain it. When in doubt, install project-local (step 4 of the merge) and treat the global dir as the fallback for projects without their own copy.
+- **One skill, one location per project.** If a project owns its copy of a skill, remove or update the global copy's intent accordingly — updating a skill in one location while a stale copy sits in the other changes behavior with **no diff in the repo** to explain it. When in doubt, install project-local (step 4 of the merge) and treat the global dir as the fallback for projects without their own copy. Removing or editing the **global** copy is a user-approved action — same gate as de-adoption: it touches every other project on the machine.
 - **Treat the global dir as shared infrastructure, not project state.** Whatever lands in `~/.agents/skills/` (or any user-level dir) affects every project on the machine — retiring a project's skills from there is part of de-adoption, and archiving (move to a subfolder outside the discovery path) is safer than deletion when other projects may still use them.
 
 

@@ -13,7 +13,7 @@ A finding may become a router rule only when all four are recorded (in the ledge
 | **Scope** | `repo` (target project only) vs `global` (this router) | global |
 | **Undo** | How to remove it and what removal costs | "delete the trigger line; ledger keeps the record" |
 
-No origin, no rule. A rule without an origin is a preference wearing a rule's uniform.
+No origin, no rule. A rule without an origin is a preference wearing a uniform. And entry is **user-decided**: the agent surfaces the candidate with its four fields and waits — a rule that lands without explicit user sign-off is not inherited, it is smuggled.
 
 ## The noise filter
 

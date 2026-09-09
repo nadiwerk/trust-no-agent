@@ -59,7 +59,7 @@ Any architecture/scope decision the agent made on its own (not a user order) is 
 Ruling: <decision> — <why> — <cost if wrong>
 ```
 
-A ruling recorded in conversation but absent from the ledger was made in secret — the ledger line is what makes it count. When a ruling must outlive one developer (a team repo, a shared decision), it is **promoted explicitly** to a tracked artifact — an ADR, a glossary term, a tracker ticket — per the memory-modes doctrine in `docs/design.md`. Never publish the private ledger itself.
+A ruling recorded in conversation but absent from the ledger was made in secret — the ledger line is what makes it count. When a ruling must outlive one developer (a team repo, a shared decision), it is **promoted explicitly** — with the user's sign-off — to a tracked artifact: an ADR, a glossary term, a tracker ticket, per the memory-modes doctrine in `docs/design.md`. Never publish the private ledger itself.
 
 ## Recovery index
 

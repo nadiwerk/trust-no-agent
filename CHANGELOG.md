@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-(none)
+### Added
+- Approval-gate audit pass (2026-09-09): gates implied by Iron Law 4 but never stated are now explicit — de-adoption and global-dir skill edits are user decisions (installation.md); spec publish to the issue tracker waits for the user's spec approval (save-as); ticket publish to a real tracker rides the breakdown sign-off, and parallel-worktree merges route through make-it-so's dry-run gate (fork-it); receipts gains the "verification is not authorization" red flag (commit still needs human sign-off); rule-inheritance states entry is user-decided ("a rule that lands without sign-off is smuggled, not inherited"); agent-run greenfield install requires explicit approval. Found by a read-only audit subagent against the philosophy; the eval.mjs memory-modes check caught and forced alignment on the ship-log promotion wording.
 
 ## [0.1.10] - 2026-09-09
 - Skill-load audit trail (external-eval finding 2026-09-09, ads-tracker testbed): ledger entries for work in a MANDATORY skill's domain now carry a `Loaded: <skill>` line (AGENTS.md §2 + ship-log log format), turning self-trigger discipline into a countable fact — previously compliance was indistinguishable from a dead skill (0 Ruling lines, ~5 skill mentions across 79 sessions).

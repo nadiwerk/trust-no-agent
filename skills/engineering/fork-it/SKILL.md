@@ -59,7 +59,7 @@ Refine until the user signs off on the breakdown.
 
 - **Local files** → one file per ticket under `.trust/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file — never a single combined file.
 - **Validate the graph before work starts** → run `node scripts/tickets.mjs` against the issues dir. Every blocker must resolve to an existing ticket, numbering must stay blockers-first, and the graph must be acyclic. A red validator means the breakdown is malformed — fix the edges, don't start the tickets.
-- **A real tracker (GitHub, Linear, …)** → one issue per ticket in dependency order; use the platform's native blocking/sub-issue relationship where it has one. Apply the `ready-for-agent` label unless told otherwise.
+- **A real tracker (GitHub, Linear, …)** → one issue per ticket in dependency order; use the platform's native blocking/sub-issue relationship where it has one. Apply the `ready-for-agent` label unless told otherwise. **Publish only after the user signs off on the breakdown** — the sign-off is what authorizes the tracker writes (Iron Law 4).
 
 **Project schema precedence:** if the project already tracks tickets with its own schema, template, or linter, that contract wins for FORMAT — publish tickets in the project's shape. The semantics below stay mandatory regardless: vertical slices, declared blockers, acceptance criteria, and approval before work starts.
 
@@ -86,7 +86,7 @@ Avoid specific file paths or code snippets — they go stale fast. Exception: a 
 
 ## Orchestration note (parallel subagents)
 
-Three or more independent tickets (no mutual blocking edges) may be executed in parallel by background subagents — whatever your harness's async delegation mechanism is. Tickets that WRITE files in parallel must each get their own git worktree, merged at the end. Read-only parallel work runs without worktrees.
+Three or more independent tickets (no mutual blocking edges) may be executed in parallel by background subagents — whatever your harness's async delegation mechanism is. Tickets that WRITE files in parallel must each get their own git worktree; **merging into the shared branch routes through the host skill's dry-run gate** (make-it-so: irreversibility ≥ 4 or severity `block` ⇒ human sign-off). Read-only parallel work runs without worktrees.
 
 Parallel tickets need a defined output shape — files touched plus the acceptance criteria that gate them. Free-text results are only readable by a human; shaped results merge deterministically. And the convergence step that gathers parallel outputs must genuinely consume every one of them — a synthesis that ignores an input is itself a fake dependency, and the work feeding it was wasted.
 

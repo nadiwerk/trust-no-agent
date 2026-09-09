@@ -14,7 +14,7 @@ The conversation is the source document; the spec is its export. Combine what th
 
 2. **Choose the testing seams.** Favor the seams the codebase already has over inventing new ones, pick the highest available, and keep the count minimal — one is the ideal. Get the user's confirmation that these are the seams they expect to be tested at.
 
-3. **Draft and publish the spec** from the template below into the project's issue tracker, applying the `ready-for-agent` label. No extra triage pass needed.
+3. **Draft and publish the spec** from the template below into the project's issue tracker, applying the `ready-for-agent` label — **publish only after the user approves the drafted spec** (writing to a shared tracker is an external action; Iron Law 4). No extra triage pass needed.
 
 4. **Pin the Constraints.** Every non-negotiable the implementation must respect — quality floors, performance and security limits, hard prohibitions — lands in the Constraints section. Execution and review will treat this section as binding material; a floor agreed here cannot be negotiated down later.
 

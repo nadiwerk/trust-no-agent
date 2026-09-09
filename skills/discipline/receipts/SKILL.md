@@ -119,6 +119,7 @@ If the repo declares none, derive the commands from `package.json` scripts and s
 - Any sentence containing "should", "probably", or "seems to"
 - Satisfaction expressed before verification ran ("Great!", "Perfect!", "Done!")
 - A commit/push/PR about to happen on unverified work
+- Verification treated as authorization — a fresh receipt proves the work; the commit/push/PR itself still rides Iron Law 4's human sign-off (make-it-so: commit is never a self-serve action)
 - An agent's success report taken at face value
 - Verification that covered only part of the claim
 - The thought "just this once"
