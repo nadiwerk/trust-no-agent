@@ -27,6 +27,15 @@ a:focus-visible, summary:focus-visible { outline: 2px solid var(--green); outlin
 code, pre { font-family: var(--mono); }
 
 .wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
+/* Alignment guarantee (owner request: hero must sit flush with everything below it):
+   every text container shares one left/right edge — no container or child may carry
+   its own horizontal padding or margin. The only intentional insets are inside
+   .term blocks and .laws, which are framed evidence boxes. */
+main > .wrap, main > section > .wrap, header .wrap, footer .wrap {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+.hero > *, main section .wrap > * { margin-left: 0; padding-left: 0; }
 
 header { border-bottom: 1px solid var(--rule); padding: 1rem 0; }
 header .wrap { display: flex; justify-content: space-between; align-items: baseline; }
@@ -112,7 +121,7 @@ td.dim { color: var(--grey); }
 /* Small phones (<=360px): tighten rhythm, protect the table and term blocks */
 @media (max-width: 22.5rem) {
   body { font-size: 14px; }
-  .wrap { padding: 0 0.9rem; }
+  .wrap, main > .wrap, main > section > .wrap { padding: 0 0.9rem; }
   .hero { padding: 1.9rem 0 2.2rem; }
   .hero h1 { font-size: 1.35rem; }
   section { padding: 1.9rem 0; }
