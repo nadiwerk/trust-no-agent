@@ -56,7 +56,16 @@ const CONTEXT_CONFIRMED = 'Context confirmed:';
 
 // Any `Loaded: <name>` line counts; the audit only checks presence, because
 // choosing the right skill is judgment (the audit is the boundary, not the judge).
-const LOADED_LINE = /^- Loaded: \S/m;
+const LOADED_LINE = /^- Loaded: (\S+)/m;
+
+// Churn doctrine (development item #6): 3 reverts on one block in the
+// green-border saga = Iron Law 1 failing repeatedly without a signal. Two
+// reverts naming the same target within the window is the earliest mechanical
+// trace of that pattern; the finding tells the next session to stop fixing
+// and confirm context instead. Single reverts are normal maintenance.
+const REVERT_LINE = /revert/i;
+const REVERT_STOPWORDS = ['commit', 'change', 'treatment', 'approach'];
+const CHURN_THRESHOLD = 2;
 
 /**
  * @param {object} input
@@ -67,12 +76,19 @@ const LOADED_LINE = /^- Loaded: \S/m;
  */
 export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
   const findings = [];
-  if (!ledgerText.trim()) return { findings };
+  if (!ledgerText.trim()) return { findings, stats: emptyStats() };
 
   // Split into `## YYYY-MM-DD` dated sections; undated text is ignored
   // (degrade, never hard-fail on unprovable data).
   const sections = ledgerText.split(/^## /m).slice(1);
   const windowStart = today.getTime() - recencyDays * DAY_MS;
+
+  // M4 — per-skill Loaded: counts, ledger-wide (not windowed): the historical
+  // ratio IS the signal. A MANDATORY skill with zero Loaded: lines while the
+  // ledger contains its domain markers is the 47-vs-0 blind spot made visible.
+  const loadedCounts = {};
+  const domainHits = {};
+  const revertTargets = {}; // normalized target -> { count, label }
 
   for (const section of sections) {
     const nl = section.indexOf('\n');
@@ -83,6 +99,25 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
     if (!Number.isFinite(age) || age > recencyDays || start.getTime() < windowStart) continue;
 
     const body = section.slice(nl);
+
+    for (const m of body.matchAll(/^- Loaded: (\S+)/gm)) {
+      const skill = m[1].replace(/[^a-z-]/gi, '');
+      if (skill) loadedCounts[skill] = (loadedCounts[skill] || 0) + 1;
+    }
+    for (const marker of DOMAIN_MARKERS) {
+      if (body.includes(marker)) domainHits[marker] = (domainHits[marker] || 0) + 1;
+    }
+
+    // M5 — churn: collect revert targets within the window. Bullets only:
+    // `### Session Summary - <title>` lines may contain "revert" as history
+    // shorthand while the revert evidence itself lives in the entry's bullets.
+    for (const line of body.split('\n')) {
+      if (!line.startsWith('- ') || !REVERT_LINE.test(line)) continue;
+      const target = normalizeRevertTarget(line);
+      if (!target) continue;
+      if (!revertTargets[target]) revertTargets[target] = { count: 0, label: target };
+      revertTargets[target].count++;
+    }
 
     // M1 — domain-relevant entry without a Loaded: line
     const inDomain = DOMAIN_MARKERS.some((m) => body.includes(m));
@@ -113,5 +148,50 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
       });
   }
 
-  return { findings };
+  // M5 — churn findings: 2+ reverts naming the same target in the window
+  for (const { count, label } of Object.values(revertTargets)) {
+    if (count >= CHURN_THRESHOLD)
+      findings.push({
+        date: 'window',
+        kind: 'churn',
+        message: `${count} reverts on "${label}" within the ${recencyDays}-day window — repeated fix-revert cycles on one target are the Iron Law 1 failure signature (guessing context instead of confirming it); STOP fixing and confirm the context with the owner first (AGENTS.md §6)`,
+      });
+  }
+
+  // M4 — mandatoryMentions: per-MANDATORY-skill Loaded: count (0 = blind spot
+  // when domain hits exist). Domain hits are counted on marker presence per
+  // entry; a marker appearing at all means the domain was touched ledger-wide.
+  const mandatoryMentions = MANDATORY_SKILLS.map((skill) => ({
+    skill,
+    count: loadedCounts[skill] || 0,
+    domainTouched: DOMAIN_MARKERS.some((m) => (domainHits[m] || 0) > 0),
+  }));
+
+  return { findings, stats: { loadedCounts, mandatoryMentions } };
+}
+
+// MANDATORY skills per the router (kept in sync with eval.mjs check 6).
+const MANDATORY_SKILLS = ['expect-fail', 'root-cause', 'receipts'];
+
+const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_SKILLS.map((skill) => ({ skill, count: 0, domainTouched: false })) });
+
+// Normalize a revert line into a comparable target: strip the boilerplate
+// (revert/reverted/the/spacers, commit hashes) and keep the noun phrase, so
+// "Reverted the chain list spacing" and "revert chain list flex" collide on
+// "chain list". Stopword-only lines return '' (nothing comparable).
+function normalizeRevertTarget(line) {
+  const words = line
+    .toLowerCase()
+    .replace(/\b[0-9a-f]{7,}\b/g, ' ') // commit hashes
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const content = words.filter(
+    (w) => !REVERT_STOPWORDS.includes(w) && !['revert', 'reverted', 'reverts', 'the', 'a', 'of', 'on', 'to', 'and'].includes(w),
+  );
+  // Key on the noun-phrase head (first 2 content words): "chain list spacing"
+  // and "chain list flex" are the SAME target wearing different symptoms —
+  // keeping more words would hide exactly the collision churn detection
+  // exists to find.
+  return content.slice(0, 2).join(' ');
 }

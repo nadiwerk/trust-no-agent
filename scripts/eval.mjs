@@ -483,6 +483,15 @@ for (const marker of [
   if (!new RegExp(marker.source).test(agentsText2))
     err(`AGENTS.md §6: missing context-confirmation marker ${marker} (visual feedback must be restated and confirmed before the fix)`);
 
+// ---- 25. Ship-log carries the Context-confirmation line (HARD) ----
+// Iron Law 1's written artifact: fixes from owner visual feedback must carry a
+// "Context confirmed:" restatement in the ledger (audited by ledger-audit M3),
+// so ship-log's Log Format must teach the line — a format the logger never
+// writes cannot be audited for. Eval check that the format + the audit stay
+// wired together.
+if (!/Context confirmed:/.test(shipLogText))
+  err('ship-log: Log Format missing the "Context confirmed:" line (Iron Law 1 restatement artifact, audited by ledger-audit M3)');
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

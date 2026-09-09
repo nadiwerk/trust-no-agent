@@ -31,6 +31,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 ### Session Summary - <short title>
 - <Modified/Created/Fixed> '<path/file>' - <short description of the change>
 - Loaded: <MANDATORY skill used, e.g. "expect-fail"; omit only for work outside all three domains>
+- Context confirmed: <required for fixes driven by owner visual feedback — restate display context (desktop/mobile), the exact block, and the symptom before the fix; audited by scripts/ledger-audit.mjs M3>
 - Verification: <evidence, e.g. tsc EXIT 0; vitest 42/42 pass>
 - Next: <the single open action, or "none">
 - Recipe: task_type = <type of task, e.g. "add-validation"> | steps = <2-8 generalizable steps, no task-specific entities>

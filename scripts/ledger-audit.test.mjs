@@ -167,5 +167,89 @@ const entry = (lines) => `## 2026-09-08\n\n### Session Summary - unit\n${lines}\
     JSON.stringify(res));
 }
 
+// ---- E. Stats (M4) — per-skill Loaded: counts surface the 47-vs-0 blind spot ----
+
+// E1. Stats count Loaded: lines per skill name across the whole ledger
+// (stats are ledger-wide, not windowed — the point is the historical ratio).
+{
+  const ledger = [
+    '## 2026-09-01', '', '### S', '- Loaded: receipts', '- Committed a', '',
+    '## 2026-09-02', '', '### S', '- Loaded: receipts', '- Committed b', '',
+    '## 2026-09-03', '', '### S', '- Loaded: root-cause (phase 1)', '- Fixed c', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('E1 stats count per skill',
+    res.stats.loadedCounts['receipts'] === 2 && res.stats.loadedCounts['root-cause'] === 1,
+    JSON.stringify(res.stats));
+}
+
+// E2. Expected values from intent, not observed code: the 2026-09-09 evaluation
+// found 47 receipts / 0 root-cause / 0 expect-fail. The zero-gap signal is the
+// contract: a MANDATORY skill with zero mentions in a ledger that has work in
+// its domain is exactly the blind spot this stat exists to surface.
+{
+  const ledger = [
+    '## 2026-09-01', '', '### S', '- Loaded: receipts', '- Committed a', '',
+    '## 2026-09-02', '', '### S', '- Root cause: x', '- Committed b', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('E2 stats expose a zero-mention MANDATORY skill',
+    res.stats.loadedCounts['root-cause'] === undefined &&
+      res.stats.mandatoryMentions.some((m) => m.skill === 'root-cause' && m.count === 0),
+    JSON.stringify(res.stats));
+  check('E3 receipts has nonzero count in mandatoryMentions',
+    res.stats.mandatoryMentions.find((m) => m.skill === 'receipts').count === 1,
+    JSON.stringify(res.stats.mandatoryMentions));
+}
+
+// ---- F. Churn (M5) — repeated reverts on one target = Law-1 failure signal ----
+
+// F1. Two reverts mentioning the same block/feature within the window → churn finding
+{
+  const ledger = [
+    '## 2026-09-07', '', '### S', '- Reverted the chain list spacing change', '',
+    '## 2026-09-08', '', '### S', '- Reverted the chain list flex treatment', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('F1 two reverts on one target are flagged as churn',
+    res.findings.some((f) => f.kind === 'churn' && /chain list/i.test(f.message)),
+    JSON.stringify(res.findings));
+}
+
+// F2. A single revert is normal maintenance, not churn
+{
+  const ledger = '## 2026-09-08\n\n### S\n- Reverted the chain list spacing change\n';
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('F2 single revert is not churn',
+    !res.findings.some((f) => f.kind === 'churn'),
+    JSON.stringify(res.findings));
+}
+
+// F3. Two reverts on DIFFERENT targets are independent events, not churn
+{
+  const ledger = [
+    '## 2026-09-07', '', '### S', '- Reverted the chain list spacing change', '',
+    '## 2026-09-08', '', '### S', '- Reverted the laws block padding', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('F3 reverts on different targets are not churn',
+    !res.findings.some((f) => f.kind === 'churn'),
+    JSON.stringify(res.findings));
+}
+
+// F4. "Revert" appearing only in a section TITLE (### Session Summary) is
+// history shorthand, not revert evidence — the false positive doctor's live
+// run exposed on the real ledger ("4 reverts on session summary").
+{
+  const ledger = [
+    '## 2026-09-07', '', '### Session Summary - laws spacing reverted per owner feedback', '- Owner verdict: spacing too wide, reverted items to original rhythm', '',
+    '## 2026-09-08', '', '### Session Summary - README trio sections reverted after review', '- Committed 24e30dd after Master feedback', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('F4 title-only revert mentions are not churn evidence',
+    !res.findings.some((f) => f.kind === 'churn'),
+    JSON.stringify(res.findings));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
 process.exit(failures ? 1 : 0);
