@@ -91,14 +91,18 @@ section h2::before { content: "## "; color: var(--green); }
 .term .err { color: var(--red); }
 
 /* The chain: statute list, not cards (R-14) */
-ol.chain { list-style: none; counter-reset: step; margin-top: 1rem; }
-ol.chain li {
-  counter-increment: step; padding: 0.5rem 0 0.5rem 3rem; position: relative;
-  border-bottom: 1px dashed var(--rule); font-size: 0.92rem;
+ol.chain {
+  list-style: none; counter-reset: step; margin-top: 1rem;
+  border-left: 2px solid var(--green); padding: 0.3rem 0 0.3rem 1.3rem;
 }
+ol.chain li {
+  counter-increment: step; padding: 0.5rem 0.75rem; position: relative;
+  font-size: 0.92rem; color: var(--grey); background: var(--bg-soft); border-radius: 4px;
+}
+ol.chain li + li { margin-top: 0.35rem; }
 ol.chain li::before {
-  content: counter(step, decimal-leading-zero); position: absolute; left: 0; top: 0.5rem;
-  font-size: 0.8rem; color: var(--grey);
+  content: counter(step, decimal-leading-zero); position: absolute; left: 0.75rem; top: 0.5rem;
+  font-size: 0.8rem; color: var(--green); font-weight: 700;
 }
 ol.chain b { color: var(--ink); font-weight: 600; }
 ol.chain span { color: var(--grey); font-size: 0.85rem; }
