@@ -169,8 +169,6 @@ footer a { color: var(--grey); }
   <div class="wrap">
     <a class="brand" href="#top">trust-no-agent</a>
     <nav>
-      <a href="#gates">gates</a>
-      <a href="#install">install</a>
       <a href="https://github.com/nadiwerk/trust-no-agent">github</a>
     </nav>
   </div>
@@ -260,10 +258,15 @@ footer a { color: var(--grey); }
             <tr><td>Subagent reports "success"</td><td class="dim">Taken at face value</td><td>A lead, not evidence: the orchestrator verifies</td></tr>
             <tr><td>Verification keeps failing</td><td class="dim">Retry until it passes</td><td>Bounded repair loop: classify, fix the class, cap at 2 rounds</td></tr>
             <tr><td>Session ends, context compacts</td><td class="dim">Work context evaporates</td><td>ship-log ledger and recipes survive; the next session resumes from state</td></tr>
+            <tr><td>New task arrives</td><td class="dim">Starts from scratch</td><td>Three memory tiers: ledger, lessons, recipes. Each task starts from the last time it was solved</td></tr>
+            <tr><td>Review findings land</td><td class="dim">Fixed once, forgotten</td><td>Accepted findings become permanent router rules: a fix that lands once guards every future session</td></tr>
+            <tr><td>The UI "works"</td><td class="dim">Fixture-based unit tests</td><td>Checked in a browser with real data, which catches the bugs fixtures cannot</td></tr>
+            <tr><td>Review feedback arrives</td><td class="dim">"You're absolutely right!" then blind implementation</td><td>no-thanks: verify before implementing, push back when the feedback is wrong</td></tr>
+            <tr><td>External skills</td><td class="dim">Replaced, fenced off, or fought</td><td>A gate over them: anything fits, nothing fires uninvited. Other skills make it capable, the gate keeps it honest</td></tr>
+            <tr><td>Standing cost</td><td class="dim">Every token counts, forever</td><td>Descriptions are the only always-on cost; deep material loads on demand</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="src">Thirteen moments, not seven: the full comparison table lives in the <a href="https://github.com/nadiwerk/trust-no-agent#what-makes-this-different">README</a>.</p>
     </div>
   </section>
 
