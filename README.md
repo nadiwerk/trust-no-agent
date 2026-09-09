@@ -23,9 +23,9 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .
 ```
 
-`npx skills add` installs the 11 skills into your harness's skill-discovery directory; `cp` adds the router (`AGENTS.md` + `WORKFLOW.md`) — no skill installer distributes it, and without the router the skills sit inert (self-trigger eval: fresh agents loaded the mandatory skills **0 out of 3 times**; evidence: [docs/design.md](docs/design.md)). First `npx` run executes third-party code — verify the package (`npm view skills`) against your harness's skill installer before trusting it.
+`npx skills add` installs the 11 skills into your harness's skill-discovery directory; `cp` adds the router (`AGENTS.md` + `WORKFLOW.md`) — no skill installer distributes it, and without the router the skills sit inert (self-trigger eval: fresh agents loaded the mandatory skills **0 out of 3 times** — [docs/design.md](docs/design.md)). First `npx` run executes third-party code — verify the package (`npm view skills`) before trusting it.
 
-Project **already has its own router**? Don't copy over it — [adopt instead](docs/installation.md#adopting-into-an-existing-project). Adoption is a guided interview, then a **merge, not a copy**: your router stays the only router, overlapping rules are skipped (never duplicated), skills land as new files in their own directory, and a plain `git diff` / `git checkout` shows or undoes every added line. Your existing setup cannot be overwritten or disturbed. **Harness with no skill system?** Nothing to install — the router tells the agent to open `skills/<name>/SKILL.md` from a clone, on demand. Per-harness paths, install modes, and post-install verification: [docs/installation.md](docs/installation.md).
+Project **already has its own router**? Don't copy over it — [adopt instead](docs/installation.md#adopting-into-an-existing-project). Adoption is a guided interview, then a **merge, not a copy**: your router stays the only router, overlapping rules are skipped, skills land as new files, and `git diff` / `git checkout` shows or undoes every added line. When a skill or routing retires, [de-adoption](docs/installation.md#de-adoption-retiring-skills-and-old-routing) removes it as cleanly as adoption added it. **Harness with no skill system?** Nothing to install — the router points the agent at `skills/<name>/SKILL.md` on demand. Per-harness paths and post-install verification: [docs/installation.md](docs/installation.md).
 
 ## The three skills to know first
 
@@ -56,7 +56,7 @@ NO "DONE" CLAIM WITHOUT FRESH VERIFICATION EVIDENCE.        (receipts)
 NO EXPENSIVE, IRREVERSIBLE, OR SHARED-SYSTEM ACTION WITHOUT EXPLICIT HUMAN SIGN-OFF.
 ```
 
-These are not guidelines. Three of them are enforced by **mandatory skills** the router loads before the relevant work can start — the model does not get to decide whether the discipline applies. (Eval result: fresh agents loaded self-triggered skills 0 out of 3 times, even with explicit trigger words in the scenario. Self-trigger is unreliable; forcing is the design. Evidence and honest limits: [docs/design.md](docs/design.md).)
+These are not guidelines. Three are enforced by **mandatory skills** the router loads before the relevant work starts — the model does not decide whether the discipline applies. (Eval: fresh agents self-triggered the skills **0 out of 3 times**, even with explicit trigger words. Self-trigger is unreliable; forcing is the design — [docs/design.md](docs/design.md).)
 
 ## What makes this different
 
@@ -65,14 +65,14 @@ Most agent frameworks optimize for *speed* — more tokens, more parallel subage
 | | Speed-first frameworks | trust-no-agent |
 |---|---|---|
 | External skills | Replaced, fenced off, or fought | A gate over them — anything fits, nothing fires uninvited; other skills make it capable, the gate keeps it honest |
-| Plausible-but-wrong spec | Straight to tickets, straight to code | Upstream spec gate: falsifiable acceptance criteria + adversarial self-review before `fork-it` |
+| Plausible-but-wrong spec | Straight to tickets | Upstream spec gate: falsifiable acceptance criteria before `fork-it` |
 | "It's done" | A claim from the agent | A receipt: verification run fresh, output read, exit zero |
 | Ambiguous request | Agent guesses and builds | `breakpoint` pauses execution; the agent interviews you first |
 | Bug appears | Try a fix, hope it sticks | `root-cause`: no fix before root-cause investigation; 3 failed fixes → question the architecture |
 | Subagent "success" | Taken at face value | A lead, not evidence — the orchestrator verifies |
-| Failing verification | Retry until it passes (or looks like it) | Bounded repair loop: classify, fix the class, cap at 2 rounds, then report honestly |
-| Session ends / context compacts | Work context evaporates | `ship-log` ledger + recipes survive; next session resumes from state, not memory |
-| New task | Starts from scratch | Three memory tiers — ledger, lessons, recipes — plus adoption bootstrapped from git history; each task starts from the last time it was solved |
+| Failing verification | Retry until it passes | Bounded repair loop: classify, fix the class, cap at 2 rounds, report honestly |
+| Session ends / context compacts | Work context evaporates | `ship-log` ledger + recipes survive; next session resumes from state |
+| New task | Starts from scratch | Three memory tiers — ledger, lessons, recipes — each task starts from the last time it was solved |
 | Review findings | Fixed once, forgotten | Accepted findings become permanent router rules — a fix that lands once guards every future session |
 | UI "works" | Fixture-based unit tests | Checked in a browser with real data — real data catches the bugs fixtures can't |
 | Review feedback | "You're absolutely right!" → blind implementation | `no-thanks`: verify before implementing, push back when the feedback is wrong |
@@ -108,17 +108,17 @@ Most agent frameworks optimize for *speed* — more tokens, more parallel subage
 
 ## When to reach for this
 
-- **You review agent-written PRs** and are tired of "looks done" work that fails on the second read → `roast-my-code` + `receipts`
+- **You review agent-written PRs** and are tired of "looks done" work → `roast-my-code` + `receipts`
 - **You hand agents whole features** and get back something plausible but wrong → `breakpoint` → `save-as` → `fork-it`
 - **Your agent thrashes on bugs** — five "fixes," none stick → `root-cause`
 - **Your agent writes tests that always pass** → `expect-fail`
 - **Long-running projects** where context compaction wipes what the agent knew → `ship-log`
 
-Discipline scales with stakes — that's what keeps the framework from being abandoned after week one. And the chain never dead-ends: after every stage the agent proposes the next step by name and waits, so you never have to remember the map.
+Discipline scales with stakes — that keeps the framework from being abandoned after week one. And the chain never dead-ends: after every stage the agent proposes the next step by name and waits.
 
 ## Portability
 
-The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md` (Claude Code, Codex, opencode, Cursor, Gemini CLI, Zed). No subagents, no MCP servers, no background tasks required — those are accelerators, not dependencies (AGENTS.md §5 and §8).
+The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md` (Claude Code, Codex, opencode, Cursor, Gemini CLI, Zed). No subagents, no MCP servers, no background tasks required.
 
 - **Harness** — the runtime that reads `AGENTS.md` and executes the agent. The framework core needs only this.
 - **Agent / orchestrator** (optional) — a layer on top that adds parallel subagents, worktree isolation, and category routing. Recommended: **OMO on opencode**. Verified compatibility matrix across other orchestrators: [docs/compatibility.md](docs/compatibility.md) · OMO mapping: [docs/omo-integration.md](docs/omo-integration.md).
@@ -140,7 +140,7 @@ Before pushing, all four gates must exit 0 — `node scripts/validate.mjs && nod
 
 ## The honest limits
 
-- **It verifies testability, not intent.** The upstream gate forces specs to be *testable*, not *true* — an intent that is wrong but cleanly testable still passes. The gate makes wrong intent cheap to catch, not impossible to have.
+- **It verifies testability, not intent.** The upstream gate forces specs to be *testable*, not *true*. It makes wrong intent cheap to catch, not impossible to have.
 - **It does not make a weak model strong.** It catches silent failures and forbids dishonest claims. Output quality still comes from the model, the harness, and the direction you give it.
 - **It does not enforce itself.** Skills are text; a model's promise to comply is not evidence. The parts that never depend on the model are the mechanical ones: the four verification gates, CI, and the pre-commit hooks.
 - **It routes external skills, it does not vet them.** The registry check proposes any matching skill — external ones included — but approval without audit is trust without evidence. The vetting checklist lives in [docs/skill-vetting.md](docs/skill-vetting.md); meanwhile the verification gates keep auditing everything an external skill produces.
