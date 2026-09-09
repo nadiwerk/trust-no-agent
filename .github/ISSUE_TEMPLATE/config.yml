@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/nadiwerk/trust-no-agent/security/advisories/new
+    about: >-
+      Report security issues privately via GitHub private vulnerability
+      reporting — never in a public issue. See SECURITY.md.
+  - name: Code of Conduct report
+    url: https://github.com/nadiwerk/trust-no-agent/security/advisories/new
+    about: >-
+      Report abusive or unacceptable behavior privately — see CODE_OF_CONDUCT.md
+      for the enforcement policy.

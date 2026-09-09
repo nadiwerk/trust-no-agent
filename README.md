@@ -118,7 +118,7 @@ Discipline scales with stakes — that keeps the framework from being abandoned 
 
 ## Portability
 
-The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md` (Claude Code, Codex, opencode, Cursor, Gemini CLI, Zed). No subagents, no MCP servers, no background tasks required.
+The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. Verified on harnesses that were **live-tested end-to-end** (10-scenario eval battery per harness, [evals/live-results.md](evals/live-results.md)): **opencode/OMO, oh-my-pi, Codex, Claude Code, Pi, DeepSeek Harness, ZCode**. The full compatibility matrix with evidence levels: [docs/compatibility.md](docs/compatibility.md). No subagents, no MCP servers, no background tasks required.
 
 - **Harness** — the runtime that reads `AGENTS.md` and executes the agent. The framework core needs only this.
 - **Agent / orchestrator** (optional) — a layer on top that adds parallel subagents, worktree isolation, and category routing. Recommended: **OMO on opencode**. Verified compatibility matrix across other orchestrators: [docs/compatibility.md](docs/compatibility.md) · OMO mapping: [docs/omo-integration.md](docs/omo-integration.md).
