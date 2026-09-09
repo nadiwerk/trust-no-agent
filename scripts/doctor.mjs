@@ -185,6 +185,20 @@ if (existsSync(trust)) {
   if (res.level === 'fail') fail(res.message);
   else if (res.level === 'warn') warn(res.message);
   else pass('corrective tier healthy (lessons.md exists)');
+
+  // ---- C7. ledger audit (Loaded:-gap / visual-gate / context-gap) ----
+  // The audit is WARN, not FAIL: the ledger is private working memory and its
+  // format is agent-written, so findings are leads for the next session to fix
+  // (add the missing line or load the skill), not installation defects. The
+  // decision logic lives in ledger-audit.mjs, tested by ledger-audit.test.mjs.
+  if (existsSync(progressPath)) {
+    try {
+      const { auditLedger } = await import('./ledger-audit.mjs');
+      const { findings } = auditLedger({ ledgerText, today: new Date() });
+      for (const f of findings) warn(f.message);
+      if (!findings.length) pass('ledger audit clean (Loaded: trail, visual gate, context confirmation)');
+    } catch { warn('ledger audit could not run — scripts/ledger-audit.mjs unreadable'); }
+  }
 }
 
 // ---- summary ----

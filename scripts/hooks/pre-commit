@@ -6,3 +6,4 @@ root="$(git rev-parse --show-toplevel)"
 "$root/scripts/eval.mjs" 2>/dev/null || node "$root/scripts/eval.mjs" || exit 1
 "$root/scripts/tickets.test.mjs" 2>/dev/null || node "$root/scripts/tickets.test.mjs" || exit 1
 "$root/scripts/doctor.test.mjs" 2>/dev/null || node "$root/scripts/doctor.test.mjs" || exit 1
+"$root/scripts/ledger-audit.test.mjs" 2>/dev/null || node "$root/scripts/ledger-audit.test.mjs" || exit 1

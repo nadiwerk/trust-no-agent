@@ -441,6 +441,48 @@ for (const marker of [/Verify the artifact the user reads, never a proxy/, /A gr
   if (!new RegExp(marker.source).test(agentsText2))
     err(`AGENTS.md §6: missing wrong-target-verification marker ${marker} (claims about what the user reads must be verified on that target)`);
 
+// ---- 22. Ledger audit enforced (HARD) ----
+// Session evidence (2026-09-09): the `Loaded:` audit trail showed 47 entries
+// for receipts and 0 for root-cause/expect-fail despite domain-relevant work,
+// and site receipts verified CSS strings while the user read the rendered page
+// (9 commits, 3 reverts on one block — Iron Law 1 context never confirmed).
+// Closure: the ledger itself is audited mechanically (scripts/ledger-audit.mjs,
+// tested fail-first by ledger-audit.test.mjs, surfaced by doctor C7).
+if (!existsSync(join(ROOT, 'scripts', 'ledger-audit.mjs')))
+  err('scripts/ledger-audit.mjs missing (Loaded:-gap / visual-gate / context-gap audit must exist)');
+if (!existsSync(join(ROOT, 'scripts', 'ledger-audit.test.mjs')))
+  err('scripts/ledger-audit.test.mjs missing (audit must be fail-first tested)');
+const doctorFull = readFileSync(join(ROOT, 'scripts', 'doctor.mjs'), 'utf8');
+if (!/ledger-audit/.test(doctorFull))
+  err('doctor.mjs: ledger audit never surfaced (C7 must run auditLedger and report findings)');
+
+// ---- 23. Visual-gate rule in the router (HARD) ----
+// Site-iteration evidence (2026-09-08/09): every site receipt verified a CSS
+// string in the deployed source while the acceptance target was the rendered
+// page — rule #21's wrong-target failure mode, in a new form the check #21
+// markers did not cover. The router must extend the rule to rendered-output
+// claims: rendered evidence for rendered claims.
+for (const marker of [
+  /Rendered-output claims need rendered evidence/,
+  /not a string match on the deployed source/,
+])
+  if (!new RegExp(marker.source).test(agentsText2))
+    err(`AGENTS.md §6: missing visual-gate marker ${marker} (rendered claims need rendered evidence)`);
+
+// ---- 24. Context-confirmation rule for owner visual feedback (HARD) ----
+// Green-border saga evidence (2026-09-08/09): owner screenshots were treated
+// as execution orders — fixes committed without confirming desktop-vs-mobile,
+// which block, what symptom; 9 commits / 3 reverts on one block. Iron Law 1
+// needs a written artifact (evals: initiative-based components fail silently).
+// The restatement line "Context confirmed:" is that artifact — grepable in the
+// ledger, audited by scripts/ledger-audit.mjs (M3).
+for (const marker of [
+  /Owner visual feedback is a context to confirm, not an order to execute/,
+  /Context confirmed:/,
+])
+  if (!new RegExp(marker.source).test(agentsText2))
+    err(`AGENTS.md §6: missing context-confirmation marker ${marker} (visual feedback must be restated and confirmed before the fix)`);
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
