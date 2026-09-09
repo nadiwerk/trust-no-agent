@@ -109,7 +109,7 @@ MANDATORY is reserved for skills that are (a) **model-invoked** (self-trigger, p
 
 The test-writing fix (check #7) carved out one domain, but the probe that followed showed the pattern is not about tests. With the full registry installed and no skill named in the prompt, fresh agents proposed a matching external skill on full-class tasks 2/2 (`archify`, `prototype`) yet on fast-classified teaching requests answered directly 2/2 — correct-looking output from general judgment, the registry never consulted, the matching skill (`teach`) never proposed. The failure lives one layer earlier than self-trigger: the classification step itself hides the gap, because every downstream check assumed the registry was already considered. The fix generalized the carve-out into a rule — **"`fast` skips the chain, never the registry"**: before answering any task, the skill registry is checked once and a matching skill (the framework's own or an external one) is proposed by name and waits for approval, regardless of class. Enforced by a HARD mechanical check (check #20), verified fail-first (rule removed → exit 1, restored → exit 0). Evidence: `evals/live-results.md` §External-skill registry probe (2026-09-06).
 
-### The upstream spec gate (decision: 2026-09-02)
+### The upstream spec gate
 
 Downstream verification (receipts, tests) proves behavior, not intent: a wrong spec that passes its tests still ships wrong code. The decision was to focus the framework's next lever UPSTREAM — forcing specification testability before execution — without adding a skill:
 
@@ -122,7 +122,7 @@ Downstream verification (receipts, tests) proves behavior, not intent: a wrong s
 
 The gate forces **testability**, not **truth**: an intent that is wrong but cleanly testable passes the gate, and no mechanical check can close that — spec correctness is prose-level, not exit-code-level. Adversarial self-review reduces this residual (a second pass catches contradictions the writer missed) but cannot eliminate it. If field use shows clean-but-wrong specs still reaching `make-it-so`, the next lever is a dedicated spec-review skill (`roast-my-spec`) — deliberately deferred to keep the standing cost at zero until proven needed.
 
-### The "certifying the bug" gap (decision: 2026-09-02)
+### The "certifying the bug" gap
 
 A live behavioral eval of `expect-fail` (scenario 6, pre-existing buggy `sum`) exposed a residual the tautology rule did not cover: the agent derived the expected value from the code's own output (`sum(1,2)` returned `4`, so it asserted `4`), never questioned the `+1`, and shipped the bug with a passing test as its alibi. The "test passed immediately" rationalization row existed but did not name the failure mechanism — deriving truth from observation. The fix is prose in `expect-fail`: a **certifying the bug** anti-pattern (derive expected values from intent — name, spec, requirement — and treat intent-vs-observation conflict as the bug) plus a rationalization row ("the expected value came from running the code"). One rerun of the same scenario did the full red-green loop unprompted, so the behavior is reproducible but not deterministic on this harness/model.
 
