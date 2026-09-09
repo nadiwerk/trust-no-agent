@@ -1,7 +1,9 @@
-<p align="center"><img src="assets/logo-readme.png" alt="trust-no-agent" width="480"></p>
-
-[![CI](https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <img src="assets/logo-readme.png" alt="trust-no-agent" width="480">
+  <br>
+  <a href="https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml"><img src="https://github.com/nadiwerk/trust-no-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+</p>
 
 **The agent said "done." It wasn't.**
 
