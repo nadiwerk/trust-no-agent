@@ -10,80 +10,84 @@ Documentation landing for **developers and agent users evaluating a discipline
 framework**, in a **terminal / work-log language**, dial
 **ENERGY 2 / RHYTHM 2 / MOTION 1**.
 
+## Information architecture
+
+The page sells five connected ideas in this order:
+
+1. **The core**: claims become evidence, evidence becomes receipts, and accepted findings become future guardrails.
+2. **The chain**: large work crosses `breakpoint`, `save-as`, `fork-it`, `make-it-so`, `roast-my-code`, and `ship-log` in order.
+3. **Verification gates**: four real repository commands turn a completion claim into an observable exit code.
+4. **The iron laws**: four boundaries protect fail-first testing, root-cause investigation, receipts, and human sign-off.
+5. **The ledger**: `.trust/progress.txt` carries state, rulings, recipes, and open evidence across sessions.
+
+The remaining comparison and install sections support the decision without adding
+feature-card repetition, social proof, or invented product metrics.
+
 ## Why this direction (R-21: the reason is written)
 
 The framework is a tool that developers point at coding agents, and its natural
 habitat is the terminal: gates print to stdout, receipts live in ledger files,
 the whole discipline is shell commands and exit codes. A dark-first site with
-terminal cadence matches the product's actual daily use. Dark is chosen for
-this brand reason, not because "dark looks tech". Light mode is not shipped:
-with one strong brand reason for a fixed dark theme, R-21's toggle requirement
-does not trigger.
+terminal cadence matches the product's actual daily use. Dark is chosen for this
+brand reason, not because "dark looks tech". Light mode is not shipped: with one
+strong brand reason for a fixed dark theme, R-21's toggle requirement does not
+trigger.
 
 ## Palette (R-29: 2 core + 1 accent, neutrals excluded)
 
-- **Core 1: terminal black** `#0D1117` (background) with **off-white ink**
-  `#E6EDF3` (primary text). Chosen over pure black/blue-dark defaults: a warm
-  neutral dark with a slight blue-slate cast reads as a code editor, the
-  product's real environment. (Reason: C-1, environment-derived identity.)
+- **Core 1: terminal black** `#0D1117` (background) with off-white ink
+  `#E6EDF3`. Chosen over pure black and blue-dark defaults: a warm neutral dark
+  with a slight blue-slate cast reads as a code editor, the product's real
+  environment. (Reason: C-1, environment-derived identity.)
 - **Core 2: ledger grey** `#8B949E` (secondary text, borders, captions). Passes
   4.5:1 on the background for body text.
-- **Accent: exit-zero green** `#3FB950` (one deliberate accent, Part 3). The
-  framework's whole promise is "exit zero or it didn't happen"; green marks
-  exactly those moments: gate outputs, PASS verdicts, the prompt glyph. Dose
-  cap: never as page background, never as large fill, never on non-evidence
-  text. A secondary evidence tone, gate red `#F85149`, appears only inside
-  command output where the product itself uses it (failure states in the eval
-  narrative). (Reason for two evidence tones: they encode the product's own
-  PASS/FAIL semantics, not decoration.)
+- **Accent: exit-zero green** `#3FB950` (prompts, PASS states, verdicts, and the
+  primary action). The framework's promise is "exit zero or it did not happen".
+  It never becomes a page background or decorative wash. Gate red `#F85149`
+  remains reserved for failure output.
 
 ## Typography (R-06: reasons written)
 
 - **Headings and body: the mono stack** (ui-monospace / SF Mono / Cascadia /
-  Consolas). Reason: this is the one product category where monospace as the
-  primary face is brand-true rather than terminal-aesthetic cosplay: the
-  framework literally works as commands and files. The R-06 "terminal
-  aesthetics" ban targets monospace borrowed for vibes on products that are not
-  command-shaped; this product is command-shaped.
-- Body 16px/1.7 mono for prose is too heavy for long paragraphs, so prose is
-  kept short (this site is a spec, not an essay) and long-form links out to the
-  repo docs. No serif, no sans secondary.
-- Weight, not size, does hierarchy: 400 body, 600 headings, 700 verdicts. No
-  uppercase labels with wide tracking (R-06).
+  Consolas). Reason: this product literally works through commands and files, so
+  monospace is brand-true rather than terminal costume.
+- Body remains short and link-heavy because long mono paragraphs are tiring.
+- Weight, not wide uppercase tracking, creates hierarchy: 400 body, 600 headings,
+  and 700 verdicts.
 
-## Layout rules
+## Layout and composition
 
-- Single column, max-width 46rem for prose; the eval table spans wider (max
-  62rem) because tabular evidence needs room. (Reason: C-3, content needs.)
-- Terminal grammar carries the identity motif (Part 3): sections open with a
-  `$`-prompt line, output blocks are the "screenshots" (real gate output, real
-  eval numbers), and the prompt glyph is the repeated gesture that makes every
-  section belong to the product. The motif is real (commands exist), not
-  costume: no fake traffic-light window chrome, no fake typing animation
-  (R-05 fake-terminal ban is about costume windows; these are real commands
-  with real output, and the site's hero itself is a prompt line).
-- Sections vary by composition (RHYTHM 2): prompt+output blocks, a statute list
-  for the Iron Laws, a wide evidence table, a two-column install. No feature
-  cards (R-14: the content is rules, not features).
-- Footer mirrors the product: one line, repo links, license. No 4-column
-  template footer (R-05).
-- Nav: Gates, Install, GitHub. Every link has a real destination (R-24).
+- Content uses one fluid column capped at 48rem. The comparison table can scroll
+  inside its own wrapper because tabular evidence needs more room than prose.
+- The focal point is the hero's command, verdict, and “proof before confidence”
+  statement. The page then opens five distinct checkpoints with structural
+  whitespace between them.
+- Terminal grammar is the identity motif: real commands, file paths, output,
+  exit codes, and a ledger excerpt. There is no fake window chrome, blinking
+  cursor, typing animation, generic dashboard, or decorative illustration.
+- Section compositions intentionally vary: verdict-led hero, four-part core
+  loop, vertical chain, terminal transcript, statute list, file excerpt, table,
+  and install command.
+- Navigation destinations are `#core`, `#chain`, `#gates`, `#laws`, `#ledger`,
+  and the real GitHub repository. The skip link targets `#main`.
 
-## Motion (MOTION 1)
+## Motion and accessibility
 
-Hover states and focus outlines only. No scroll-reveal, no typing animation, no
-blinking cursor loops (R-19: a blinking cursor on every line is the terminal
-costume the site refuses). Nothing animates because nothing here should feel
-like it might fail silently.
+Motion stays at **MOTION 1**: smooth anchor scrolling, hover states, and visible
+focus outlines only. There are no loops or scroll reveals. Interactive links are
+real destinations, have visible focus, and use at least 44px of vertical target
+space. Mobile collapses actions to full-width controls, reflows navigation, and
+keeps tables inside a bounded horizontal scroller rather than letting the page
+overflow.
 
 ## Content honesty (R-17, R-18, R-36, R-38, C-5)
 
-Every number is cited from repo files: eval results from
-`evals/live-results.md`, the 11-skills count and 0/3 self-trigger figure from
-README and `docs/design.md`, the harness list from `docs/compatibility.md`
-evidence levels. No user counts, no testimonials, no uptime claims, no
-"trusted by". The framework has no customers to name; the site states that by
-omission, never by fabrication.
+Every number is cited from repo files: the 11-skills count and 0/3 self-trigger
+figure from README and `docs/design.md`, the gate output from repository scripts,
+and the memory model from README and `docs/design.md`. No user counts,
+testimonials, uptime claims, customer logos, or “trusted by” language appear.
+The limitations are stated through the distinction between structural proof and
+product intent rather than inflated promises.
 
 ## Dials
 

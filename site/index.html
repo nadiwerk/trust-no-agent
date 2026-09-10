@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>trust-no-agent: an agent that can't prove its work is a liability</title>
-<meta name="description" content="A markdown-only discipline layer of 11 skills for AI coding agents. Four verification gates, fail-first tests, receipts for every claim. No runtime, no dependencies.">
+<title>trust-no-agent | proof before confidence</title>
+<meta name="description" content="A markdown discipline layer for coding agents. The core, the chain, iron laws, a durable ledger, and verification gates for every claim.">
 <style>
-/* Palette (DESIGN.md): bg #0D1117, ink #E6EDF3, grey #8B949E,
-   exit-zero green #3FB950, gate red #F85149 (output-only). */
 :root {
   --bg: #0D1117;
   --bg-soft: #161B22;
+  --bg-deep: #090C10;
   --ink: #E6EDF3;
   --grey: #8B949E;
   --green: #3FB950;
@@ -18,300 +17,269 @@
   --rule: #21262D;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { background: var(--bg); color: var(--ink); font: 16px/1.7 var(--mono); }
 a { color: var(--ink); }
 a:hover { color: var(--green); }
-a:focus-visible, summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 code, pre { font-family: var(--mono); }
-
-.wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
-/* Alignment guarantee (owner request: hero must sit flush with everything below it):
-   every text container shares one left/right edge — no container or child may carry
-   its own horizontal padding or margin. The only intentional insets are inside
-   .term blocks and .laws, which are framed evidence boxes. */
-main > .wrap, main > section > .wrap, header .wrap, footer .wrap {
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
-}
-.hero > *, main section .wrap > * { margin-left: 0; padding-left: 0; }
-
+.skip { position: absolute; left: 1rem; top: -4rem; padding: 0.7rem 1rem; background: var(--green); color: var(--bg); font-weight: 700; z-index: 5; }
+.skip:focus { top: 1rem; }
+.wrap { width: min(100% - 2.5rem, 48rem); margin-inline: auto; }
 header { border-bottom: 1px solid var(--rule); padding: 1rem 0; }
-/* Header layout: brand + nav share one row; nav links are nowrap flex items.
-   On tight mobile the nav scrolls sideways instead of stacking (owner request). */
-header .wrap { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-.brand { font-weight: 700; font-size: 0.95rem; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
-.brand::before { content: "$ "; color: var(--green); }
-nav { display: flex; flex-shrink: 0; overflow-x: auto; }
-nav a { margin-left: 1.4rem; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
-
-/* Hero: prompt line as focal point; real command, real output */
-.hero { padding: 4rem 0 3.5rem; }
-.hero .cmd { color: var(--grey); font-size: 0.9rem; }
-.hero .cmd::before { content: "$ "; color: var(--green); }
-.hero h1 {
-  font-size: clamp(1.5rem, 4.5vw, 2.4rem);
-  line-height: 1.25;
-  font-weight: 600;
-  margin: 1rem 0 1.2rem;
-  max-width: 36ch;
-}
-.hero h1 .mark { color: var(--green); }
-.hero p.sub { color: var(--grey); max-width: 58ch; font-size: 0.95rem; }
-.hero .cta { margin-top: 1.8rem; display: flex; gap: 1rem; flex-wrap: wrap; }
-.btn {
-  display: inline-block; font-family: var(--mono); font-size: 0.88rem;
-  padding: 0.7rem 1.1rem; border: 1px solid var(--grey); border-radius: 4px;
-  text-decoration: none; min-height: 44px; line-height: 1.2;
-}
-.btn:hover { border-color: var(--green); color: var(--green); }
-.btn.primary { background: var(--green); border-color: var(--green); color: var(--bg); font-weight: 700; }
-.btn.primary:hover { background: #46C063; color: var(--bg); }
-
-section { padding: 2.8rem 0; border-top: 1px solid var(--rule); }
-section h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 1.1rem; }
-section h2::before { content: "## "; color: var(--green); }
-.prose p + p { margin-top: 0.9rem; }
-.prose, .note { color: var(--grey); font-size: 0.92rem; }
-.prose b { color: var(--ink); font-weight: 600; }
-.src { font-size: 0.8rem; color: var(--grey); margin-top: 0.8rem; }
+header .wrap { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.brand { font-size: 0.95rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.brand::before, .prompt::before, .term .cmd::before { color: var(--green); content: "$ "; }
+nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.9rem 1.3rem; }
+nav a { font-size: 0.82rem; text-underline-offset: 3px; }
+main { overflow: hidden; }
+.hero { padding: 5.5rem 0 5rem; }
+.prompt { color: var(--grey); font-size: 0.88rem; }
+.hero h1 { max-width: 18ch; margin-top: 1rem; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.08; letter-spacing: -0.04em; }
+.hero h1 em { color: var(--green); font-style: normal; }
+.hero .lead { max-width: 62ch; margin-top: 1.6rem; color: var(--grey); font-size: 1rem; }
+.cta { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
+.btn { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0.7rem 1rem; border: 1px solid var(--grey); border-radius: 4px; font-size: 0.86rem; line-height: 1.2; text-decoration: none; }
+.btn:hover { border-color: var(--green); }
+.btn.primary { border-color: var(--green); background: var(--green); color: var(--bg); font-weight: 700; }
+.btn.primary:hover { background: #46C063; }
+.verdict { display: inline-block; margin-top: 2.5rem; color: var(--green); font-size: 0.85rem; }
+section { border-top: 1px solid var(--rule); padding: 4.5rem 0; }
+section h2 { margin-bottom: 1.2rem; font-size: clamp(1.2rem, 3vw, 1.55rem); line-height: 1.25; }
+section h2::before { color: var(--green); content: "## "; }
+.kicker { margin-bottom: 0.7rem; color: var(--green); font-size: 0.78rem; }
+.prose { max-width: 66ch; color: var(--grey); }
+.prose p + p { margin-top: 1rem; }
+.prose strong, .note strong { color: var(--ink); font-weight: 600; }
+.note { color: var(--grey); font-size: 0.9rem; }
+.src { margin-top: 1.2rem; color: var(--grey); font-size: 0.78rem; }
 .src a { color: var(--grey); }
-
-/* Terminal blocks: real commands, real output */
-.term {
-  background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 6px;
-  padding: 1.1rem 1.3rem; font-size: 0.85rem; line-height: 1.9; overflow-x: auto;
-  margin-top: 1rem;
-}
-.term .p::before { content: "$ "; color: var(--green); }
-.term .p { color: var(--ink); }
-.term .o { color: var(--grey); }
+.core-line { display: grid; gap: 1px; margin-top: 2rem; border: 1px solid var(--rule); background: var(--rule); }
+.core-line p { padding: 1rem 1.1rem; background: var(--bg-soft); }
+.core-line b { display: block; margin-bottom: 0.25rem; color: var(--green); font-size: 0.85rem; }
+.term { margin-top: 1.5rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 5px; background: var(--bg-soft); padding: 1.2rem 1.25rem; font-size: 0.82rem; line-height: 1.9; }
+.term .cmd, .term .out { display: block; white-space: pre; }
+.term .cmd { color: var(--ink); }
+.term .out { color: var(--grey); }
 .term .ok { color: var(--green); }
 .term .err { color: var(--red); }
-
-/* The chain: statute list, not cards (R-14) */
-ol.chain {
-  list-style: none; counter-reset: step; margin-top: 1rem;
-  border-left: 2px solid var(--green); padding: 0.3rem 0 0.3rem 1.3rem;
-}
-ol.chain li {
-  counter-increment: step; padding: 0.5rem 0.75rem 0.5rem 3.2rem; position: relative;
-  font-size: 0.92rem; color: var(--grey); background: var(--bg-soft); border-radius: 4px;
-}
-ol.chain li + li { margin-top: 0.35rem; }
-ol.chain li::before {
-  content: counter(step, decimal-leading-zero); position: absolute; left: 0.9rem; top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.8rem; color: var(--green); font-weight: 700; width: 1.6rem;
-}
-ol.chain b { color: var(--ink); font-weight: 600; }
-ol.chain span { color: var(--grey); font-size: 0.85rem; }
-
-/* Iron Laws: blockquote statute */
-.laws { border-left: 2px solid var(--green); padding-left: 1.3rem; margin-top: 1rem; }
-.laws p { padding: 0.4rem 0.75rem; margin: 0.35rem 0; font-size: 0.92rem; color: var(--grey); background: var(--bg-soft); border-radius: 4px; }
-.laws p + p { margin-top: 0.35rem; }
+.chain { list-style: none; counter-reset: stage; margin-top: 2rem; border-left: 2px solid var(--green); padding-left: 1rem; }
+.chain li { counter-increment: stage; position: relative; padding: 0.85rem 0 0.85rem 3.2rem; }
+.chain li + li { border-top: 1px solid var(--rule); }
+.chain li::before { position: absolute; left: 0; top: 0.95rem; color: var(--green); content: counter(stage, decimal-leading-zero); font-size: 0.82rem; font-weight: 700; }
+.chain b { display: block; color: var(--ink); font-size: 0.95rem; }
+.chain span { color: var(--grey); font-size: 0.86rem; }
+.laws { margin-top: 1.8rem; border-left: 2px solid var(--green); padding-left: 1.2rem; }
+.laws p { padding: 0.8rem 0; color: var(--grey); }
+.laws p + p { border-top: 1px solid var(--rule); }
+.laws .n { margin-right: 0.7rem; color: var(--green); font-weight: 700; }
 .laws b { color: var(--ink); font-weight: 600; }
-.laws .n { color: var(--green); margin-right: 0.5rem; font-weight: 700; }
-
-/* Evidence table */
-.tablewrap { overflow-x: auto; margin-top: 1rem; }
-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
-th { text-align: left; font-weight: 400; color: var(--grey); border-bottom: 1px solid var(--grey); padding: 0.5rem 0.9rem 0.5rem 0; }
-td { border-bottom: 1px solid var(--rule); padding: 0.55rem 0.9rem 0.55rem 0; vertical-align: top; color: var(--ink); }
+.ledger-layout { display: grid; gap: 2rem; margin-top: 1.8rem; }
+.file { border: 1px solid var(--rule); background: var(--bg-deep); }
+.file-head { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--rule); padding: 0.7rem 1rem; color: var(--grey); font-size: 0.78rem; }
+.file pre { overflow-x: auto; padding: 1rem; color: var(--grey); font-size: 0.8rem; line-height: 1.9; }
+.file .bright { color: var(--ink); }
+.file .green { color: var(--green); }
+.ledger-copy { color: var(--grey); font-size: 0.9rem; }
+.ledger-copy p + p { margin-top: 1rem; }
+.gate-note { margin-top: 1.2rem; border-left: 2px solid var(--green); padding-left: 1rem; color: var(--grey); font-size: 0.9rem; }
+.table-wrap { overflow-x: auto; margin-top: 1.5rem; }
+table { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: 0.82rem; }
+th { border-bottom: 1px solid var(--grey); color: var(--grey); font-weight: 400; text-align: left; }
+th, td { padding: 0.65rem 0.8rem 0.65rem 0; vertical-align: top; }
+td { border-bottom: 1px solid var(--rule); }
 td.dim { color: var(--grey); }
-.verdict { color: var(--green); font-weight: 700; }
-
-/* Install: two-col on wide */
-.install-grid { display: grid; gap: 1.4rem; margin-top: 1rem; }
-/* Responsive ladder (R-03, R-34): every breakpoint tested, no overflow anywhere */
-
-/* Small phones (<=360px): tighten rhythm, protect the table and term blocks */
-@media (max-width: 22.5rem) {
-  body { font-size: 14px; }
-  .wrap, main > .wrap, main > section > .wrap { padding: 0 0.9rem; }
-  .hero { padding: 1.9rem 0 2.2rem; }
-  .hero h1 { font-size: 1.35rem; }
-  section { padding: 1.9rem 0; }
-  .term, pre.term { font-size: 0.76rem; padding: 0.9rem 0.9rem; }
-  .laws { padding-left: 1rem; }
-  .btn { width: 100%; text-align: center; } /* stacked full-width CTAs, still 44px+ tall */
-  .hero .cta { gap: 0.7rem; }
+.install { padding-bottom: 5rem; }
+.install-grid { display: grid; gap: 1.5rem; margin-top: 1.5rem; }
+footer { border-top: 1px solid var(--rule); padding: 1.5rem 0 2.5rem; color: var(--grey); font-size: 0.78rem; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
+footer a { color: var(--grey); }
+@media (min-width: 52rem) {
+  .ledger-layout, .install-grid { grid-template-columns: 1.15fr 0.85fr; align-items: start; }
 }
-
-/* Phones (<=40rem): base mobile rhythm, 44px tap targets */
 @media (max-width: 40rem) {
   body { font-size: 15px; }
-  /* Hero rhythm matches section rhythm: equal gaps above/below like sections have */
-  .hero { padding: 2.2rem 0 2.2rem; }
-  section { padding: 2.2rem 0; }
-  nav a { padding: 0.5rem 0; font-size: 0.9rem; }
-  td, th { padding-right: 0.5rem; }
+  .wrap { width: min(100% - 1.8rem, 48rem); }
+  header .wrap { align-items: flex-start; }
+  nav { gap: 0.5rem 0.8rem; }
+  nav a { padding: 0.5rem 0; }
+  .hero { padding: 3rem 0 3.5rem; }
+  .hero h1 { font-size: clamp(1.9rem, 11vw, 3rem); }
+  section { padding: 3rem 0; }
+  .btn { width: 100%; }
+  .file pre { font-size: 0.74rem; }
 }
-
-/* Landscape phones / small tablets (40-52rem): restore breathing room, keep single column */
-@media (min-width: 40rem) and (max-width: 52rem) {
-  body { font-size: 16px; }
-}
-
-/* Tablets+ (>=52rem): two-column install, full hero scale */
-@media (min-width: 52rem) {
-  .install-grid { grid-template-columns: 1.1fr 1fr; }
-}
-
-footer { border-top: 1px solid var(--rule); padding: 1.5rem 0 2.2rem; font-size: 0.82rem; color: var(--grey); }
-footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-footer a { color: var(--grey); }
 </style>
 </head>
 <body>
-
+<a class="skip" href="#main">skip to content</a>
 <header>
   <div class="wrap">
     <a class="brand" href="#top">trust-no-agent</a>
-    <nav>
+    <nav aria-label="Page sections">
+      <a href="#core">core</a>
+      <a href="#chain">chain</a>
+      <a href="#gates">gates</a>
+      <a href="#laws">laws</a>
+      <a href="#ledger">ledger</a>
       <a href="https://github.com/nadiwerk/trust-no-agent">github</a>
     </nav>
   </div>
 </header>
-
-<main id="top">
-
-  <div class="hero wrap">
-    <p class="cmd">cat README.md | head -1</p>
-    <h1>An agent that can't prove its work <span class="mark">is a liability.</span></h1>
-    <p class="sub">trust-no-agent is a discipline layer for AI coding agents: 11 markdown skills and a router that force fail-first tests, root-cause before fixes, receipts for every claim, and your sign-off before anything ships. It installs on the harness you already use.</p>
+<main id="main">
+  <div id="top" class="hero wrap">
+    <p class="prompt">cat README.md | head -1</p>
+    <h1>Proof before <em>confidence.</em></h1>
+    <p class="lead">An agent can produce a polished summary and still be wrong. trust-no-agent puts a discipline layer around coding work so a claim becomes evidence, evidence becomes a receipt, and your sign-off stays the boundary for irreversible action.</p>
     <div class="cta">
-      <a class="btn primary" href="#install">Install the framework</a>
+      <a class="btn primary" href="#install">Install the router</a>
       <a class="btn" href="https://github.com/nadiwerk/trust-no-agent">Read the source</a>
     </div>
+    <p class="verdict">[ exit 0 ] the work is legible enough to trust</p>
   </div>
 
-  <section id="why">
-    <div class="wrap prose">
-      <h2>why it exists</h2>
-      <p>Agent output looks done. The tests pass, the summary sounds confident, the commit lands. Then the feature is wrong in a way nobody noticed, because nothing ever checked the claim against evidence.</p>
-      <p>The framework's answer is mechanical, not motivational. Every unit of work exits through verification gates that run as code. A claim without fresh evidence is rejected by the same hook that rejects a broken build.</p>
-      <p class="src">Design reasoning, with the evals behind it: <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/docs/design.md">docs/design.md</a></p>
+  <section id="core">
+    <div class="wrap">
+      <p class="kicker">01 / THE OPERATING IDEA</p>
+      <h2>the core</h2>
+      <div class="prose">
+        <p>Most agent workflows stop at output. This one stops at a proof boundary. The router makes the next action explicit, asks for decisions when the request is underspecified, and rejects a completion claim that has no fresh evidence behind it.</p>
+        <p>The point is not ceremony. It is to make the expensive failure visible while it is still cheap to change.</p>
+      </div>
+      <div class="core-line" aria-label="The core loop">
+        <p><b>claim</b> the agent says what changed</p>
+        <p><b>evidence</b> a test, command, or rendered result checks it</p>
+        <p><b>receipt</b> the result records what passed and what remains open</p>
+        <p><b>guardrail</b> accepted findings become rules for the next session</p>
+      </div>
+      <p class="src">The design rationale and eval record live in <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/docs/design.md">docs/design.md</a>.</p>
     </div>
   </section>
 
   <section id="chain">
     <div class="wrap">
+      <p class="kicker">02 / THE ROUTE</p>
       <h2>the chain</h2>
-      <p class="note">Large work runs one unbroken path. Each stage proposes the next by name; you approve each crossing.</p>
+      <p class="note">Large work crosses one named boundary at a time. The next stage is proposed, not assumed.</p>
       <ol class="chain">
-        <li><b>breakpoint</b> <span>decisions surfaced before any code</span></li>
-        <li><b>save-as</b> <span>a written spec with testable acceptance criteria</span></li>
-        <li><b>fork-it</b> <span>tickets with blocking edges, sliced from the spec</span></li>
-        <li><b>make-it-so</b> <span>build fail-first, repair loop capped at two rounds</span></li>
-        <li><b>roast-my-code</b> <span>review along standards, spec, security</span></li>
-        <li><b>ship-log</b> <span>append-only ledger, so the next session knows</span></li>
+        <li><b>breakpoint</b><span>surface decisions before code makes them expensive</span></li>
+        <li><b>save-as</b><span>write a spec with acceptance criteria that can fail</span></li>
+        <li><b>fork-it</b><span>slice the spec into tickets with blocking edges</span></li>
+        <li><b>make-it-so</b><span>build test-first and keep repair to two rounds</span></li>
+        <li><b>roast-my-code</b><span>review standards, spec fit, and security separately</span></li>
+        <li><b>ship-log</b><span>append the state so the next session does not guess</span></li>
       </ol>
-      <p class="src">Quick fixes skip the chain. Test-writing never does: a test that passes on first run is the exact anti-pattern this framework exists to catch.</p>
+      <p class="src">Quick fixes have a shorter route. Test-writing never skips fail-first: a test that passes immediately may only be certifying the wrong behavior.</p>
     </div>
   </section>
 
   <section id="gates">
     <div class="wrap">
-      <h2>four gates, exit zero or it didn't happen</h2>
-<div class="term">
-<span class="p">node scripts/validate.mjs</span>
-<span class="ok">OK: 3 categories, 11 skills, no structural errors.</span>
-<span class="p">node scripts/eval.mjs</span>
-<span class="ok">OK: 11 skills, invocation axis consistent, 0 warnings.</span>
-<span class="p">node scripts/tickets.test.mjs</span>
-<span class="ok">OK: ticket-graph validator behaves as specified.</span>
-<span class="p">node scripts/doctor.test.mjs</span>
-<span class="ok">OK: doctor behaves as specified.</span>
-<span class="o">exit 0, or the pre-commit hook rejects the commit. CI runs the same four on every push.</span>
-</div>
-      <p class="src">Output above is the repository's real gate output.</p>
+      <p class="kicker">03 / THE PROOF</p>
+      <h2>verification gates</h2>
+      <p class="note">Four commands turn “done” from a tone of voice into an observable result. Exit zero is the minimum boundary, not a promise that intent was correct.</p>
+      <div class="term" aria-label="Repository verification output">
+        <span class="cmd">node scripts/validate.mjs</span>
+        <span class="ok">OK: 3 categories, 11 skills, no structural errors.</span>
+        <span class="cmd">node scripts/eval.mjs</span>
+        <span class="ok">OK: 11 skills, invocation axis consistent, 0 warnings.</span>
+        <span class="cmd">node scripts/tickets.test.mjs</span>
+        <span class="ok">OK: ticket-graph validator behaves as specified.</span>
+        <span class="cmd">node scripts/doctor.test.mjs</span>
+        <span class="ok">OK: doctor behaves as specified.</span>
+        <span class="out">exit 0, or the pre-commit hook rejects the commit.</span>
+      </div>
+      <p class="gate-note">The gate checks the framework's structure and behavior. It does not pretend to prove your product intent. That distinction is part of the contract.</p>
+      <p class="src">The same checks run in CI on every push. The commands above are the repository's recorded gate output.</p>
     </div>
   </section>
 
   <section id="laws">
-    <div class="wrap prose">
+    <div class="wrap">
+      <p class="kicker">04 / THE BOUNDARY</p>
       <h2>the iron laws</h2>
       <div class="laws">
-        <p><span class="n">01</span><b>No work without verification.</b> Evidence is output you read, not a feeling you hold.</p>
-        <p><span class="n">02</span><b>No fix without root cause.</b> Five patches that don't stick are five guesses.</p>
-        <p><span class="n">03</span><b>No done claim without a receipt.</b> The test had to fail first, then pass.</p>
-        <p><span class="n">04</span><b>No irreversible action without your sign-off.</b> Commit, push, publish, delete: the agent proposes, you authorize.</p>
+        <p><span class="n">01</span><b>No work without verification.</b> Read the evidence before you call the result complete.</p>
+        <p><span class="n">02</span><b>No fix without root cause.</b> Investigate the failure before adding another patch.</p>
+        <p><span class="n">03</span><b>No done claim without a receipt.</b> The test fails first, then passes with the output recorded.</p>
+        <p><span class="n">04</span><b>No irreversible action without human sign-off.</b> Commit, push, publish, and delete stay yours to authorize.</p>
       </div>
+      <p class="src">Canonical wording and the reason for each boundary: <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/docs/design.md">docs/design.md</a>.</p>
+    </div>
+  </section>
+
+  <section id="ledger">
+    <div class="wrap">
+      <p class="kicker">05 / THE MEMORY</p>
+      <h2>the ledger</h2>
+      <div class="ledger-layout">
+        <div class="file" aria-label="Ledger excerpt">
+          <div class="file-head"><span>.trust/progress.txt</span><span>append-only</span></div>
+          <pre><span class="green">ledger entry</span>  site redesign
+<span class="bright">Verdict:</span> evidence recorded after the check
+<span class="bright">Evidence:</span> command output or rendered result
+<span class="bright">Ruling:</span> keep green for evidence only
+<span class="bright">Open:</span> name the proof that is still missing
+
+<span class="green">accepted finding</span>
+<span class="bright">promotion:</span> router rule for every future session</pre>
+        </div>
+        <div class="ledger-copy">
+          <p>Context compacts. A good session should not disappear with it. The private ledger keeps the state, rulings, recipes, and open evidence that the next session needs.</p>
+          <p>The important move is promotion. When a review finding is accepted, it becomes a permanent router rule instead of a one-time correction.</p>
+          <p>Memory is not a claim that the work is right. It is a record of what was checked, what was decided, and what still needs a human.</p>
+        </div>
+      </div>
+      <p class="src">Ledger design and memory tiers: <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/README.md">README.md</a> and <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/docs/design.md">docs/design.md</a>.</p>
     </div>
   </section>
 
   <section id="different">
     <div class="wrap">
-      <h2>what makes this different</h2>
-      <p class="note">Most agent frameworks optimize for speed. This one optimizes for trust, because the expensive failures are never about speed: they are the moment your agent said "done" and you believed it.</p>
-      <div class="tablewrap">
+      <p class="kicker">THE DIFFERENCE</p>
+      <h2>Trust is a workflow, not a mood</h2>
+      <p class="note">The framework is deliberately honest about what its gates can and cannot prove.</p>
+      <div class="table-wrap">
         <table>
-          <thead>
-            <tr><th>the moment</th><th>speed-first frameworks</th><th>trust-no-agent</th></tr>
-          </thead>
+          <thead><tr><th>the moment</th><th>without a boundary</th><th>with trust-no-agent</th></tr></thead>
           <tbody>
-            <tr><td>"It's done"</td><td class="dim">A claim from the agent</td><td>A receipt: verification run fresh, output read, exit zero</td></tr>
-            <tr><td>Spec sounds right</td><td class="dim">Straight to tickets</td><td>Spec gate: falsifiable acceptance criteria before any slicing</td></tr>
-            <tr><td>Request is ambiguous</td><td class="dim">Agent guesses and builds</td><td>breakpoint pauses; the agent interviews you first</td></tr>
-            <tr><td>Bug appears</td><td class="dim">Try a fix, hope it sticks</td><td>root-cause: no fix before the investigation; 3 failed fixes means question the architecture</td></tr>
-            <tr><td>Subagent reports "success"</td><td class="dim">Taken at face value</td><td>A lead, not evidence: the orchestrator verifies</td></tr>
-            <tr><td>Verification keeps failing</td><td class="dim">Retry until it passes</td><td>Bounded repair loop: classify, fix the class, cap at 2 rounds</td></tr>
-            <tr><td>Session ends, context compacts</td><td class="dim">Work context evaporates</td><td>ship-log ledger and recipes survive; the next session resumes from state</td></tr>
-            <tr><td>New task arrives</td><td class="dim">Starts from scratch</td><td>Three memory tiers: ledger, lessons, recipes. Each task starts from the last time it was solved</td></tr>
-            <tr><td>Review findings land</td><td class="dim">Fixed once, forgotten</td><td>Accepted findings become permanent router rules: a fix that lands once guards every future session</td></tr>
-            <tr><td>The UI "works"</td><td class="dim">Fixture-based unit tests</td><td>Checked in a browser with real data, which catches the bugs fixtures cannot</td></tr>
-            <tr><td>Review feedback arrives</td><td class="dim">"You're absolutely right!" then blind implementation</td><td>no-thanks: verify before implementing, push back when the feedback is wrong</td></tr>
-            <tr><td>External skills</td><td class="dim">Replaced, fenced off, or fought</td><td>A gate over them: anything fits, nothing fires uninvited. Other skills make it capable, the gate keeps it honest</td></tr>
-            <tr><td>Standing cost</td><td class="dim">Every token counts, forever</td><td>Descriptions are the only always-on cost; deep material loads on demand</td></tr>
+            <tr><td>“It is done”</td><td class="dim">a confident summary</td><td>a fresh receipt with output read</td></tr>
+            <tr><td>the request is unclear</td><td class="dim">the agent guesses</td><td>breakpoint surfaces the decision</td></tr>
+            <tr><td>a bug appears</td><td class="dim">another patch</td><td>root-cause investigation first</td></tr>
+            <tr><td>the session ends</td><td class="dim">context evaporates</td><td>the ledger carries state forward</td></tr>
+            <tr><td>feedback lands</td><td class="dim">agree and implement</td><td>no-thanks verifies the claim first</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </section>
 
-  <section id="evidence">
+  <section id="install" class="install">
     <div class="wrap">
-      <h2>honest about what it can't do</h2>
-      <p class="note">A framework that demands receipts from agents holds itself to the same standard. Four limits, stated in its own README, unedited:</p>
-      <div class="laws">
-        <p><span class="n">01</span><b>It verifies testability, not intent.</b> The spec gate forces specs to be testable, not true. Wrong intent stays possible; it just becomes cheap to catch.</p>
-        <p><span class="n">02</span><b>It does not make a weak model strong.</b> It catches silent failures and forbids dishonest claims. Output quality still comes from the model, the harness, and the direction you give it.</p>
-        <p><span class="n">03</span><b>It does not enforce itself.</b> Skills are text; a model's promise to comply is not evidence. The parts that never depend on the model are the mechanical ones: the four gates, CI, and the pre-commit hooks.</p>
-        <p><span class="n">04</span><b>It routes external skills, it does not vet them.</b> Approval without audit is trust without evidence; the gates keep auditing everything an external skill produces.</p>
-      </div>
-      <p class="src">The eval record behind this honesty: <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/evals/live-results.md">evals/live-results.md</a> (4 harness rounds at 10/10, 3 at 9/10, each with its deviations disclosed) · <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/docs/skill-vetting.md">docs/skill-vetting.md</a></p>
-    </div>
-  </section>
-
-  <section id="install">
-    <div class="wrap">
-      <h2>install</h2>
+      <p class="kicker">START WITH THE ROUTER</p>
+      <h2>put a proof boundary around your next task</h2>
       <div class="install-grid">
         <div>
-<div class="term">
-<span class="p">npx skills add nadiwerk/trust-no-agent</span>
-<span class="p">cp AGENTS.md WORKFLOW.md .</span>
-</div>
-          <p class="note" style="margin-top:0.8rem">First <code>npx</code> run executes third-party code. Verify the package (<code>npm view skills</code>) before trusting it.</p>
+          <div class="term">
+            <span class="cmd">npx skills add nadiwerk/trust-no-agent</span>
+            <span class="cmd">cp AGENTS.md WORKFLOW.md .</span>
+          </div>
+          <p class="src">The first <code>npx</code> run executes third-party code. Verify the package with <code>npm view skills</code> before trusting it.</p>
         </div>
-        <div>
-          <p class="note"><strong>11 skills + the router</strong>, on any harness that reads <code>AGENTS.md</code>. The router is the secret: in the self-trigger eval, fresh agents loaded the mandatory skills <strong>0 of 3 times</strong> without it.</p>
+        <div class="prose">
+          <p><strong>11 skills and the router.</strong> It works on a harness that reads <code>AGENTS.md</code>. The router is what makes mandatory discipline load before the model starts improvising.</p>
+          <div class="cta"><a class="btn primary" href="https://github.com/nadiwerk/trust-no-agent">Read the source and rules</a></div>
         </div>
       </div>
     </div>
   </section>
-
 </main>
-
 <footer>
   <div class="wrap">
     <span>trust-no-agent. MIT. Markdown and four commands, nothing else.</span>
-    <span><a href="https://github.com/nadiwerk/trust-no-agent">source</a> · <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/CHANGELOG.md">changelog</a> · <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/SECURITY.md">security</a></span>
+    <span><a href="https://github.com/nadiwerk/trust-no-agent/blob/master/CHANGELOG.md">changelog</a> · <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/SECURITY.md">security</a></span>
   </div>
 </footer>
-
 </body>
 </html>

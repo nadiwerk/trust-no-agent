@@ -36,6 +36,9 @@ jobs:
       - name: Ticket-graph validator smoke
         run: node scripts/tickets.mjs
 
+      - name: Site acceptance contract
+        run: node scripts/site.test.mjs
+
   hooks:
     name: Git hooks gate
     runs-on: ubuntu-latest
