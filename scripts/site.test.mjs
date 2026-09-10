@@ -12,6 +12,8 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
   assert.match(html.toLowerCase(), new RegExp(heading), `site names ${heading}`);
 }
 
+assert.match(html, /header \.wrap\s*\{[^}]*align-items:\s*center/i, 'navbar items share a centered alignment');
+
 const nav = html.match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] ?? '';
 const navLinks = [...nav.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1]);
 assert.deepEqual(navLinks, ['https://github.com/nadiwerk/trust-no-agent'], 'navigation keeps only GitHub');

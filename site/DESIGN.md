@@ -69,8 +69,8 @@ trigger.
   loop, vertical chain, terminal transcript, statute list, file excerpt, table,
   and install command.
 - Navigation keeps one external destination, the real GitHub repository. The five
-  concepts remain discoverable through the page's reading order. The skip link
-  targets `#main`.
+  concepts remain discoverable through the page's reading order. The logo and
+  GitHub link share a centered navbar alignment. The skip link targets `#main`.
 
 ## Motion and accessibility
 
