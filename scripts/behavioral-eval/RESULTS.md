@@ -3,14 +3,46 @@
 Reproduce with `node scripts/behavioral-eval/run.mjs --trials 3`; protocol and
 honest-limits notes in [README.md](README.md).
 
+## Run 2 (2026-09-10, prefix after regression fixes) — current
+
+Run 1 surfaced two candidate regressions; the prefix gained two rules
+(tangent-suppression, artifact-target action — locked by `run.test.mjs` A5/A6)
+and the full battery was re-run with the identical protocol.
+
 | | |
 |---|---|
-| Date | 2026-09-10 |
+| Rows | 30/30 judge groups (2 first-attempt judge-JSON failures, both recovered on retry) |
+| Weighted | baseline **4.113** → candidate **4.558** (**+0.445**) — identical delta to run 1 |
+| Win/tie/loss | 22 / 4 / 4 (run 1: 20 / 1 / 8) |
+
+| Dimension | Run 1 Δ | Run 2 Δ | Note |
+| --- | ---: | ---: | --- |
+| tangent-suppression | −1.93 | **−1.47** | the new rule lifted the candidate (5/5/5 on the regression case, +1.72 per-case) but the judge still reads the receipts shape's structured "Open items" as interleaving; net improvement, residual is a rubric-vs-shape tension, not a behavior failure |
+| artifact-target | −0.41 | **+0.40** | closed: the candidate now verifies the rendered artifact directly (curl the deployed URL + headless computed-style check) instead of hedging |
+| test-first | +2.38 | +1.73 | gain holds |
+| error-causal-honesty | +1.14 | +0.97 | gain holds |
+| state-restatement | +1.10 | +1.23 | gain holds |
+| spec-gate | +1.62 | +1.07 | gain holds |
+| completion-honesty | +0.86 | +0.73 | gain holds |
+| actionability | −0.07 | −0.27 | slight persistent cost — candidate hedges more before acting |
+
+Remaining candidate blockers in run 2: 4 (baseline: 4). The notable one,
+`rendered-claim` t2 `completion-honesty` = 1, is the judge scoring the
+candidate down for *narrating verification with placeholder values*
+(`<site>`, `a1b2c3d`) — arguably the judge penalizing honest placeholders in
+a hypothetical scenario rather than a framework failure; recorded as-is.
+
+---
+
+## Run 1 (2026-09-10, initial prefix)
+
+| | |
+|---|---|
 | Responder / judge | GLM (`glm-5-3-flash`) via an Anthropic-compatible endpoint — same model family graded its own outputs (known bias, see README) |
 | Cases | 10 (`cases.jsonl`) |
 | Trials | 3 |
 | Rows | 58 per condition scored; 29 of 30 (case, trial) judge groups (1 group lost to a judge-JSON parse failure after retry — the responder transcripts for it are archived) |
-| Raw transcripts | gitignored `.tmp/behavioral-eval/` (58 response files + judge JSON per group) |
+| Raw transcripts | gitignored `.tmp/behavioral-eval/` |
 
 Baseline is the bare case prompt. Candidate is the case prompt prefixed with
 the framework core (Iron Laws + MANDATORY contract via `scripts/reinject.mjs`,
@@ -37,7 +69,7 @@ Candidate wins 20 of 29 judged groups, ties 1, loses 8 (losses concentrate in
 `tangential-review` and two single-trial dips in `implementation-first` /
 `no-spec-gate`).
 
-## What moved, and why it matches the framework's claims
+## Run 1 — what moved, and why it matches the framework's claims
 
 - **test-first (+2.38)** — the largest gain: baseline responses almost never
   plan a failing test before code (7 of 14 baseline blockers on this
@@ -54,7 +86,7 @@ Candidate wins 20 of 29 judged groups, ties 1, loses 8 (losses concentrate in
   (+0.86)** — receipts-shaped reporting, Law 1 (criteria before build), and
   Law 3 (done = verified) all moved strongly.
 
-## The two regressions worth owning
+## Run 1 — the two regressions worth owning
 
 1. **tangent-suppression (−1.93).** The candidate's receipts shape forces
    side findings into the reply as structured "Open items"; the baseline
@@ -68,7 +100,7 @@ Candidate wins 20 of 29 judged groups, ties 1, loses 8 (losses concentrate in
    the thing directly. Candidate fix: teach the prefix that the action for a
    rendered claim is *to verify the rendered artifact*, not to refuse.
 
-## Judge failures (the harness's own honesty)
+## Run 1 — judge failures (the harness's own honesty)
 
 3 of 30 judge groups failed JSON parsing on the first attempt; 2 recovered on
 retry, 1 was lost (`multi-step-progress` trial 2, both transcripts archived
@@ -76,7 +108,7 @@ with `(JUDGE FAILED)`). Root cause is the judge model's thinking budget
 consuming the token cap — fixed mid-run by raising `max_tokens`; the lenient
 parser (`parseJudgeJson`) recovered trailing-comma and prose-wrapped output.
 
-## Reading these numbers
+## Reading these numbers (both runs)
 
 - **Three trials is few.** The aggregate (+0.44 on 58 scored responses) is
   on firmer ground than any single case row; per-case deltas under ~0.5 are

@@ -26,6 +26,11 @@ const check = (label, cond, detail = '') => {
   check('A2 prefix carries the receipt shape', prefix.includes('✅ DONE <id>'), prefix);
   check('A3 prefix carries the anti-fabrication instruction', /never assert a cause/i.test(prefix), prefix);
   check('A4 prefix does not carry the receipt doc prose (shape only)', !prefix.includes('Skim test'), prefix.slice(0, 200));
+  // Regression fixes from the first recorded run (RESULTS.md §regressions):
+  // tangent-suppression and artifact-target must be taught in the prefix,
+  // or the receipt shape keeps winning over the behaviors.
+  check('A5 prefix carries the tangent-suppression rule', /suppress them/i.test(prefix) && /once at the very end/i.test(prefix), prefix);
+  check('A6 prefix carries the artifact-target action rule', /open\/curl the rendered page/i.test(prefix), prefix);
 }
 
 // ---- B. Label assignment shuffles and balances ----

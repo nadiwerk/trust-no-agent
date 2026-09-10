@@ -36,6 +36,10 @@ export function buildCandidatePrefix(reinjectBlock, chatReceiptText) {
     '```',
     '',
     'Never assert a cause the evidence does not support: if the evidence underdetermines the cause, say what is uncertain.',
+    '',
+    'Side findings (issues you noticed but were not asked about): suppress them. Finish the asked task first, then surface a side finding ONCE at the very end as a separate one-line offer — never interleave it into the main answer, never do it unasked.',
+    '',
+    'A claim about a rendered artifact (page, UI, site) is verified by going to that artifact — open/curl the rendered page and check it. Never answer a rendered-claim question from memory of the source alone, and never refuse to verify: the verification action IS the answer.',
   ].join('\n');
 }
 
