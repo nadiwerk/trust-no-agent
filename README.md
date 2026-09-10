@@ -122,7 +122,7 @@ Discipline scales with stakes — that keeps the framework from being abandoned 
 
 ## Portability
 
-The core — the chain, the Iron Laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. The whole discipline ships as markdown: no subagents, no MCP servers, no background tasks, nothing to run or maintain beyond four verification commands. Portability details and the compatibility matrix: [docs/compatibility.md](docs/compatibility.md) · install paths per harness: [docs/installation.md](docs/installation.md).
+The core, the chain, the iron laws, the ledger, the verification gates — runs on any **harness** that reads `AGENTS.md`. The whole discipline ships as markdown: no subagents, no MCP servers, no background tasks, nothing to run or maintain beyond four verification commands. Portability details and the compatibility matrix: [docs/compatibility.md](docs/compatibility.md) · install paths per harness: [docs/installation.md](docs/installation.md).
 
 - **Harness** — the runtime that reads `AGENTS.md` and executes the agent. The framework core needs only this.
 - **Agent / orchestrator** (optional) — a layer on top that adds parallel subagents, worktree isolation, and category routing. Recommended: **OMO on opencode**. Verified compatibility matrix across other orchestrators: [docs/compatibility.md](docs/compatibility.md) · OMO mapping: [docs/omo-integration.md](docs/omo-integration.md).
