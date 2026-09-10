@@ -68,17 +68,18 @@ trigger.
 - Section compositions intentionally vary: verdict-led hero, four-part core
   loop, vertical chain, terminal transcript, statute list, file excerpt, table,
   and install command.
-- Navigation destinations are `#core`, `#chain`, `#gates`, `#laws`, `#ledger`,
-  and the real GitHub repository. The skip link targets `#main`.
+- Navigation keeps one external destination, the real GitHub repository. The five
+  concepts remain discoverable through the page's reading order. The skip link
+  targets `#main`.
 
 ## Motion and accessibility
 
 Motion stays at **MOTION 1**: smooth anchor scrolling, hover states, and visible
 focus outlines only. There are no loops or scroll reveals. Interactive links are
 real destinations, have visible focus, and use at least 44px of vertical target
-space. Mobile collapses actions to full-width controls, reflows navigation, and
-keeps tables inside a bounded horizontal scroller rather than letting the page
-overflow.
+space. Mobile uses a compact GitHub-only header, collapses actions to full-width
+controls, and keeps tables inside a bounded horizontal scroller rather than
+letting the page overflow.
 
 ## Content honesty (R-17, R-18, R-36, R-38, C-5)
 

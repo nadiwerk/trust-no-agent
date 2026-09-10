@@ -8,9 +8,13 @@ for (const id of requiredIds) {
   assert.match(html, new RegExp(`id=["']${id}["']`), `site has #${id}`);
 }
 
-for (const heading of ['the core', 'the chain', 'verification gates', 'the iron laws', 'the ledger']) {
+for (const heading of ['the core', 'the chain', 'the verification gates', 'the iron laws', 'the ledger']) {
   assert.match(html.toLowerCase(), new RegExp(heading), `site names ${heading}`);
 }
+
+const nav = html.match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] ?? '';
+const navLinks = [...nav.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1]);
+assert.deepEqual(navLinks, ['https://github.com/nadiwerk/trust-no-agent'], 'navigation keeps only GitHub');
 
 assert.match(html, /<a[^>]+href=["']#main["'][^>]*>skip to content<\/a>/i, 'site has a skip link');
 assert.match(html, /<main[^>]+id=["']main["']/i, 'main landmark has an id');
