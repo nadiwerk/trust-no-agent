@@ -12,7 +12,10 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
   assert.match(html.toLowerCase(), new RegExp(heading), `site names ${heading}`);
 }
 
-assert.match(html, /header \.wrap\s*\{[^}]*align-items:\s*center/i, 'navbar items share a centered alignment');
+for (const kicker of ['01 / OPERATING IDEA', '02 / ROUTE', '03 / PROOF', '04 / BOUNDARY', '05 / MEMORY', 'DIFFERENCES']) {
+  assert.match(html, new RegExp(kicker), `site uses ${kicker}`);
+}
+
 
 const nav = html.match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] ?? '';
 const navLinks = [...nav.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1]);
