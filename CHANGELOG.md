@@ -7,12 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.1.12] - 2026-09-10
+- Release of the behavioral-eval batch: router re-injection guard, behavioral eval tier + two recorded runs, and the chat-receipt skim test (all detailed under the dated entries below). Tag tracks master head per standing Ruling.
 - Router re-injection guard (2026-09-10): `scripts/reinject.mjs` derives the router's discipline floor (Iron Laws + MANDATORY section) from the live AGENTS.md — the injected block cannot drift from the rules it re-injects — and prints it for re-injection after compaction/resume on harnesses that drop AGENTS.md (fail-open CLI; harnesses without hooks re-print it by hand). Router §7 rule + porting-checklist item 9 landed; fail-first tested by `scripts/reinject.test.mjs`, wired into pre-commit.
 - Behavioral eval tier (2026-09-10): `scripts/behavioral-eval/` — the second tier of proof the static checks cannot provide (they prove rules exist; this proves rules change behavior). Weighted 11-dimension rubric with a mandatory `error-causal-honesty` anti-fabrication dimension, condition-blind judge template, 10 scenario cases, offline validator (`behavioral-eval.mjs`) fail-first tested, and an env-driven external runner (`run.mjs`, any Anthropic-compatible endpoint) with per-trial A/B label shuffling, lenient judge-JSON parsing, and transcripts archived before judging so judge failures never burn responder output.
 - First behavioral eval results (2026-09-10, `RESULTS.md`): two full runs (10 cases × 2 conditions × 3 trials, GLM judge). Weighted delta **+0.445** both runs (4.078→4.522; 4.113→4.558); win rate 20/29 → 22/30 after fixes. Gains concentrated in framework-core dimensions: test-first +1.7–2.4, spec-gate +1.1–1.6, error-causal-honesty +1.0–1.1, state-restatement +1.1, completion-honesty +0.7–0.9. Run 1 regressions (tangent-suppression −1.93, artifact-target −0.41) were fixed in the candidate prefix and verified closed/improved by the run 2 re-run; the residual rubric-vs-shape tension is recorded, not re-weighted away.
-
-### Changed
 - Chat receipt skim test (2026-09-10): a receipt is built to be read at a skim — a reader who reads only the first and last line must know what just happened and what happens next; "want me to X?" is a hanging offer, not a Next. Enforced mechanically by eval check #26.
 
 ### Fixed
