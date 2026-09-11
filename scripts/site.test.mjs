@@ -24,7 +24,7 @@ assert.match(html, /An agent can sound done and still be wrong\. trust-no-agent 
 
 
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1\s*\{[^}]*line-height:\s*0\.98/i, 'mobile hero headline has controlled line spacing');
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1 em\s*\{[^}]*margin-top:\s*0\.3rem/i, 'mobile warning line has readable separation');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1 em\s*\{[^}]*margin-top:\s*0(?:;|\s)/i, 'mobile warning line has no added gap');
 
 
 
