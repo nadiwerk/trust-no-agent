@@ -36,7 +36,8 @@ assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*blo
 assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
 
 
-assert.match(html, /<ol class="chain">\s*<li><span class="n">01\.<\/span>/, 'chain uses explicit law-style number text');
+assert.match(html, /<ol class="chain">\s*<li><span class="n">01<\/span>/, 'chain uses number text without punctuation');
+
 assert.doesNotMatch(html, /\.chain li::before/, 'chain has no generated bullet or counter marker');
 
 
