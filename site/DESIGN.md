@@ -70,7 +70,8 @@ trigger.
   and install command.
 - Navigation keeps one external destination, the real GitHub repository. The five
   concepts remain discoverable through the page's reading order. The logo and
-  GitHub link share a centered navbar alignment. The skip link targets `#main`.
+  GitHub link share a centered navbar alignment, explicit matching line-height,
+  and the same 44px interaction box. The skip link targets `#main`.
 
 ## Motion and accessibility
 
