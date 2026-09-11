@@ -12,7 +12,11 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
   assert.match(html.toLowerCase(), new RegExp(heading), `site names ${heading}`);
 }
 
-assert.match(html, /header \.wrap\s*\{[^}]*align-items:\s*center/i, 'navbar items share a centered alignment');
+assert.match(html, /header\s*\{[^}]*position:\s*sticky/i, 'navbar stays visible while scrolling');
+assert.match(html, /header\s*\{[^}]*top:\s*0/i, 'sticky navbar anchors to the viewport top');
+assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is centered');
+assert.match(html, /\.hero \.lead\s*\{[^}]*margin:\s*1\.6rem\s+auto\s+0/i, 'hero lead stays centered');
+
 assert.match(html, /\.brand\s*\{[^}]*line-height:\s*1\.2/i, 'brand has explicit navbar line-height');
 assert.match(html, /nav a\s*\{[^}]*display:\s*inline-flex/i, 'GitHub link uses a matching flex box');
 assert.match(html, /nav a\s*\{[^}]*padding:\s*0(?:;|\s)/i, 'GitHub link has no extra vertical padding');

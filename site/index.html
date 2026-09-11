@@ -27,19 +27,19 @@ code, pre { font-family: var(--mono); }
 .skip { position: absolute; left: 1rem; top: -4rem; padding: 0.7rem 1rem; background: var(--green); color: var(--bg); font-weight: 700; z-index: 5; }
 .skip:focus { top: 1rem; }
 .wrap { width: min(100% - 2.5rem, 48rem); margin-inline: auto; }
-header { border-bottom: 1px solid var(--rule); padding: 1rem 0; }
+header { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--rule); padding: 1rem 0; background: var(--bg); }
 header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; font-size: 0.95rem; font-weight: 700; line-height: 1.2; text-decoration: none; white-space: nowrap; }
 .brand::before, .prompt::before, .term .cmd::before { color: var(--green); content: "$ "; }
 nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.9rem 1.3rem; }
 nav a { display: inline-flex; align-items: center; padding: 0; font-size: 0.82rem; line-height: 1.2; text-underline-offset: 3px; }
 main { overflow: hidden; }
-.hero { padding: 5.5rem 0 5rem; }
+.hero { padding: 5.5rem 0 5rem; text-align: center; }
 .prompt { color: var(--grey); font-size: 0.88rem; }
 .hero h1 { max-width: 18ch; margin-top: 1rem; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.08; letter-spacing: -0.04em; }
 .hero h1 em { color: var(--green); font-style: normal; }
-.hero .lead { max-width: 62ch; margin-top: 1.6rem; color: var(--grey); font-size: 1rem; }
-.cta { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
+.hero .lead { max-width: 62ch; margin: 1.6rem auto 0; color: var(--grey); font-size: 1rem; }
+.hero .cta { justify-content: center; }
 .btn { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0.7rem 1rem; border: 1px solid var(--grey); border-radius: 4px; font-size: 0.86rem; line-height: 1.2; text-decoration: none; }
 .btn:hover { border-color: var(--green); }
 .btn.primary { border-color: var(--green); background: var(--green); color: var(--bg); font-weight: 700; }
