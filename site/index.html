@@ -84,7 +84,7 @@ section h2::before { color: var(--green); content: "## "; }
 .ledger-layout { display: grid; gap: 2rem; margin-top: 1.8rem; }
 .file { border: 1px solid var(--rule); background: var(--bg-deep); }
 .file-head { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--rule); padding: 0.7rem 1rem; color: var(--grey); font-size: 0.78rem; }
-.file pre { overflow-x: auto; padding: 1rem; color: var(--grey); font-size: 0.8rem; line-height: 1.9; }
+.file pre { overflow-x: hidden; overflow-wrap: anywhere; white-space: pre-wrap; padding: 1rem; color: var(--grey); font-size: 0.8rem; line-height: 1.9; }
 .file .bright { color: var(--ink); }
 .file .green { color: var(--green); }
 .ledger-copy { min-width: 0; color: var(--grey); font-size: 0.9rem; }

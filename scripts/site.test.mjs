@@ -80,8 +80,10 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[
 
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*grid-column:\s*1/i, 'mobile command text stays in the scroll column');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.copy-button\s*\{[^}]*margin:\s*0(?:;|\s)/i, 'copy button stays reachable on mobile');
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.file pre\s*\{[^}]*white-space:\s*pre-wrap/i, 'mobile ledger text wraps');
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.file pre\s*\{[^}]*overflow-x:\s*hidden/i, 'mobile ledger hides horizontal overflow');
+assert.match(html, /\.file pre\s*\{[^}]*white-space:\s*pre-wrap/i, 'ledger excerpt wraps instead of scrolling');
+assert.match(html, /\.file pre\s*\{[^}]*overflow-x:\s*hidden/i, 'ledger excerpt has no horizontal overflow');
+assert.match(html, /\.file pre\s*\{[^}]*overflow-wrap:\s*anywhere/i, 'ledger excerpt wraps long tokens');
+
 
 
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.ledger-layout\s*\{[^}]*display:\s*block/i, 'ledger panels stack on mobile');
