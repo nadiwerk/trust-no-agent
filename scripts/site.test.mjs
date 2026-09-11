@@ -69,7 +69,8 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*grid-column:\s*1/i, 'mobile command text stays in the scroll column');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.copy-button\s*\{[^}]*margin:\s*0(?:;|\s)/i, 'copy button stays reachable on mobile');
 assert.match(html, /<div class="ledger-copy">\s*<p>[\s\S]*?<\/p>\s*<p>[\s\S]*?<\/p>\s*<\/div>/, 'ledger explanation has two paragraphs');
-assert.doesNotMatch(html, /<div class="ledger-copy">[\s\S]*?<p>[\s\S]*?<\/p>\s*<p>[\s\S]*?<\/p>\s*<p>/, 'ledger explanation has no third paragraph');
+assert.match(html, /permanent router rule instead of a one-time correction\. Memory is not a claim that the work is right\. It is a record of what was checked, what was decided, and what still needs a human\./, 'ledger second paragraph is concise');
+
 
 assert.match(html, /\.install-grid > \.prose\s*\{[^}]*margin-inline:\s*0/i, 'install explanation has no object blocking its line');
 
