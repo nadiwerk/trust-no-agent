@@ -84,7 +84,7 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.ledger-layout\s*\{[^}
 assert.match(html, /@media \(min-width:\s*52rem\)[\s\S]*?\.ledger-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/i, 'ledger keeps equal desktop columns');
 
 
-assert.match(html, /\.ledger-copy\s*\{[^}]*min-width:\s*0/i, 'ledger copy can shrink inside its column');
+assert.match(html, /\.install-grid > \.prose \.cta\s*\{[^}]*margin:\s*0\.8rem\s+0\s+1rem/i, 'install button has vertical breathing room');
 
 
 assert.match(html, /permanent router rule instead of a one-time correction\. Memory is not a claim that the work is right\. It is a record of what was checked, what was decided, and what still needs a human\./, 'ledger second paragraph is concise');
