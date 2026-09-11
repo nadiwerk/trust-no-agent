@@ -31,7 +31,11 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
-assert.match(html, /<div class="core-line"[\s\S]*?<p><b>claim<\/b>\s*the agent says what changed<\/p>/, 'core claim reads inline');
+assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
+
+assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
+
+
 assert.match(html, /\.core-line b\s*\{[^}]*display:\s*inline/i, 'core labels stay inline with descriptions');
 
 

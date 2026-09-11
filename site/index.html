@@ -59,7 +59,7 @@ section h2::before { color: var(--green); content: "## "; }
 .core-line p { padding: 1rem 1.1rem; background: var(--bg-soft); }
 .core-line b { display: inline; margin-right: 0.8rem; color: var(--green); font-size: 0.85rem; }
 .term { margin-top: 1.5rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 5px; background: var(--bg-soft); padding: 1.2rem 1.25rem; font-size: 0.82rem; line-height: 1.9; }
-.term .cmd, .term .out { display: block; white-space: pre; }
+.term .cmd, .term .out { white-space: pre; }
 .install-command { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
 .copy-button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; flex: 0 0 auto; border: 1px solid var(--grey); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
 .copy-button:hover, .copy-button:focus-visible { border-color: var(--green); color: var(--green); }
@@ -182,14 +182,10 @@ footer a { color: var(--grey); }
       <h2>the verification gates</h2>
       <p class="note">Four commands turn “done” from a tone of voice into an observable result. Exit zero is the minimum boundary, not a promise that intent was correct.</p>
       <div class="term" aria-label="Repository verification output">
-        <span class="cmd">node scripts/validate.mjs</span>
-        <span class="ok">OK: 3 categories, 11 skills, no structural errors.</span>
-        <span class="cmd">node scripts/eval.mjs</span>
-        <span class="ok">OK: 11 skills, invocation axis consistent, 0 warnings.</span>
-        <span class="cmd">node scripts/tickets.test.mjs</span>
-        <span class="ok">OK: ticket-graph validator behaves as specified.</span>
-        <span class="cmd">node scripts/doctor.test.mjs</span>
-        <span class="ok">OK: doctor behaves as specified.</span>
+        <span class="cmd">node scripts/validate.mjs</span> <span class="ok">OK: 3 categories, 11 skills, no structural errors.</span>
+        <span class="cmd">node scripts/eval.mjs</span> <span class="ok">OK: 11 skills, invocation axis consistent, 0 warnings.</span>
+        <span class="cmd">node scripts/tickets.test.mjs</span> <span class="ok">OK: ticket-graph validator behaves as specified.</span>
+        <span class="cmd">node scripts/doctor.test.mjs</span> <span class="ok">OK: doctor behaves as specified.</span>
         <span class="out">exit 0, or the pre-commit hook rejects the commit.</span>
       </div>
       <p class="gate-note">The gate checks the framework's structure and behavior. It does not pretend to prove your product intent. That distinction is part of the contract.</p>
