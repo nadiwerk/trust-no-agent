@@ -15,7 +15,11 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
 assert.match(html, /header\s*\{[^}]*position:\s*sticky/i, 'navbar stays visible while scrolling');
 assert.match(html, /header\s*\{[^}]*top:\s*0/i, 'sticky navbar anchors to the viewport top');
 assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is centered');
-assert.match(html, /\.hero \.lead\s*\{[^}]*margin:\s*1\.6rem\s+auto\s+0/i, 'hero lead stays centered');
+assert.doesNotMatch(html, /Proof before <em>confidence\.<\/em>/, 'hero confidence has no trailing period');
+assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*62ch/i, 'hero description has a bounded reading width');
+assert.match(html, /\.hero \.cta\s*\{[^}]*justify-content:\s*center/i, 'hero buttons stay centered');
+assert.match(html, /\.hero \.cta\s*\{[^}]*justify-content:\s*center/i, 'hero buttons stay centered');
+
 
 assert.match(html, /\.brand\s*\{[^}]*line-height:\s*1\.2/i, 'brand has explicit navbar line-height');
 assert.match(html, /nav a\s*\{[^}]*display:\s*inline-flex/i, 'GitHub link uses a matching flex box');
