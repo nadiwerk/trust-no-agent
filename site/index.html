@@ -74,8 +74,8 @@ section h2::before { color: var(--green); content: "## "; }
 .chain { list-style: none; counter-reset: stage; margin-top: 2rem; border-left: 2px solid var(--green); padding-left: 1rem; }
 .chain li { counter-increment: stage; position: relative; padding: 0.85rem 0 0.85rem 3.2rem; }
 .chain li + li { border-top: 1px solid var(--rule); }
-.chain li::before { position: absolute; left: 0; top: 0.95rem; color: var(--green); content: counter(stage, decimal-leading-zero); font-size: 0.82rem; font-weight: 700; }
-.chain b { display: inline; margin-right: 0.8rem; color: var(--ink); font-size: 0.95rem; }
+.chain li::before { position: absolute; left: 0; top: 0.95rem; color: var(--green); content: counter(stage, decimal-leading-zero) "."; font-size: 0.82rem; font-weight: 700; }
+.chain b { display: inline; margin-right: 0; color: var(--ink); font-size: 0.95rem; }
 .chain li { color: var(--grey); font-size: 0.86rem; }
 .laws { margin-top: 1.8rem; border-left: 2px solid var(--green); padding-left: 1.2rem; }
 .laws p { padding: 0.8rem 0; color: var(--grey); }

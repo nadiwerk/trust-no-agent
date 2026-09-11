@@ -36,8 +36,11 @@ assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*blo
 assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
 
 
-assert.match(html, /\.chain b\s*\{[^}]*display:\s*inline/i, 'chain names stay inline with descriptions');
-assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0\.8rem/i, 'chain names have law-style separation');
+assert.match(html, /\.chain li::before\s*\{[^}]*content:\s*counter\(stage, decimal-leading-zero\)\s*"\."/i, 'chain numbers include a period');
+assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0/i, 'chain text starts directly after its number');
+
+
+assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0(?:;|\s)/i, 'chain text starts directly after its number');
 
 
 
