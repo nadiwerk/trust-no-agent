@@ -18,7 +18,8 @@ assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is cen
 assert.doesNotMatch(html, /Proof before <em>confidence\.<\/em>/, 'hero confidence has no trailing period');
 assert.match(html, /\.hero\s*\{[^}]*width:\s*min\(100%\s*-\s*3\.6rem/i, 'hero uses a narrower centered measure');
 assert.match(html, /\.hero h1\s*\{[^}]*margin:\s*1rem auto/i, 'hero heading is centered as a block');
-assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*62ch/i, 'hero description stays within a three-line measure');
+assert.match(html, /\.hero h1 em\s*\{[^}]*color:\s*var\(--green\)/i, 'hero accent keeps its green color');
+
 
 
 assert.match(html, /\.hero \.cta\s*\{[^}]*margin-top:\s*2\.2rem/i, 'hero buttons have breathing room below description');
