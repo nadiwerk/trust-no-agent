@@ -36,7 +36,12 @@ assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*blo
 assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
 
 
-assert.match(html, /\.chain li::before\s*\{[^}]*content:\s*counter\(stage, decimal-leading-zero\)\s*"\."/i, 'chain numbers include a period');
+assert.match(html, /<ol class="chain">\s*<li><span class="n">01\.<\/span>/, 'chain uses explicit law-style number text');
+assert.doesNotMatch(html, /\.chain li::before/, 'chain has no generated bullet or counter marker');
+
+
+
+
 assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0/i, 'chain text starts directly after its number');
 
 
