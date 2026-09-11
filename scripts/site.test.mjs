@@ -18,7 +18,8 @@ assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is cen
 assert.match(html, /<h1>agent said &quot;done&quot;\s*<em>it wasn't!<\/em><\/h1>/i, 'hero warning uses lowercase it');
 
 assert.match(html, /\.hero\s*\{[^}]*width:\s*min\(100%\s*-\s*3\.6rem/i, 'hero uses a narrower centered measure');
-assert.match(html, /\.hero h1\s*\{[^}]*margin:\s*1rem auto/i, 'hero heading is centered as a block');
+assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*52ch/i, 'hero subtitle uses a two-line reading width');
+
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1 em\s*\{[^}]*display:\s*block/i, 'mobile warning phrase moves below headline');
 
 
