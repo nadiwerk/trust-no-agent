@@ -55,9 +55,10 @@ assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0(?:;|\s)/i, 'chain text 
 
 assert.doesNotMatch(html, /<li><b>breakpoint<\/b><span>/, 'chain first item has no forced line break');
 
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[^}]*flex-wrap:\s*wrap/i, 'install command wraps on mobile');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[^}]*display:\s*block/i, 'install command uses a stacked mobile layout');
+
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*white-space:\s*normal/i, 'install command text wraps on mobile');
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.copy-button\s*\{[^}]*margin-left:\s*auto/i, 'copy button stays reachable on mobile');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.copy-button\s*\{[^}]*margin:\s*0\.9rem\s+0\s+0\s+auto/i, 'copy button stays reachable on mobile');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-grid > \.prose\s*\{[^}]*width:\s*100%/i, 'install explanation fits mobile width');
 
 
