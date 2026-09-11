@@ -93,9 +93,12 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.ledger-layout\s*\{[^}
 assert.match(html, /@media \(min-width:\s*52rem\)[\s\S]*?\.ledger-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/i, 'ledger keeps equal desktop columns');
 
 
-assert.match(html, /\.install-grid > \.prose \.cta\s*\{[^}]*margin:\s*0\.8rem\s+0\s+1rem/i, 'install button has vertical breathing room');
-assert.match(html, /\.install-grid > \.prose \.cta\s*\{[^}]*margin:\s*0\.8rem\s+0\s+1rem/i, 'install button has vertical breathing room');
-assert.match(html, /\.install-grid > \.prose \.cta\s*\{[^}]*margin:/i, 'install button spacing is independent');
+assert.match(html, /\.install-grid > \.prose\s*\{[^}]*max-width:\s*none[^}]*margin-inline:\s*0/i, 'install explanation fills its column without an object');
+
+
+assert.doesNotMatch(html, /\.install-grid > \.prose\s*\{[^}]*max-width:\s*42rem/i, 'install explanation has no desktop cap blocking its line');
+
+
 
 
 
