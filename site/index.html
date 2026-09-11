@@ -89,7 +89,7 @@ section h2::before { color: var(--green); content: "## "; }
 .file pre { overflow-x: auto; padding: 1rem; color: var(--grey); font-size: 0.8rem; line-height: 1.9; }
 .file .bright { color: var(--ink); }
 .file .green { color: var(--green); }
-.ledger-copy { color: var(--grey); font-size: 0.9rem; }
+.ledger-copy { min-width: 0; color: var(--grey); font-size: 0.9rem; }
 .ledger-copy p + p { margin-top: 1rem; }
 .gate-note { margin-top: 1.2rem; border-left: 2px solid var(--green); padding-left: 1rem; color: var(--grey); font-size: 0.9rem; }
 .table-wrap { overflow-x: auto; margin-top: 1.5rem; }
@@ -106,7 +106,7 @@ footer { border-top: 1px solid var(--rule); padding: 1.5rem 0 2.5rem; color: var
 footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
 footer a { color: var(--grey); }
 @media (min-width: 52rem) {
-  .ledger-layout { grid-template-columns: 1.15fr 0.85fr; align-items: start; }
+  .ledger-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 }
 @media (max-width: 40rem) {
   body { font-size: 15px; }
