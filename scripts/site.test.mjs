@@ -15,6 +15,8 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
 assert.match(html, /header \.wrap\s*\{[^}]*align-items:\s*center/i, 'navbar items share a centered alignment');
 assert.match(html, /\.brand\s*\{[^}]*line-height:\s*1\.2/i, 'brand has explicit navbar line-height');
 assert.match(html, /nav a\s*\{[^}]*display:\s*inline-flex/i, 'GitHub link uses a matching flex box');
+assert.match(html, /nav a\s*\{[^}]*padding:\s*0(?:;|\s)/i, 'GitHub link has no extra vertical padding');
+assert.doesNotMatch(html, /nav a\s*\{[^}]*min-height:\s*44px/i, 'GitHub link does not force a taller navbar');
 
 
 const nav = html.match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] ?? '';

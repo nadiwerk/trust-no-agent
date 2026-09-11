@@ -32,7 +32,7 @@ header .wrap { display: flex; align-items: center; justify-content: space-betwee
 .brand { display: inline-flex; align-items: center; font-size: 0.95rem; font-weight: 700; line-height: 1.2; text-decoration: none; white-space: nowrap; }
 .brand::before, .prompt::before, .term .cmd::before { color: var(--green); content: "$ "; }
 nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.9rem 1.3rem; }
-nav a { display: inline-flex; align-items: center; min-height: 44px; font-size: 0.82rem; line-height: 1.2; text-underline-offset: 3px; }
+nav a { display: inline-flex; align-items: center; padding: 0; font-size: 0.82rem; line-height: 1.2; text-underline-offset: 3px; }
 main { overflow: hidden; }
 .hero { padding: 5.5rem 0 5rem; }
 .prompt { color: var(--grey); font-size: 0.88rem; }
@@ -103,7 +103,7 @@ footer a { color: var(--grey); }
   .wrap { width: min(100% - 1.8rem, 48rem); }
   header .wrap { align-items: flex-start; }
   nav { gap: 0.5rem 0.8rem; }
-  nav a { padding: 0.5rem 0; }
+  nav a { padding: 0; }
   .hero { padding: 3rem 0 3.5rem; }
   .hero h1 { font-size: clamp(1.9rem, 11vw, 3rem); }
   section { padding: 3rem 0; }
