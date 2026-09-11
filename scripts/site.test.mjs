@@ -31,7 +31,11 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
-assert.match(html, /<li><b>breakpoint<\/b>\s*surface decisions before code makes them expensive<\/li>/, 'chain first item reads inline');
+assert.match(html, /<div class="core-line"[\s\S]*?<p><b>claim<\/b>\s*the agent says what changed<\/p>/, 'core claim reads inline');
+assert.match(html, /\.core-line b\s*\{[^}]*display:\s*inline/i, 'core labels stay inline with descriptions');
+
+
+
 assert.doesNotMatch(html, /<li><b>breakpoint<\/b><span>/, 'chain first item has no forced line break');
 
 assert.doesNotMatch(html, /\.install-grid[^}]*grid-template-columns|\.ledger-layout,\s*\.install-grid\s*\{[^}]*grid-template-columns/i, 'install content stays in one reading column');
