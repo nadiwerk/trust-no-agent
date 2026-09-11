@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
 
-assert.match(html, /<link rel=["']icon["'][^>]+href=["']favicon\.svg["']/i, 'site declares favicon');
+assert.match(html, /<link rel=["']icon["'][^>]+href=["']favicon\.png["']/i, 'site declares supplied favicon');
 
 const requiredIds = ['core', 'chain', 'gates', 'laws', 'ledger'];
 for (const id of requiredIds) {
