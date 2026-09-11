@@ -16,8 +16,8 @@ assert.match(html, /header\s*\{[^}]*position:\s*sticky/i, 'navbar stays visible 
 assert.match(html, /header\s*\{[^}]*top:\s*0/i, 'sticky navbar anchors to the viewport top');
 assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is centered');
 assert.doesNotMatch(html, /Proof before <em>confidence\.<\/em>/, 'hero confidence has no trailing period');
-assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*62ch/i, 'hero description has a bounded reading width');
-assert.match(html, /\.hero \.cta\s*\{[^}]*justify-content:\s*center/i, 'hero buttons stay centered');
+assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*78ch/i, 'desktop hero description has a three-line reading width');
+assert.match(html, /\.hero \.cta\s*\{[^}]*margin-top:\s*2\.2rem/i, 'hero buttons have breathing room below description');
 assert.match(html, /\.hero \.cta\s*\{[^}]*justify-content:\s*center/i, 'hero buttons stay centered');
 
 
