@@ -55,14 +55,18 @@ assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0(?:;|\s)/i, 'chain text 
 
 assert.doesNotMatch(html, /<li><b>breakpoint<\/b><span>/, 'chain first item has no forced line break');
 
-assert.match(html, /\.install-command\s*\{[^}]*display:\s*flex/i, 'install command keeps a horizontal control row');
+assert.match(html, /\.install-command\s*\{[^}]*display:\s*grid/i, 'install command uses a bounded row layout');
+assert.match(html, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/i, 'install command reserves a fixed icon column');
+assert.match(html, /\.install-command \.cmd\s*\{[^}]*overflow-x:\s*auto/i, 'install command scrolls only its text column');
+assert.match(html, /\.install-command \.copy-button\s*\{[^}]*grid-column:\s*2/i, 'copy icon stays in the right column');
+
 assert.match(html, /\.install-command \.cmd\s*\{[^}]*overflow-x:\s*auto/i, 'install command scrolls horizontally inside its box');
 assert.match(html, /\.install-command \.copy-button\s*\{[^}]*margin:\s*0/i, 'copy icon stays at the command row edge');
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[^}]*display:\s*flex/i, 'mobile command row remains responsive');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[^}]*display:\s*grid/i, 'mobile command grid remains responsive');
 
 
 
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*white-space:\s*pre/i, 'mobile command preserves one-line scrollable text');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*grid-column:\s*1/i, 'mobile command text stays in the scroll column');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.copy-button\s*\{[^}]*margin:\s*0(?:;|\s)/i, 'copy button stays reachable on mobile');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-grid > \.prose\s*\{[^}]*width:\s*100%/i, 'install explanation fits mobile width');
 
