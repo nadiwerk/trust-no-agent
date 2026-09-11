@@ -36,7 +36,9 @@ assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*blo
 assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
 
 
-assert.match(html, /<ol class="chain">\s*<li><span class="n">01<\/span>/, 'chain uses number text without punctuation');
+assert.match(html, /#core \.prose\s*\{[^}]*max-width:\s*none/i, 'core prose fills the available line');
+assert.match(html, /#core \.prose\s*\{[^}]*margin-inline:\s*0/i, 'core prose stays flush with its section');
+
 
 assert.doesNotMatch(html, /\.chain li::before/, 'chain has no generated bullet or counter marker');
 
