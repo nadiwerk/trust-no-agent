@@ -36,7 +36,9 @@ assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*blo
 assert.doesNotMatch(html, /\.term \.cmd\s*, \.term \.out\s*\{[^}]*display:\s*block/i, 'verification lines are not forced into blocks');
 
 
-assert.match(html, /\.core-line b\s*\{[^}]*display:\s*inline/i, 'core labels stay inline with descriptions');
+assert.match(html, /\.chain b\s*\{[^}]*display:\s*inline/i, 'chain names stay inline with descriptions');
+assert.match(html, /\.chain b\s*\{[^}]*margin-right:\s*0\.8rem/i, 'chain names have law-style separation');
+
 
 
 
