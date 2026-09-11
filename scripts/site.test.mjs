@@ -72,7 +72,8 @@ assert.match(html, /<div class="ledger-copy">\s*<p>[\s\S]*?<\/p>\s*<p>[\s\S]*?<\
 assert.match(html, /permanent router rule instead of a one-time correction\. Memory is not a claim that the work is right\. It is a record of what was checked, what was decided, and what still needs a human\./, 'ledger second paragraph is concise');
 
 
-assert.match(html, /\.install-grid > \.prose\s*\{[^}]*margin-inline:\s*0/i, 'install explanation has no object blocking its line');
+assert.match(html, /<p class="src">[\s\S]*?<\/p>\s*<\/div>\s*<div class="prose">\s*<p>/, 'install copy blocks have one blank line between them');
+
 
 
 
