@@ -68,7 +68,11 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command\s*\{[
 
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cmd\s*\{[^}]*grid-column:\s*1/i, 'mobile command text stays in the scroll column');
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.copy-button\s*\{[^}]*margin:\s*0(?:;|\s)/i, 'copy button stays reachable on mobile');
-assert.match(html, /\.ledger-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/i, 'ledger columns share the command box width');
+assert.match(html, /\.file pre\s*\{[^}]*white-space:\s*pre-wrap/i, 'ledger excerpt wraps on mobile');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.ledger-layout\s*\{[^}]*display:\s*block/i, 'ledger panels stack on mobile');
+assert.match(html, /@media \(min-width:\s*52rem\)[\s\S]*?\.ledger-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/i, 'ledger keeps equal desktop columns');
+
+
 assert.match(html, /\.ledger-copy\s*\{[^}]*min-width:\s*0/i, 'ledger copy can shrink inside its column');
 
 
