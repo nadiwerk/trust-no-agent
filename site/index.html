@@ -116,6 +116,7 @@ footer a { color: var(--grey); }
   nav a { padding: 0; }
   .hero { padding: 3rem 0 3.5rem; }
   .hero h1 { font-size: clamp(1.9rem, 11vw, 3rem); line-height: 0.98; }
+  .hero h1 .quote { display: block; }
   .hero h1 em { display: block; margin-top: 0; }
   section { padding: 3rem 0; }
   .btn { width: 100%; }
@@ -141,7 +142,7 @@ footer a { color: var(--grey); }
 <main id="main">
   <div id="top" class="hero wrap">
     <p class="prompt">cat README.md | head -1</p>
-    <h1>agent said &quot;done&quot; <em>it wasn't!</em></h1>
+    <h1>agent said <span class="quote">&quot;done&quot;</span> <em>it wasn't!</em></h1>
     <p class="lead">An agent can sound done and still be wrong. trust-no-agent turns claims into evidence, receipts, and human sign-off before anything irreversible ships.</p>
     <div class="cta">
       <a class="btn primary" href="#install">Install the router</a>
