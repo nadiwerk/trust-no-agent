@@ -31,7 +31,8 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
-assert.match(html, /npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \./, 'install command matches README');
+assert.doesNotMatch(html, /\.install-grid[^}]*grid-template-columns|\.ledger-layout,\s*\.install-grid\s*\{[^}]*grid-template-columns/i, 'install content stays in one reading column');
+
 assert.match(html, /button[^>]+aria-label=["']copy install command["']/i, 'install command has a copy control');
 assert.match(html, /data-copy=["']npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \.["']/, 'copy control targets the full install command');
 
