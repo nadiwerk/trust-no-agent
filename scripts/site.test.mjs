@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
 
+assert.match(html, /<link rel=["']icon["'][^>]+href=["']favicon\.svg["']/i, 'site declares favicon');
+
 const requiredIds = ['core', 'chain', 'gates', 'laws', 'ledger'];
 for (const id of requiredIds) {
   assert.match(html, new RegExp(`id=["']${id}["']`), `site has #${id}`);

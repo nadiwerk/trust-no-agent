@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>trust-no-agent</title>
+  <rect width="64" height="64" rx="8" fill="#0D1117"/>
+  <path d="M12 18h40M12 32h40M12 46h40" stroke="#3FB950" stroke-width="6" stroke-linecap="square"/>
+  <path d="M18 12v40M32 12v40M46 12v40" stroke="#E6EDF3" stroke-width="3" stroke-linecap="square" opacity=".9"/>
+</svg>
