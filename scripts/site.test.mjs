@@ -62,7 +62,10 @@ assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-command \.cop
 assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.install-grid > \.prose\s*\{[^}]*width:\s*100%/i, 'install explanation fits mobile width');
 
 
-assert.match(html, /button[^>]+aria-label=["']copy install command["']/i, 'install command has a copy control');
+assert.match(html, /\.copy-button\s*\{[^}]*border:\s*0/i, 'copy control is icon-only without a box');
+assert.match(html, /\.copy-button\s*\{[^}]*background:\s*transparent/i, 'copy control keeps transparent icon treatment');
+
+
 assert.match(html, /data-copy=["']npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \.["']/, 'copy control targets the full install command');
 
 for (const command of [
