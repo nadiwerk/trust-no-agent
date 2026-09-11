@@ -31,7 +31,9 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
-assert.match(html, /\.install-grid\s*>\s*\.prose\s*\{[^}]*margin-inline:\s*auto/i, 'install explanation uses balanced horizontal spacing');
+assert.match(html, /\.core-line\s*\{[^}]*max-width:\s*42rem/i, 'core loop uses a balanced content width');
+assert.match(html, /\.core-line\s*\{[^}]*margin:\s*2rem\s+auto\s+0/i, 'core loop is centered in its section');
+assert.match(html, /#core \.prose\s*\{[^}]*max-width:\s*42rem/i, 'core prose uses a balanced content width');
 
 assert.match(html, /button[^>]+aria-label=["']copy install command["']/i, 'install command has a copy control');
 assert.match(html, /data-copy=["']npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \.["']/, 'copy control targets the full install command');

@@ -55,9 +55,10 @@ section h2::before { color: var(--green); content: "## "; }
 .note { color: var(--grey); font-size: 0.9rem; }
 .src { margin-top: 1.2rem; color: var(--grey); font-size: 0.78rem; }
 .src a { color: var(--grey); }
-.core-line { display: grid; gap: 1px; margin-top: 2rem; border: 1px solid var(--rule); background: var(--rule); }
+.core-line { display: grid; max-width: 42rem; gap: 1px; margin: 2rem auto 0; border: 1px solid var(--rule); background: var(--rule); }
 .core-line p { padding: 1rem 1.1rem; background: var(--bg-soft); }
 .core-line b { display: block; margin-bottom: 0.25rem; color: var(--green); font-size: 0.85rem; }
+#core .prose { max-width: 42rem; margin-inline: auto; }
 .term { margin-top: 1.5rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 5px; background: var(--bg-soft); padding: 1.2rem 1.25rem; font-size: 0.82rem; line-height: 1.9; }
 .term .cmd, .term .out { display: block; white-space: pre; }
 .install-command { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
