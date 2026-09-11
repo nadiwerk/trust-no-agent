@@ -62,6 +62,7 @@ section h2::before { color: var(--green); content: "## "; }
 .term { margin-top: 1.5rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 5px; background: var(--bg-soft); padding: 1.2rem 1.25rem; font-size: 0.82rem; line-height: 1.9; }
 .term .cmd, .term .out { white-space: pre; }
 .install-command { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.install-command .cmd { min-width: 0; overflow-x: auto; white-space: pre; }
 .copy-button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
 .copy-button:hover, .copy-button:focus-visible { border-color: var(--green); color: var(--green); }
 .copy-button svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.7; }
@@ -115,9 +116,9 @@ footer a { color: var(--grey); }
   .hero h1 { font-size: clamp(1.9rem, 11vw, 3rem); }
   section { padding: 3rem 0; }
   .btn { width: 100%; }
-  .install-command { display: block; }
-  .install-command .cmd { display: block; white-space: normal; overflow-wrap: anywhere; }
-  .install-command .copy-button { display: flex; margin: 0.9rem 0 0 auto; }
+  .install-command { display: flex; }
+  .install-command .cmd { flex: 1 1 auto; min-width: 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; }
+  .install-command .copy-button { margin: 0; }
   .install-grid > .prose { width: 100%; }
   .file pre { font-size: 0.74rem; }}
 </style>
