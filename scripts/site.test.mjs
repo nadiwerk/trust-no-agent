@@ -20,7 +20,9 @@ assert.match(html, /<h1>agent said &quot;done&quot;\s*<em>it wasn't!<\/em><\/h1>
 assert.match(html, /\.hero\s*\{[^}]*width:\s*min\(100%\s*-\s*3\.6rem/i, 'hero uses a narrower centered measure');
 assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*52ch/i, 'hero subtitle uses a two-line reading width');
 
-assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1 em\s*\{[^}]*display:\s*block/i, 'mobile warning phrase moves below headline');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1\s*\{[^}]*line-height:\s*0\.98/i, 'mobile hero headline has controlled line spacing');
+assert.match(html, /@media \(max-width:\s*40rem\)[\s\S]*?\.hero h1 em\s*\{[^}]*margin-top:\s*0/i, 'mobile warning line has no excessive gap');
+
 
 
 
