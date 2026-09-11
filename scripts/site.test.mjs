@@ -31,6 +31,9 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
+assert.match(html, /<li><b>breakpoint<\/b>\s*surface decisions before code makes them expensive<\/li>/, 'chain first item reads inline');
+assert.doesNotMatch(html, /<li><b>breakpoint<\/b><span>/, 'chain first item has no forced line break');
+
 assert.doesNotMatch(html, /\.install-grid[^}]*grid-template-columns|\.ledger-layout,\s*\.install-grid\s*\{[^}]*grid-template-columns/i, 'install content stays in one reading column');
 
 assert.match(html, /button[^>]+aria-label=["']copy install command["']/i, 'install command has a copy control');

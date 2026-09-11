@@ -75,8 +75,8 @@ section h2::before { color: var(--green); content: "## "; }
 .chain li { counter-increment: stage; position: relative; padding: 0.85rem 0 0.85rem 3.2rem; }
 .chain li + li { border-top: 1px solid var(--rule); }
 .chain li::before { position: absolute; left: 0; top: 0.95rem; color: var(--green); content: counter(stage, decimal-leading-zero); font-size: 0.82rem; font-weight: 700; }
-.chain b { display: block; color: var(--ink); font-size: 0.95rem; }
-.chain span { color: var(--grey); font-size: 0.86rem; }
+.chain b { color: var(--ink); font-size: 0.95rem; }
+.chain li { color: var(--grey); font-size: 0.86rem; }
 .laws { margin-top: 1.8rem; border-left: 2px solid var(--green); padding-left: 1.2rem; }
 .laws p { padding: 0.8rem 0; color: var(--grey); }
 .laws p + p { border-top: 1px solid var(--rule); }
@@ -165,12 +165,12 @@ footer a { color: var(--grey); }
       <h2>the chain</h2>
       <p class="note">Large work crosses one named boundary at a time. The next stage is proposed, not assumed.</p>
       <ol class="chain">
-        <li><b>breakpoint</b><span>surface decisions before code makes them expensive</span></li>
-        <li><b>save-as</b><span>write a spec with acceptance criteria that can fail</span></li>
-        <li><b>fork-it</b><span>slice the spec into tickets with blocking edges</span></li>
-        <li><b>make-it-so</b><span>build test-first and keep repair to two rounds</span></li>
-        <li><b>roast-my-code</b><span>review standards, spec fit, and security separately</span></li>
-        <li><b>ship-log</b><span>append the state so the next session does not guess</span></li>
+        <li><b>breakpoint</b> surface decisions before code makes them expensive</li>
+        <li><b>save-as</b> write a spec with acceptance criteria that can fail</li>
+        <li><b>fork-it</b> slice the spec into tickets with blocking edges</li>
+        <li><b>make-it-so</b> build test-first and keep repair to two rounds</li>
+        <li><b>roast-my-code</b> review standards, spec fit, and security separately</li>
+        <li><b>ship-log</b> append the state so the next session does not guess</li>
       </ol>
       <p class="src">Quick fixes have a shorter route. Test-writing never skips fail-first: a test that passes immediately may only be certifying the wrong behavior.</p>
     </div>
