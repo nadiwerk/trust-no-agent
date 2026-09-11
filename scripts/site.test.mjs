@@ -31,6 +31,10 @@ for (const href of hrefs.filter((href) => href.startsWith('#'))) {
   assert.match(html, new RegExp(`id=["']${href.slice(1)}["']`), `local link ${href} resolves`);
 }
 
+assert.match(html, /npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \./, 'install command matches README');
+assert.match(html, /button[^>]+aria-label=["']copy install command["']/i, 'install command has a copy control');
+assert.match(html, /data-copy=["']npx skills add nadiwerk\/trust-no-agent && cp AGENTS\.md WORKFLOW\.md \.["']/, 'copy control targets the full install command');
+
 for (const command of [
   'node scripts/validate.mjs',
   'node scripts/eval.mjs',

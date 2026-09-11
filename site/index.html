@@ -60,6 +60,13 @@ section h2::before { color: var(--green); content: "## "; }
 .core-line b { display: block; margin-bottom: 0.25rem; color: var(--green); font-size: 0.85rem; }
 .term { margin-top: 1.5rem; overflow-x: auto; border: 1px solid var(--rule); border-radius: 5px; background: var(--bg-soft); padding: 1.2rem 1.25rem; font-size: 0.82rem; line-height: 1.9; }
 .term .cmd, .term .out { display: block; white-space: pre; }
+.install-command { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.copy-button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; flex: 0 0 auto; border: 1px solid var(--grey); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
+.copy-button:hover, .copy-button:focus-visible { border-color: var(--green); color: var(--green); }
+.copy-button svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.copy-button .copied { display: none; }
+.copy-button[data-copied="true"] .copy { display: none; }
+.copy-button[data-copied="true"] .copied { display: inline; }
 .term .cmd { color: var(--ink); }
 .term .out { color: var(--grey); }
 .term .ok { color: var(--green); }
@@ -257,8 +264,13 @@ footer a { color: var(--grey); }
       <div class="install-grid">
         <div>
           <div class="term">
-            <span class="cmd">npx skills add nadiwerk/trust-no-agent</span>
-            <span class="cmd">cp AGENTS.md WORKFLOW.md .</span>
+            <div class="install-command">
+              <span class="cmd">npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .</span>
+              <button class="copy-button" type="button" aria-label="copy install command" data-copy="npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .">
+                <svg class="copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1"/><path d="M5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1"/></svg>
+                <svg class="copied" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+              </button>
+            </div>
           </div>
           <p class="src">The first <code>npx</code> run executes third-party code. Verify the package with <code>npm view skills</code> before trusting it.</p>
         </div>
@@ -276,5 +288,17 @@ footer a { color: var(--grey); }
     <span><a href="https://github.com/nadiwerk/trust-no-agent/blob/master/CHANGELOG.md">changelog</a> · <a href="https://github.com/nadiwerk/trust-no-agent/blob/master/SECURITY.md">security</a></span>
   </div>
 </footer>
+<script>
+  document.querySelector('.copy-button').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    try {
+      await navigator.clipboard.writeText(button.dataset.copy);
+      button.dataset.copied = 'true';
+      window.setTimeout(() => { button.dataset.copied = 'false'; }, 1600);
+    } catch {
+      button.dataset.copied = 'false';
+    }
+  });
+</script>
 </body>
 </html>
