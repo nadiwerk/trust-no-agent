@@ -15,7 +15,8 @@ for (const heading of ['the core', 'the chain', 'the verification gates', 'the i
 assert.match(html, /header\s*\{[^}]*position:\s*sticky/i, 'navbar stays visible while scrolling');
 assert.match(html, /header\s*\{[^}]*top:\s*0/i, 'sticky navbar anchors to the viewport top');
 assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is centered');
-assert.doesNotMatch(html, /Proof before <em>confidence\.<\/em>/, 'hero confidence has no trailing period');
+assert.match(html, /<h1>agent said &quot;done&quot;\s*<em>It wasn't!<\/em><\/h1>/i, 'hero uses the requested warning headline');
+
 assert.match(html, /\.hero\s*\{[^}]*width:\s*min\(100%\s*-\s*3\.6rem/i, 'hero uses a narrower centered measure');
 assert.match(html, /\.hero h1\s*\{[^}]*margin:\s*1rem auto/i, 'hero heading is centered as a block');
 assert.match(html, /\.hero h1 em\s*\{[^}]*color:\s*var\(--green\)/i, 'hero accent keeps its green color');
