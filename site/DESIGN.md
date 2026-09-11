@@ -20,9 +20,8 @@ The page sells five connected ideas in this order:
 4. **The iron laws**: four boundaries protect fail-first testing, root-cause investigation, receipts, and human sign-off.
 5. **The ledger**: `.trust/progress.txt` carries state, rulings, recipes, and open evidence across sessions.
 
-The install section stays in one reading column. Its explanatory prose is capped
-and centered beneath the command so it does not sit flush against the left edge
-with a large blank field beside it.
+The remaining comparison and install sections support the decision without adding
+feature-card repetition, social proof, or invented product metrics.
 
 ## Why this direction (R-21: the reason is written)
 
