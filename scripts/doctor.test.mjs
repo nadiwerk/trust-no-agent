@@ -9,6 +9,7 @@
  * test exercises the decision logic directly so fixture dates are deterministic.
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
+import { ledgerVerdict } from './ledger-audit.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -131,3 +132,42 @@ console.log('\nOK: doctor C5 behaves as specified.');
   const res = checkStale({ installedVersion: '0.1.10', upstreamVersion: '' });
   check('unknown-upstream is unknown', res.level === 'unknown', JSON.stringify(res));
 }
+
+// ---- ledgerVerdict (three-valued ledger-audit verdict, spec D8/AC7/AC8) ----
+// The operator must be able to tell "checked and clean" from "could not look".
+// Before this function existed, doctor printed an unqualified "ledger audit
+// clean" whenever findings.length === 0 — including when the audit was blind.
+
+// 13. No findings, no gaps → clean
+{
+  const res = ledgerVerdict({ findings: [], gaps: [] });
+  check('verdict clean when nothing found and nothing unprovable', res.level === 'clean', JSON.stringify(res));
+}
+
+// 14. Findings present → findings (WARN level, never FAIL)
+{
+  const res = ledgerVerdict({ findings: [{ date: '2026-09-08', kind: 'loaded-gap', message: 'x' }], gaps: [] });
+  check('verdict findings when findings exist', res.level === 'findings', JSON.stringify(res));
+  check('verdict findings is warn-level', res.warn === true, JSON.stringify(res));
+}
+
+// 15. AC8 — an all-undated legacy ledger yields unprovable as WARN, never FAIL
+{
+  const res = ledgerVerdict({ findings: [], gaps: [{ date: null, kind: 'coverage-gap', reason: 'x' }] });
+  check('verdict unprovable for a gap-only ledger', res.level === 'unprovable', JSON.stringify(res));
+  check('unprovable is warn-level', res.warn === true, JSON.stringify(res));
+  check('unprovable message prints the gap count', /\b1\b/.test(res.message), res.message);
+}
+
+// 16. Findings AND gaps → findings wins the headline but the gap count is shown
+{
+  const res = ledgerVerdict({
+    findings: [{ date: '2026-09-08', kind: 'loaded-gap', message: 'x' }],
+    gaps: [{ date: null, kind: 'coverage-gap', reason: 'a' }, { date: null, kind: 'coverage-gap', reason: 'b' }],
+  });
+  check('verdict names findings when both exist', res.level === 'findings', JSON.stringify(res));
+  check('verdict message still reports the unprovable count', /\b2\b/.test(res.message), res.message);
+}
+
+if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
+console.log('\nOK: doctor decision logic behaves as specified.');

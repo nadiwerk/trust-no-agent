@@ -28,6 +28,8 @@ Every completed unit of work gets a ledger entry — before starting the next on
 ## Log Format
 
 ```markdown
+## <YYYY-MM-DD>
+
 ### Session Summary - <short title>
 - <Modified/Created/Fixed> '<path/file>' - <short description of the change>
 - Loaded: <MANDATORY skill used, e.g. "expect-fail"; omit only for work outside all three domains>
@@ -43,6 +45,8 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - [x] **Performance**: no N+1 in loops, no heavy synchronous work in render path
 - [x] **Security**: no secrets in source, user input validated, no sensitive data in logs
 ```
+
+**The date header is mandatory and load-bearing.** Every entry opens with a `## <YYYY-MM-DD>` date header — same date as the entry's index line. The ledger audit (`scripts/ledger-audit.mjs`) and the corrective-tier grace check (`scripts/corrective-tier.mjs`) attach a date to each entry from that header; an entry without one is reported as an unprovable coverage gap, not audited. The date lives in the ledger (self-contained), the `.trust/index.md` one-liner stays the recovery shortcut — the index is not the date authority. The invariant is enforced mechanically by `scripts/eval.mjs` check 27, so it cannot regress to a blind "clean" silently.
 
 Mark `[x]` when checked, or `[ ]` + a one-line reason when skipped. Never skip silently. The four checkboxes compose into the verdict: the entry is **loggable only when every dimension is answered** — all `[x]`, or a `[ ]` that carries its one-line reason. A self-review with any unanswered dimension is a claim, not a record.
 

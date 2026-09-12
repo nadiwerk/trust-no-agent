@@ -21,9 +21,17 @@
  *     (screenshot/mockup/reference) without a literal `Context confirmed:`
  *     restatement line (Iron Law 1: shared understanding before action).
  *
+ * Entry model (writer/reader reconciliation, 2026-09-12). Entries are delimited
+ * by `### <heading>` lines and inherit the nearest preceding `## YYYY-MM-DD`
+ * date header. An entry with no preceding date header is unprovable: it is
+ * returned as a coverage gap (never silently dropped, never a finding), so a
+ * blind audit is distinguishable from a clean one. This is the fix for the
+ * original blindness — the writer (ship-log) wrote no date headers while the
+ * reader split on them, so real ledgers audited as vacuously clean.
+ *
  * Grace/recency window and degrade doctrine mirror corrective-tier.mjs:
- * findings only from the last 14 days of `## YYYY-MM-DD` headers, and an
- * undated ledger degrades to no findings — never hard-fail on unprovable data.
+ * findings only from the last 14 days of dated entries, and an undated ledger
+ * degrades to coverage gaps — never hard-fail on unprovable data.
  */
 
 export const RECENCY_DAYS = 14;
@@ -58,6 +66,14 @@ const CONTEXT_CONFIRMED = 'Context confirmed:';
 // choosing the right skill is judgment (the audit is the boundary, not the judge).
 const LOADED_LINE = /^- Loaded: (\S+)/m;
 
+// A `## YYYY-MM-DD` line sets the current date for the entries that follow it.
+const DATE_HEADER = /^## (\d{4}-\d{2}-\d{2})\s*$/;
+
+// Sub-sections that live INSIDE a parent entry and must not start a new one
+// (otherwise they would register as spurious undated entries → fake gaps).
+// Matched against the full `### <heading>` line.
+const KNOWN_SUBSECTIONS = [/^###\s+Self-Review\b/i, /^###\s+Archive\b/i];
+
 // Churn doctrine (development item #6): 3 reverts on one block in the
 // green-border saga = Iron Law 1 failing repeatedly without a signal. Two
 // reverts naming the same target within the window is the earliest mechanical
@@ -72,15 +88,15 @@ const CHURN_THRESHOLD = 2;
  * @param {string} input.ledgerText full text of .trust/progress.txt
  * @param {Date} input.today reference "now" (injected for determinism)
  * @param {number} [input.recencyDays] audit window in days (default 14)
- * @returns {{findings: Array<{date: string, kind: string, message: string}>}}
+ * @returns {{findings: Array<{date: string, kind: string, message: string}>,
+ *            gaps: Array<{date: null, kind: 'coverage-gap', reason: string}>,
+ *            stats: object}}
  */
 export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
   const findings = [];
-  if (!ledgerText.trim()) return { findings, stats: emptyStats() };
+  if (!ledgerText.trim()) return { findings, gaps: [], stats: emptyStats() };
 
-  // Split into `## YYYY-MM-DD` dated sections; undated text is ignored
-  // (degrade, never hard-fail on unprovable data).
-  const sections = ledgerText.split(/^## /m).slice(1);
+  const entries = splitEntries(ledgerText);
   const windowStart = today.getTime() - recencyDays * DAY_MS;
 
   // M4 — per-skill Loaded: counts, ledger-wide (not windowed): the historical
@@ -89,16 +105,19 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
   const loadedCounts = {};
   const domainHits = {};
   const revertTargets = {}; // normalized target -> { count, label }
+  const gaps = [];
 
-  for (const section of sections) {
-    const nl = section.indexOf('\n');
-    const date = section.slice(0, nl).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+  for (const { date, body } of entries) {
+    // Coverage gap: an entry the audit cannot date. Reported, never dropped —
+    // this is what makes "blind" distinguishable from "clean" (spec D7).
+    if (!date) {
+      gaps.push({ date: null, kind: 'coverage-gap', reason: 'entry has no preceding `## YYYY-MM-DD` date header — unprovable, not audited' });
+      continue;
+    }
+
     const start = new Date(`${date}T00:00:00Z`);
     const age = (today.getTime() - start.getTime()) / DAY_MS;
     if (!Number.isFinite(age) || age > recencyDays || start.getTime() < windowStart) continue;
-
-    const body = section.slice(nl);
 
     for (const m of body.matchAll(/^- Loaded: (\S+)/gm)) {
       const skill = m[1].replace(/[^a-z-]/gi, '');
@@ -167,13 +186,85 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
     domainTouched: DOMAIN_MARKERS.some((m) => (domainHits[m] || 0) > 0),
   }));
 
-  return { findings, stats: { loadedCounts, mandatoryMentions } };
+  return { findings, gaps, stats: { loadedCounts, mandatoryMentions } };
 }
 
 // MANDATORY skills per the router (kept in sync with eval.mjs check 6).
 const MANDATORY_SKILLS = ['expect-fail', 'root-cause', 'receipts'];
 
+/**
+ * The doctor's ledger-audit verdict, extracted so it is testable without
+ * running doctor's CLI side effects (same pattern as corrective-tier.mjs).
+ *
+ * Three values, because "no findings" and "could not look" must not print the
+ * same thing: `clean` (0 findings, 0 gaps), `findings` (≥1 finding), or
+ * `unprovable` (≥1 undated entry). All three are WARN-level for the caller —
+ * the ledger is private working memory, so findings are leads for the next
+ * session, never installation defects (constraint C4).
+ *
+ * @param {{findings: Array, gaps: Array}} input
+ * @returns {{level: 'clean'|'findings'|'unprovable', warn: boolean, message: string}}
+ */
+export function ledgerVerdict({ findings = [], gaps = [] } = {}) {
+  const gapNote = gaps.length
+    ? `; ${gaps.length} undated entr${gaps.length === 1 ? 'y' : 'ies'} (unprovable)`
+    : '';
+  if (findings.length)
+    return {
+      level: 'findings',
+      warn: true,
+      message: `ledger audit: ${findings.length} finding(s)${gapNote} — fix the Loaded:/visual-gate/context gaps per AGENTS.md §2`,
+    };
+  if (gaps.length)
+    return {
+      level: 'unprovable',
+      warn: true,
+      message: `ledger audit: unprovable — ${gaps.length} undated entr${gaps.length === 1 ? 'y' : 'ies'} (no date header); the gate cannot audit undated entries, so "clean" would be a blind claim (give each entry a dated header; see ship-log Log Format)`,
+    };
+  return { level: 'clean', warn: false, message: 'ledger audit clean (Loaded: trail, visual gate, context confirmation)' };
+}
+
 const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_SKILLS.map((skill) => ({ skill, count: 0, domainTouched: false })) });
+
+/**
+ * Split ledger text into entries: each `### <heading>` line starts an entry,
+ * except known sub-sections (`### Self-Review`, `### Archive`) which belong to
+ * the entry above them. Every entry inherits the nearest preceding
+ * `## YYYY-MM-DD` header (null when none appeared yet).
+ *
+ * This mirrors the writer contract (spec D1/D4) — the reader no longer assumes
+ * the date is embedded in a `## `-delimited section, which is what made the
+ * old parser blind to real ledgers.
+ *
+ * @returns {Array<{date: string|null, body: string}>}
+ */
+function splitEntries(ledgerText) {
+  const lines = ledgerText.split('\n');
+  const entries = [];
+  let currentDate = null;
+  let current = null;
+
+  for (const line of lines) {
+    const dateMatch = line.match(DATE_HEADER);
+    if (dateMatch) {
+      currentDate = dateMatch[1];
+      continue;
+    }
+    if (/^###\s+/.test(line)) {
+      if (KNOWN_SUBSECTIONS.some((re) => re.test(line))) {
+        // Sub-section: fold into the parent entry's body (no new entry).
+        if (current) current.body += `\n${line}`;
+        continue;
+      }
+      if (current) entries.push(current);
+      current = { date: currentDate, body: `${line}` };
+      continue;
+    }
+    if (current) current.body += `\n${line}`;
+  }
+  if (current) entries.push(current);
+  return entries;
+}
 
 // Normalize a revert line into a comparable target: strip the boilerplate
 // (revert/reverted/the/spacers, commit hashes) and keep the noun phrase, so

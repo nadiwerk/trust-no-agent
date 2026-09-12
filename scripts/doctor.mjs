@@ -190,13 +190,18 @@ if (existsSync(trust)) {
   // The audit is WARN, not FAIL: the ledger is private working memory and its
   // format is agent-written, so findings are leads for the next session to fix
   // (add the missing line or load the skill), not installation defects. The
-  // decision logic lives in ledger-audit.mjs, tested by ledger-audit.test.mjs.
+  // verdict is three-valued (ledgerVerdict): "clean" and "unprovable" must not
+  // print the same line — a blind audit reported as clean is the false green
+  // this framework exists to prevent. Decision logic lives in ledger-audit.mjs,
+  // tested by ledger-audit.test.mjs + doctor.test.mjs.
   if (existsSync(progressPath)) {
     try {
-      const { auditLedger } = await import('./ledger-audit.mjs');
-      const { findings } = auditLedger({ ledgerText, today: new Date() });
+      const { auditLedger, ledgerVerdict } = await import('./ledger-audit.mjs');
+      const { findings, gaps } = auditLedger({ ledgerText, today: new Date() });
+      const verdict = ledgerVerdict({ findings, gaps });
+      if (verdict.level === 'clean') pass(verdict.message);
+      else warn(verdict.message);
       for (const f of findings) warn(f.message);
-      if (!findings.length) pass('ledger audit clean (Loaded: trail, visual gate, context confirmation)');
     } catch { warn('ledger audit could not run — scripts/ledger-audit.mjs unreadable'); }
   }
 }

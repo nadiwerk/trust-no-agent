@@ -11,6 +11,8 @@
 ## What it looks like
 
 ```markdown
+## 2026-09-08
+
 ### Session Summary - add dead-letter queue to email relay
 - Modified 'src/relay/email.ts' - dead-letter on 3rd retry failure + alert hook
 - Verification: tsc EXIT 0; vitest 12/12 pass (deadletter suite, fresh run)
@@ -18,6 +20,8 @@
 - Recipe: task_type = add-retry-with-dead-letter | steps = agree seam, failing test,
   minimal relay branch, dead-letter store, alert hook, full suite, roast, log
 ```
+
+The `## <YYYY-MM-DD>` date header is mandatory and load-bearing: the ledger audit and the corrective-tier grace check attach a date to each entry from that header, and an entry without one is reported as an unprovable coverage gap instead of being audited (enforced by eval check 27). The date lives in the ledger; the `.trust/index.md` one-liner stays the recovery shortcut.
 
 Plus the 4-dimension self-review — readability, maintainability, performance, security — each `[x]` or `[ ]` with a one-line reason. Never skipped silently: an unanswered dimension makes the entry a claim, not a record.
 

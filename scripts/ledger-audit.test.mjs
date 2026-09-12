@@ -20,9 +20,16 @@ const check = (label, cond, detail = '') => {
 
 const TODAY = new Date('2026-09-09T00:00:00Z');
 
-// Entry template matching the ship-log format the repo actually writes:
-// a date header, then sections, then the per-entry lines the audit reads.
+// Entry template mirroring the writer contract (spec D1): a date header, then
+// an entry heading, then the per-entry lines the audit reads. NOTE: this is
+// the TARGET format — ticket 01 brings ship-log in line with it. Deriving the
+// fixture from the spec's intent (not from today's writer output) is the point:
+// the previous version of this comment claimed the repo already wrote a date
+// header, and that false premise is how the blindness shipped.
 const entry = (lines) => `## 2026-09-08\n\n### Session Summary - unit\n${lines}\n`;
+
+// An entry heading with NO preceding date header — the blindness case.
+const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
 
 // ---- A. Loaded: gap (M1) — a domain-relevant entry without a Loaded: line ----
 
@@ -248,6 +255,116 @@ const entry = (lines) => `## 2026-09-08\n\n### Session Summary - unit\n${lines}\
   const res = auditLedger({ ledgerText: ledger, today: TODAY });
   check('F4 title-only revert mentions are not churn evidence',
     !res.findings.some((f) => f.kind === 'churn'),
+    JSON.stringify(res.findings));
+}
+
+// ---- G. Coverage gaps — an undated entry is reported, never silently dropped ----
+// Spec AC3–AC6. The blindness this fixes: auditLedger split on `## DATE`, so an
+// entry with no date header contributed nothing (not a finding, not a signal) —
+// zero findings and a clean ledger looked identical. A gap is a distinct output
+// (spec D7), never mixed into findings.
+
+// G1. AC3 (RED baseline) — an undated entry yields exactly one coverage gap and
+// zero M1–M5 findings. Before this fix the same input returned no findings and
+// no `gaps` field at all: the gate was blind, not clean.
+{
+  const res = auditLedger({
+    ledgerText: undatedEntry('- Root cause found: selector leaked\n- Committed 91f8ce6'),
+    today: TODAY,
+  });
+  check('G1 undated entry produces exactly one coverage gap',
+    Array.isArray(res.gaps) && res.gaps.length === 1,
+    JSON.stringify(res.gaps));
+  check('G1 gap has the declared shape (date null, kind coverage-gap)',
+    Array.isArray(res.gaps) && res.gaps[0]?.date === null && res.gaps[0]?.kind === 'coverage-gap',
+    JSON.stringify(res.gaps));
+  check('G1 gap is not mixed into findings',
+    !res.findings.some((f) => f.kind === 'coverage-gap'),
+    JSON.stringify(res.findings));
+  // AC3's other half: the undated entry must not fall through to the M1–M5
+  // checks either — the fixture is deliberately domain-relevant, so a regression
+  // that audited it would surface here as a loaded-gap.
+  check('G1 undated entry produces zero M1–M5 findings',
+    res.findings.length === 0,
+    JSON.stringify(res.findings));
+}
+
+// G2. AC4 — an undated first entry followed by a dated in-window entry with a
+// domain marker is NOT dropped: the gap is reported AND the later entry's
+// finding still fires (leading undated text must not shadow the rest).
+{
+  const ledger = [
+    '### Session Summary - old undated unit', '- Committed deadbee', '',
+    '## 2026-09-08', '', '### Session Summary - dated unit', '- Root cause found: selector leaked', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('G2 undated entry reports a gap while the dated entry still audits',
+    res.gaps.length === 1 && res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// G3. AC5 — `### Self-Review (4 Dimensions)` is a sub-section of its parent
+// entry, not a second entry: a dated entry with a Self-Review section yields no
+// gap and no spurious entry.
+{
+  const ledger = [
+    '## 2026-09-08', '', '### Session Summary - unit', '- Loaded: receipts', '- Committed abc1234', '',
+    '### Self-Review (4 Dimensions)', '- [x] **Readability**: clear', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('G3 Self-Review section creates no gap and no extra entry',
+    res.gaps.length === 0,
+    JSON.stringify(res.gaps));
+}
+
+// G4. AC6 — the coverage gap is age-independent (an undated entry is undated
+// however old the document), while a DATED entry older than the recency window
+// produces neither a finding nor a gap (it is out of scope, not unprovable).
+{
+  const undated = auditLedger({ ledgerText: undatedEntry('- Root cause of the ancient bug'), today: TODAY });
+  check('G4 undated entry gaps regardless of age',
+    undated.gaps.length === 1 && !undated.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: undated.gaps, findings: undated.findings }));
+
+  const oldDated = '## 2026-08-01\n\n### Session Summary - unit\n- Root cause of the old bug: it was stale\n- Committed abc1234\n';
+  const res = auditLedger({ ledgerText: oldDated, today: TODAY });
+  check('G4 dated entry outside the window yields neither finding nor gap',
+    res.gaps.length === 0 && !res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// G5. Multiple undated entries each get their own gap — the count is the
+// coverage signal the doctor prints, so it must not collapse to a boolean.
+{
+  const ledger = [
+    '### Session Summary - one', '- did a thing', '',
+    '### Session Summary - two', '- did another thing', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('G5 each undated entry yields its own gap',
+    res.gaps.length === 2,
+    JSON.stringify(res.gaps));
+}
+
+// G6. Refined D4 (Ruling, 2026-09-12): entry identity is ANY `###` heading
+// except the writer contract's known sub-sections — not just `### Session
+// Summary`. The old E/F fixtures use `### S` as the entry heading, and the
+// writer contract (ship-log Log Format) defines exactly two sub-sections
+// (Self-Review, Archive); anything else `###` is an entry heading by contract.
+// A sub-heading inside a DATED entry therefore starts a second entry carrying
+// the SAME date — no gap, bodies split. Locked here so the rule is specified,
+// not accidental.
+{
+  const ledger = [
+    '## 2026-09-08', '', '### Session Summary - unit', '- Loaded: receipts', '- Committed abc1234', '',
+    '### Evidence', '- rendered browser snapshot at 1440px', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: TODAY });
+  check('G6 a non-subsection ### heading starts a same-date second entry (no gap)',
+    res.gaps.length === 0,
+    JSON.stringify(res.gaps));
+  check('G6 the parent entry still audits clean (Loaded: present)',
+    !res.findings.some((f) => f.kind === 'loaded-gap'),
     JSON.stringify(res.findings));
 }
 

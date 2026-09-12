@@ -508,6 +508,27 @@ for (const marker of [
   if (!new RegExp(marker.source).test(chatReceiptText))
     err('docs/chat-receipt.md: missing skim-test rule (first line = verdict/state, last line = one concrete next action)');
 
+// ---- 27. Ship-log writes a per-entry date header (HARD) ----
+// Writer/reader reconciliation (spec `.trust/ledger-audit-fix/spec.md`, 2026-09-12).
+// ledger-audit.mjs and corrective-tier.mjs attach a date to each entry from a
+// preceding `## YYYY-MM-DD` header; ship-log is the writer. Before this check,
+// the writer emitted no date header at all, so the reader split on a marker that
+// never existed — every real ledger audited as vacuously clean (zero findings
+// because zero entries parsed, indistinguishable from a genuinely clean ledger).
+// Encode twice: prose in ship-log's Log Format, this mechanical check for the
+// boundary — the invariant cannot regress back to blindness silently.
+for (const marker of [
+  // The template itself: dated header directly above the entry heading (AC1's
+  // "immediately preceding" — adjacency, not mere presence).
+  /^## <YYYY-MM-DD>\s*\n\s*\n### Session Summary/m,
+  // The prose contract, as a literal phrase (repo doctrine: literal markers,
+  // not loose patterns — a loose /date header/i would pass on prose mention
+  // alone even with the template header gone).
+  /The date header is mandatory/,
+])
+  if (!marker.test(shipLogText))
+    err(`ship-log: missing date-header marker ${marker} (the ledger writer must emit a dated header per entry, or the audit parses nothing and reports a blind "clean")`);
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

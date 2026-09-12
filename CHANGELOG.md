@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Ledger audit blindness closed (2026-09-12): `ship-log` wrote no per-entry date header while `scripts/ledger-audit.mjs` and `scripts/corrective-tier.mjs` parsed `## YYYY-MM-DD` from inside the ledger — so every real ledger audited as vacuously clean (zero findings because zero entries parsed, indistinguishable from a genuinely clean ledger), and the audit's own test asserted the wrong premise ("matches the ship-log format the repo actually writes: a date header"). The writer now emits a `## <YYYY-MM-DD>` header per entry (invariant enforced by eval check 27, HARD); the parser is entry-based and reports undated entries as coverage gaps (`unprovable`) instead of silently dropping them — "blind" is now distinguishable from "clean"; the doctor's ledger verdict is three-valued (`clean` / `findings` / `unprovable`), still WARN, extracted as testable `ledgerVerdict`. Fail-first: the undated-entry fixture was observed failing (no `gaps` field) before the parser change and passing after.
+
 ## [0.1.12] - 2026-09-10
 - Release of the behavioral-eval batch: router re-injection guard, behavioral eval tier + two recorded runs, and the chat-receipt skim test (all detailed under the dated entries below). Tag tracks master head per standing Ruling.
 - Router re-injection guard (2026-09-10): `scripts/reinject.mjs` derives the router's discipline floor (Iron Laws + MANDATORY section) from the live AGENTS.md — the injected block cannot drift from the rules it re-injects — and prints it for re-injection after compaction/resume on harnesses that drop AGENTS.md (fail-open CLI; harnesses without hooks re-print it by hand). Router §7 rule + porting-checklist item 9 landed; fail-first tested by `scripts/reinject.test.mjs`, wired into pre-commit.
