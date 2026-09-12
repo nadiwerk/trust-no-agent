@@ -6,11 +6,13 @@ The agent stops like a debugger breakpoint. Nothing past that line executes unti
 
 ## When this is the skill you need
 
-1. **You handed an agent a one-line request for a big feature.** "Add rate limiting to the API." Ten minutes later the agent has built a Redis-backed limiter with a config DSL when you wanted a simple in-memory counter — because it never asked. `breakpoint` flips this: the agent maps every undecided decision into a decision tree and asks you the whole frontier, round by round, each with its recommended answer.
+1. **You handed an agent a one-line request for a big feature.** "Add rate limiting to the API." Ten minutes later the agent has built a Redis-backed limiter with a config DSL when you wanted a simple in-memory counter — because it never asked. `breakpoint` flips this: the agent maps every undecided decision into a decision tree and asks you the whole frontier, round by round, each with its recommended answer — delivered through the harness's interactive question mechanism (structured prompt, options, recommended default) when one exists, or the numbered `➡️` list as the documented fallback on harnesses without one.
 2. **You want to stress-test your own plan.** You say "interview me" or "stress-test this plan" before committing to a design. The interview surfaces the assumptions you skipped — cheap to fix in conversation, expensive to fix in production.
 3. **A previous session built the wrong thing.** The handoff prompt sounded complete, but three implicit decisions were never written anywhere. `breakpoint`'s serialize-at-pause rule means those decisions get recorded at pause time, so the next session resumes from state, not from a memory of what "seemed agreed."
 
 ## What it looks like
+
+On a harness with an interactive question mechanism, each question arrives as a structured prompt — options to pick from, the recommended one marked, the user's answer captured in place. The example below is the fallback rendering (same content, no interactive channel):
 
 > **Agent:** Round 1 — the open frontier:
 > 1. Token bucket or sliding window? ➡️ *token bucket — cheaper, and you already have a clock dependency*

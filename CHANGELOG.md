@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-12
+
+### Added
+- Breakpoint question-delivery contract (2026-09-12, owner standing order): every user-facing question is delivered through the harness's interactive question mechanism — structured prompt, options, one recommended default — when the harness provides one; the numbered `➡️` list is the documented fallback on harnesses without it. Content contract is identical in both channels (one frontier per round, every question carries a recommendation, user confirmation resumes execution). Enforced by eval check 28 (HARD), verified fail-first.
+
 ### Fixed
 - Ledger audit blindness closed (2026-09-12): `ship-log` wrote no per-entry date header while `scripts/ledger-audit.mjs` and `scripts/corrective-tier.mjs` parsed `## YYYY-MM-DD` from inside the ledger — so every real ledger audited as vacuously clean (zero findings because zero entries parsed, indistinguishable from a genuinely clean ledger), and the audit's own test asserted the wrong premise ("matches the ship-log format the repo actually writes: a date header"). The writer now emits a `## <YYYY-MM-DD>` header per entry (invariant enforced by eval check 27, HARD); the parser is entry-based and reports undated entries as coverage gaps (`unprovable`) instead of silently dropping them — "blind" is now distinguishable from "clean"; the doctor's ledger verdict is three-valued (`clean` / `findings` / `unprovable`), still WARN, extracted as testable `ledgerVerdict`. Fail-first: the undated-entry fixture was observed failing (no `gaps` field) before the parser change and passing after.
 
@@ -224,7 +229,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.12...v0.1.13
 [0.1.7]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.4...v0.1.5

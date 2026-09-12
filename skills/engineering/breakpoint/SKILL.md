@@ -30,6 +30,12 @@ A breakpoint stops execution; what makes the stop *resumable* is the state writt
 
 Write this to the ledger (or the shared state file) at pause time — never reconstruct it at resume time from memory. A pause that serializes its state is a checkpoint; a pause that doesn't is a conversation break. Resume reads what was written, not what is remembered.
 
+## Question delivery — interactive by default
+
+Every user-facing question is delivered through the harness's **interactive question mechanism** — one structured prompt per frontier round, each question carrying concrete options with one recommended default the user can accept or override. This is the repo's default, not a stylistic choice: a question the user must hunt for inside a prose wall gets answered later, partially, or not at all — the same silent-failure class as any rule left to runtime initiative.
+
+**Harness-agnostic fallback:** if the harness has no interactive question mechanism, deliver the frontier as a numbered list with a recommended answer per item (the `➡️` convention above). The *content* contract (one frontier per round, every question carries a recommendation, the user's confirmation resumes execution) is identical in both channels; only the delivery mechanism follows the harness. Portability precedence: `docs/compatibility.md`.
+
 ## Iron Law
 
 ```

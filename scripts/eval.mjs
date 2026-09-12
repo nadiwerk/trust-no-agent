@@ -529,6 +529,24 @@ for (const marker of [
   if (!marker.test(shipLogText))
     err(`ship-log: missing date-header marker ${marker} (the ledger writer must emit a dated header per entry, or the audit parses nothing and reports a blind "clean")`);
 
+// ---- 28. Breakpoint question delivery is interactive-first (HARD) ----
+// Owner standing order (2026-09-12): every user-facing question is delivered as
+// an interactive structured prompt (per-question options with a recommended
+// default) when the harness provides one, not as a prose wall the user must
+// read linearly. The contract is harness-agnostic: interactive is the default
+// channel, the numbered-and-recommended list is the documented fallback — the
+// same split as every other portability boundary (docs/compatibility.md).
+// Encode twice: prose in breakpoint, this mechanical check for the boundary.
+const breakpointText = readFileSync(join(SKILLS, 'engineering', 'breakpoint', 'SKILL.md'), 'utf8');
+for (const marker of [
+  /## Question delivery/,
+  /interactive/i,
+  /numbered list with a recommended answer/i,
+  /harness/i,
+])
+  if (!marker.test(breakpointText))
+    err(`breakpoint: missing question-delivery marker ${marker} (user-facing questions must be interactive-first with a documented numbered fallback, not left to runtime initiative)`);
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
