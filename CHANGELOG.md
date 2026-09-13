@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-13
+
+### Added
+- Scheduled update-check reminder (2026-09-13, full save-as → fork-it → make-it-so chain from owner request): an opt-in OS-level weekly check that turns release detection into a working reminder on every user's machine — `node scripts/update-check-cli.mjs install` registers a Monday-09:00 task (Windows Task Scheduler toast, macOS launchd plist, Linux cron), the check compares the upstream CHANGELOG's highest version against every `.trust/tna-version` stamp under the configured projects root (default `~/projects`, overridable via `--projects-root`; upstream source overridable via `--upstream-url`), writes the report to `update-check.log`, and notifies **only when an install is stale** (all-current and fetch-failure runs log silently). Detection-only by constraint: nothing in the chain ever installs skills or stamps versions. The router's update-reporting obligation now also fires when a session starts on a Monday or when the log names stale installs: the agent opens with the version delta + CHANGELOG entries + consent question, then waits. Config is validated at the trust boundary (https-only URL, no quote/substitution/newline characters) before reaching any scheduler command. Spec with 11 falsifiable acceptance criteria: `docs/specs/scheduled-update-check.md`; fail-first tests at pure-function seams (`scripts/update-check.test.mjs`, `update-delivery.test.mjs`, `update-install.test.mjs`, doctor.test.mjs pattern); three-axis roast findings (incl. a `file://` URL that broke node under the Windows Task Scheduler and nested PowerShell quoting) fixed and verified live (`schtasks /Run` → `LastTaskResult 0`). Uninstall: `node scripts/update-check-cli.mjs uninstall`.
+
 ## [0.1.13] - 2026-09-12
 
 ### Added
