@@ -226,6 +226,22 @@ A reference-style install (Option 2 at the top of this page) needs only `git pul
 
 One honest limit the detection cannot cover: skills are files, but the **router is prose** — an upstream change to AGENTS.md/WORKFLOW.md rules does not propagate into a project's cherry-picked router by re-running any command. The doctor's version warning is the trigger; the update act for the router is a **re-merge** (repeat the adoption steps 1–2 against the new upstream rules), and that is inherently a user-reviewed diff, not a copy.
 
+### Scheduled check (opt-in)
+
+For users who want the reminder without remembering to run doctor: one command registers a weekly OS-level check (detection and reporting only — it never installs or stamps anything):
+
+```bash
+node <trust-no-agent>/scripts/update-check-cli.mjs install
+# options: --projects-root DIR (default ~/projects), --upstream-url URL
+#          (default the nadiwerk/trust-no-agent CHANGELOG)
+```
+
+- **What registers:** a weekly Monday-09:00 task — Windows Task Scheduler, macOS launchd, or Linux cron depending on platform.
+- **What the check does:** reads the upstream CHANGELOG's highest version, scans the projects root for `.trust/tna-version` stamps, writes the report to `update-check.log`, and shows an OS notification **only when an install is stale** (all-current and fetch-failure runs log silently).
+- **Human verify:** after installing, confirm your OS scheduler lists the task (`schtasks /Query /TN "trust-no-agent update-check"` on Windows). The installer prints this reminder.
+- **Uninstall:** `node scripts/update-check-cli.mjs uninstall` — removes the task; delete the log alongside it if you want.
+- **In-session tie-in:** with the check installed, the router's update-reporting obligation also fires on a Monday session or when the log names stale installs — the agent opens with the delta + CHANGELOG entries + consent question, then waits.
+
 ## No-skill-system fallback (any harness reading AGENTS.md)
 
 If the harness has no skill system, nothing is installed: the AGENTS.md trigger matrix states *when* to load each skill, and the agent opens `skills/<name>/SKILL.md` on demand from the checkout. Cost is zero until a trigger fires.
