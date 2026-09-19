@@ -547,6 +547,41 @@ for (const marker of [
   if (!marker.test(breakpointText))
     err(`breakpoint: missing question-delivery marker ${marker} (user-facing questions must be interactive-first with a documented numbered fallback, not left to runtime initiative)`);
 
+// ---- 29. The ledger reader accepts both writer shapes (HARD) ----
+// Origin: 2026-09-19 stress test against a real 6-day adopter ledger (144 date
+// headers, 71 commits). The audit was built and tested against ONE writer shape
+// and produced 67 findings + 127 coverage gaps on a healthy ledger — ~95% of
+// them artifacts of the reader. The second shape is not hypothetical: it is what
+// an adopting project's router prescribes, so the reader must accept it or the
+// audit becomes a false-signal generator in exactly the projects it was built
+// for. Encode twice: prose in docs/installation.md §The ledger contract, this
+// check for the boundary.
+const installationText = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+for (const marker of [
+  /## The ledger contract/,
+  /— Rebrand X/, // the titled-header shape, shown literally
+  /flat bullets/, // the heading-less entry shape
+  /`progress\.txt` at the project root/, // the adopter ledger location
+])
+  if (!marker.test(installationText))
+    err(`docs/installation.md: missing ledger-contract marker ${marker} (the two accepted ledger shapes must be documented where an adopter reads them)`);
+
+// ---- 30. Doctor consumes the M4 blind-spot stat (HARD) ----
+// `auditLedger` computed `stats.mandatoryMentions` and NOTHING read it — the
+// component built to expose the 47-vs-0 blind spot was itself silently dead,
+// which is the exact failure mode AGENTS.md §5 names ("components relying on
+// runtime initiative fail silently; components backed by written artifacts
+// work"). This check is the anti-dead-component guard: a refactor that orphans
+// M4 again fails here instead of shipping quietly.
+const doctorSrc = readFileSync(join(ROOT, 'scripts', 'doctor.mjs'), 'utf8');
+// Match the CALL, not the identifier: an import line alone leaves the stat
+// orphaned exactly as before (found by this check's own RED proof — the first
+// version matched the import and stayed green with the consumer removed).
+if (!/blindSpotWarning\s*\(\s*stats\s*\)/.test(doctorSrc))
+  err('doctor.mjs: M4 blind-spot stat is not consumed (blindSpotWarning(stats) must be CALLED — a computed-but-unread stat is a dead component)');
+if (!existsSync(join(ROOT, 'scripts', 'doctor-checks.mjs')))
+  err('scripts/doctor-checks.mjs missing (hookVerdict / pickLedgerPath / blindSpotWarning decision logic must be testable outside doctor CLI)');
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

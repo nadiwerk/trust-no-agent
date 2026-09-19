@@ -100,7 +100,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
 3. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
-4. `node scripts/doctor.test.mjs` — doctor C5/C6 decision-logic self-test.
+4. `node scripts/doctor.test.mjs` — doctor C2/C4/C5/C6/C7b decision-logic self-test.
 
 If any fails, the PR is not mergeable. Run all four locally before pushing.
 
@@ -123,7 +123,8 @@ trust-no-agent/
 │   ├── tickets.mjs      # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
 │   ├── tickets.test.mjs # fail-first self-test for tickets.mjs (exit 0 or rejected)
 │   ├── corrective-tier.mjs # doctor decision logic: C5 lesson grace + C6 version-stamp staleness
-│   ├── doctor.test.mjs  # fail-first self-test for the C5/C6 logic (exit 0 or rejected)
+│   ├── doctor-checks.mjs # doctor decision logic: C2 hook verdicts, C4 ledger path, C7b M4 blind spots
+│   ├── doctor.test.mjs  # fail-first self-test for the C2/C4/C5/C6/C7b logic (exit 0 or rejected)
 │   ├── doctor.mjs       # adopter install self-check (router, hooks, skills, ledger, version stamp/update detection)
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
 └── .github/workflows/   # CI runs all four gates on every push and PR

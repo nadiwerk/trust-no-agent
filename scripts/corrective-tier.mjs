@@ -28,7 +28,11 @@ const STARVE_MESSAGE =
  */
 export function checkStarve({ ledgerText, lessonsExists, today, graceDays = DEFAULT_GRACE_DAYS }) {
   if (lessonsExists || !ledgerText.trim()) return { level: 'ok', message: '' };
-  const dates = [...ledgerText.matchAll(/^## (\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
+  // Titled headers count too (`## 2026-09-19 — Rebrand X`): the adopter router
+  // writes them, and a reader that only saw bare headers measured no dates on
+  // a real adopter ledger — the grace clock never started and the check warned
+  // forever instead of enforcing. CRLF-safe for the same reason.
+  const dates = [...ledgerText.matchAll(/^##\s*(\d{4}-\d{2}-\d{2})\b/gm)].map((m) => m[1]);
   if (!dates.length) return { level: 'warn', message: STARVE_MESSAGE };
   const oldest = dates.reduce((a, b) => (a < b ? a : b));
   const start = new Date(`${oldest}T00:00:00Z`);

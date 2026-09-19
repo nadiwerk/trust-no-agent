@@ -56,18 +56,95 @@ const VISUAL_FIX_MARKER = 'site/';
 // Literal phrases proving rendered-output evidence (not a CSS/source check).
 const RENDERED_EVIDENCE = ['Rendered evidence:', 'screenshot', 'browser', 'rendered'];
 
-// Literal phrases that make an entry a fix driven by owner visual feedback.
-const VISUAL_FEEDBACK = ['screenshot', 'Owner said', 'owner confirmed', 'mockup', 'diagram'];
+// Owner visual feedback: the vocabulary lives in ONE place. It was three
+// (a list, an ARTIFACT regex, and an inline alternation that had already
+// drifted by missing `bukti visual`) — add a word, edit three regexes, miss one
+// (roast finding 2026-09-19). ARTIFACT_WORDS is the source; the rest derive.
+const ARTIFACT_WORDS = ['screenshot', 'mockup', 'diagram', 'wireframe', 'gambar', 'bukti visual'];
+const ARTIFACT_ALT = ARTIFACT_WORDS.map((w) => w.replace(/ /g, '\\s+')).join('|');
+const ARTIFACT = `(?:${ARTIFACT_ALT})`;
+const VISUAL_FEEDBACK = ARTIFACT_WORDS;
+
+const TITLE = '(?:owner|master)';
+const DELIVERY = '(?:kirim|mengirim|kasih|memberi|melampirkan|attach(?:ed)?|showed|shows|sent|sends|shared)';
+const OWNER_ATTRIBUTION = [
+  // "owner screenshot", "owner's mockup", "Master mockup" — possessive form.
+  // No hyphen allowed: `owner-viewable` is a compound adjective, not ownership.
+  new RegExp(`\\b${TITLE}(?:'s)?\\s+${ARTIFACT}\\b`, 'i'),
+  // "mockup Master", "screenshot dari Master", "gambar milik owner" — artifact
+  // first, human after (the Indonesian word order this ledger actually uses).
+  // The preposition is optional; the trailing lookahead is what keeps the
+  // compound adjective `owner-viewable` out.
+  new RegExp(`\\b${ARTIFACT}\\s+(?:dari|milik|oleh|punya|from)?\\s*${TITLE}(?![-\\w])`, 'i'),
+  // "Master kirim screenshot", "owner sent a mockup" — a delivery verb bridges.
+  new RegExp(`\\b${TITLE}\\s+${DELIVERY}\\b[^.\\n]{0,30}?\\b${ARTIFACT}\\b`, 'i'),
+];
+
+// A REQUEST for a visual artifact is not owner-supplied feedback — the entry is
+// asking, not fixing. Load-bearing, not decorative: it removes exactly one real
+// false positive ("butuh screenshot/lokasi persis … dari Master") from the
+// adopter ledger (verified by neutralizing it: 2 context-gaps → 1).
+const REQUEST_FOR_ARTIFACT = new RegExp(
+  `\\b(?:butuh|perlu|minta|meminta|menunggu|need|needs|needed|requires?|waiting for)\\b[^.\\n]{0,30}?\\b${ARTIFACT}\\b`,
+  'i',
+);
+
+const hasOwnerAttribution = (body) => OWNER_ATTRIBUTION.some((re) => re.test(stripQuoted(body)));
+
+// Backticked text is QUOTED text — a fixture, a rule being discussed, a command.
+// An entry that documents the M3 rule itself ("the canonical `Owner screenshot
+// showed the collision` fixture still fires") is not reporting owner feedback,
+// and the audit cannot tell quote from claim unless quoting is excluded. Found
+// by dogfooding this repo's own ledger entry (2026-09-19). Prose that merely
+// happens to be in backticks is rare in a ledger, so the exclusion is safe:
+// a real report writes the phrase unquoted (regression-tested by I7).
+const stripQuoted = (body) => body.replace(/`[^`\n]*`/g, ' ');
 
 // The literal restatement line that satisfies the confirmation gate.
 const CONTEXT_CONFIRMED = 'Context confirmed:';
 
-// Any `Loaded: <name>` line counts; the audit only checks presence, because
-// choosing the right skill is judgment (the audit is the boundary, not the judge).
-const LOADED_LINE = /^- Loaded: (\S+)/m;
+// A line-start `Loaded:` bullet satisfies the M1 trail — PRESENCE is the bar,
+// because choosing the right skill is judgment (the audit is the boundary, not
+// the judge). An annotation-only bullet ("- Loaded: (tanpa skill MANDATORY —
+// …)") therefore satisfies M1 by design (spec D3); the COUNT is what stays
+// honest, and M4's blind-spot warning is the signal for a trail that never
+// names a skill.
+const LOADED_LINE = /^- Loaded:/m;
 
-// A `## YYYY-MM-DD` line sets the current date for the entries that follow it.
-const DATE_HEADER = /^## (\d{4}-\d{2}-\d{2})\s*$/;
+// The COUNT (M4) parses the line as a list instead of reading one token. The
+// first-token reader undercounted a real adopter ledger 5-8x (126 bullets
+// containing `receipts` counted as 16) because the writer lists skills
+// comma-separated. Tokens must look like skill names — a single lowercase
+// hyphenated word — so annotation text ("tanpa skill MANDATORY", "n/a",
+// "read-only Explore audit") adds no counts.
+const LOADED_LIST_LINE = /^- Loaded:\s*(.*)$/gm;
+const SKILL_TOKEN = /^[a-z][a-z0-9-]*$/;
+
+/**
+ * Parse every `- Loaded:` bullet into skill tokens.
+ * Separators observed in the two real ledgers: `,` (adopter, 153 bullets),
+ * `;` (upstream), `+` and ` / `. Annotation is dropped two ways: a
+ * parenthetical is removed, and anything after a spaced em/en-dash is cut —
+ * the annotation is a note about the load, never a skill name.
+ */
+export function parseLoadedTokens(text) {
+  const tokens = [];
+  for (const m of text.matchAll(LOADED_LIST_LINE)) {
+    const body = m[1].split(/\s[—–]\s/)[0].replace(/\([^)]*\)/g, ' ');
+    for (const seg of body.split(/[,;+]|\s\/\s/)) {
+      const tok = seg.trim().toLowerCase();
+      if (SKILL_TOKEN.test(tok)) tokens.push(tok);
+    }
+  }
+  return tokens;
+}
+
+// A date header sets the date for the section that follows. Titled headers
+// (`## 2026-09-19 — Rebrand X`) are a real writer shape — the adopter router
+// emits them — and 131 of 144 headers in the adopter ledger carried a title,
+// which the bare-only pattern could not see. `\r` is stripped before matching
+// so CRLF ledgers behave the same.
+const DATE_HEADER = /^##\s*(\d{4}-\d{2}-\d{2})\b/;
 
 // Sub-sections that live INSIDE a parent entry and must not start a new one
 // (otherwise they would register as spurious undated entries → fake gaps).
@@ -119,9 +196,8 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
     const age = (today.getTime() - start.getTime()) / DAY_MS;
     if (!Number.isFinite(age) || age > recencyDays || start.getTime() < windowStart) continue;
 
-    for (const m of body.matchAll(/^- Loaded: (\S+)/gm)) {
-      const skill = m[1].replace(/[^a-z-]/gi, '');
-      if (skill) loadedCounts[skill] = (loadedCounts[skill] || 0) + 1;
+    for (const skill of parseLoadedTokens(body)) {
+      loadedCounts[skill] = (loadedCounts[skill] || 0) + 1;
     }
     for (const marker of DOMAIN_MARKERS) {
       if (body.includes(marker)) domainHits[marker] = (domainHits[marker] || 0) + 1;
@@ -157,8 +233,13 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
         message: `entry ${date} touches site/ without rendered-output evidence (screenshot/browser/rendered) — verify the artifact the user reads: a live check of the rendered page, not a string match on the deployed source (AGENTS.md §6)`,
       });
 
-    // M3 — owner visual feedback fixed without a context confirmation
-    const ownerFeedback = VISUAL_FEEDBACK.some((m) => body.toLowerCase().includes(m.toLowerCase()));
+    // M3 — owner-supplied visual feedback fixed without a context confirmation.
+    // Both halves are required: a visual artifact word AND owner attribution to
+    // it (proximity, not co-presence — see OWNER_ATTRIBUTION). The attribution
+    // half is what makes the finding mean "you skipped Iron Law 1 on the
+    // owner's input" instead of "this entry mentions a screenshot".
+    const visualFeedback = VISUAL_FEEDBACK.some((m) => body.toLowerCase().includes(m.toLowerCase()));
+    const ownerFeedback = visualFeedback && hasOwnerAttribution(body) && !REQUEST_FOR_ARTIFACT.test(body);
     if (ownerFeedback && !body.includes(CONTEXT_CONFIRMED))
       findings.push({
         date,
@@ -191,6 +272,29 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
 
 // MANDATORY skills per the router (kept in sync with eval.mjs check 6).
 const MANDATORY_SKILLS = ['expect-fail', 'root-cause', 'receipts'];
+
+/**
+ * One reader-facing line per finding kind, produced HERE rather than in the
+ * caller: the summary must be able to strip each message's own `entry <date>`
+ * prefix, so a printer reaching in with a regex would break the moment the
+ * message format moves (roast finding 2026-09-19 — the format belongs with the
+ * messages it formats). The churn kind carries date `window` instead of a date,
+ * so the entry list is labeled for what it actually holds.
+ *
+ * @param {string} kind finding kind (closed set)
+ * @param {Array<{date: string, message: string}>} list findings of that kind
+ * @returns {string}
+ */
+export function formatFindingGroup(kind, list) {
+  const dates = [...new Set(list.map((f) => f.date))];
+  const label = dates.includes('window') && dates.length === 1 ? 'scope' : 'entries';
+  const shown = dates.slice(0, 3).join(', ');
+  const more = dates.length > 3 ? ` (+${dates.length - 3} more)` : '';
+  // The summary line carries the KIND's meaning; each message's per-entry
+  // prefix is dropped because the date list above already names the entries.
+  const summary = list[0].message.replace(/^entry \S+ /, '').replace(/^window /, '');
+  return `${list.length} × ${kind} — ${label}: ${shown}${more}. ${summary}`;
+}
 
 /**
  * The doctor's ledger-audit verdict, extracted so it is testable without
@@ -227,10 +331,21 @@ export function ledgerVerdict({ findings = [], gaps = [] } = {}) {
 const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_SKILLS.map((skill) => ({ skill, count: 0, domainTouched: false })) });
 
 /**
- * Split ledger text into entries: each `### <heading>` line starts an entry,
- * except known sub-sections (`### Self-Review`, `### Archive`) which belong to
- * the entry above them. Every entry inherits the nearest preceding
- * `## YYYY-MM-DD` header (null when none appeared yet).
+ * Split ledger text into entries. Two writer shapes exist in production and
+ * both are read here (spec D1, ticket 01):
+ *
+ *  - the upstream ship-log shape: `## YYYY-MM-DD` then `### Session Summary`
+ *    then bullets;
+ *  - the adopter router shape: `## YYYY-MM-DD — <title>` then FLAT bullets
+ *    with no `###` heading at all (43 such sections in the real adopter
+ *    ledger that exposed this).
+ *
+ * The model is therefore SECTION-based, not heading-based: a date header opens
+ * a section, a non-subsection `###` heading inside it starts a new entry
+ * carrying the same date, and a section with no heading is one entry itself.
+ * A section opened by a date header but never filled is dropped (no phantom
+ * entries, no phantom gaps). Every entry inherits the nearest preceding
+ * `## YYYY-MM-DD` header, title text and all; null when none appeared yet.
  *
  * This mirrors the writer contract (spec D1/D4) — the reader no longer assumes
  * the date is embedded in a `## `-delimited section, which is what made the
@@ -239,15 +354,28 @@ const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_SKILL
  * @returns {Array<{date: string|null, body: string}>}
  */
 function splitEntries(ledgerText) {
-  const lines = ledgerText.split('\n');
+  // CRLF-safe: Windows ledgers are the norm for adopters, and a trailing `\r`
+  // defeats every `$`-anchored pattern downstream.
+  const lines = ledgerText.split(/\r?\n/);
   const entries = [];
   let currentDate = null;
   let current = null;
+
+  const hasContent = (e) => e && e.body.trim() !== '';
+  const close = () => {
+    if (hasContent(current)) entries.push(current);
+    current = null;
+  };
 
   for (const line of lines) {
     const dateMatch = line.match(DATE_HEADER);
     if (dateMatch) {
       currentDate = dateMatch[1];
+      // Open the section as an empty entry: a following `###` heading reuses
+      // it, a following bullet fills it. Either way the date is attached to
+      // what actually follows the header.
+      close();
+      current = { date: currentDate, body: '' };
       continue;
     }
     if (/^###\s+/.test(line)) {
@@ -256,13 +384,13 @@ function splitEntries(ledgerText) {
         if (current) current.body += `\n${line}`;
         continue;
       }
-      if (current) entries.push(current);
-      current = { date: currentDate, body: `${line}` };
+      close();
+      current = { date: currentDate, body: line };
       continue;
     }
     if (current) current.body += `\n${line}`;
   }
-  if (current) entries.push(current);
+  close();
   return entries;
 }
 

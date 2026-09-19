@@ -254,4 +254,19 @@ On any harness, confirm the framework is active:
 2. Fire one movement skill, e.g. `scribe` (user-invoked) on a planning task — it should interview, not implement.
 3. Confirm `node scripts/validate.mjs`, `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` all exit 0 (structural + ownership + ticket-graph gates).
 4. Optional: add the CI workflow from `.github/workflows/ci.yml` to your repo to keep validation running automatically.
-5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, `core.hooksPath` active with both hooks (and, in a clone, identical to the tracked copies), all 11 skills reachable from a harness discovery location, `.trust/` gitignored once the ledger exists, and the corrective tier enforced — a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period (measured from the oldest dated ledger entry), then fails. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
+5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, git hooks wired for your mode, all 11 skills reachable from a harness discovery location, the ledger gitignored and audited, and the corrective tier enforced — a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period (measured from the oldest dated ledger entry), then fails. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
+
+   Doctor reads your project's mode rather than assuming one. **Repo mode** (the project carries the framework's own `scripts/`) holds the strict hook contract: `core.hooksPath` set, both hooks present and identical to the tracked copies. **Adopter mode** (you copied skills, per the install above) checks that *some* git hook exists and never fails on this — a project that installed skills only cannot be expected to carry the framework's hook path, and a check that fails on a correct install teaches you to ignore it.
+
+### The ledger contract (what the audit reads)
+
+The ledger audit and the corrective-tier check read your `progress.txt`. Two shapes are accepted, because two real writers exist — the upstream `ship-log` format and the router format many adopters already use:
+
+| | Upstream `ship-log` | Adopter router |
+|---|---|---|
+| Date header | `## 2026-09-19` | `## 2026-09-19 — Rebrand X` (title after the date is fine) |
+| Entry heading | `### Session Summary - <title>` | flat bullets under the date header, no `###` needed |
+| Loaded line | `- Loaded: expect-fail; receipts` | `- Loaded: expect-fail, root-cause, receipts` (`,` `;` `+` ` / ` all parse) |
+| Location | `.trust/progress.txt` (private, gitignored) | `progress.txt` at the project root (tracked) |
+
+Doctor finds the ledger at whichever location exists, preferring `.trust/progress.txt`. Two rules make an entry auditable: it needs a **date header** (an entry with no date is reported as an unprovable coverage gap, never silently skipped), and work in a MANDATORY skill's domain needs a **`- Loaded: <skill>` line at the start of a line** — an inline mention mid-sentence does not satisfy the trail and is reported as a finding, so you can turn it into a real bullet.

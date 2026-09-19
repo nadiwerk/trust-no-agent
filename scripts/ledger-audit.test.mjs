@@ -368,5 +368,255 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
     JSON.stringify(res.findings));
 }
 
+// ---- H. Reader core — both writer shapes (ticket 01, spec §AC1–AC5) ----
+// The reader assumed ONE writer shape: a bare `## YYYY-MM-DD` header, a
+// `### Session Summary` heading, and `- Loaded: a; b` bullets. A second writer
+// is in production — the adopter router's format: a TITLED header
+// (`## YYYY-MM-DD — <title>`), flat bullets with no `###` heading, and
+// `- Loaded: a, b, c` comma lists. Where the two differed the reader did not
+// degrade; it emitted confident false signals (127 phantom coverage gaps and
+// 60 context-gaps on a real 6-day adopter ledger). Fixtures below are the two
+// shapes as actually written by their respective writers.
+
+// H1 (AC1). Titled date header, in-window → the entry is dated and audited.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08 — Rebrand X\n\n### Session Summary - unit\n- Committed abc1234\n',
+    today: TODAY,
+  });
+  check('H1 titled date header dates its entry (audited, no gap)',
+    res.gaps.length === 0 && res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// H2 (AC1). Titled header outside the recency window → out of scope, not a gap.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-08-01 — Old rebrand\n\n### Session Summary - unit\n- Committed abc1234\n',
+    today: TODAY,
+  });
+  check('H2 titled old header is out of scope (no gap, no finding)',
+    res.gaps.length === 0 && res.findings.length === 0,
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// H3 (AC1). CRLF must not defeat the header — adopter ledgers on Windows are
+// CRLF. A bare CRLF header already parsed (`\s*` swallowed the `\r`); a titled
+// one did not.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08 — Rebrand X\r\n\r\n### Session Summary - unit\r\n- Committed abc1234\r\n',
+    today: TODAY,
+  });
+  check('H3 titled CRLF header still dates its entry',
+    res.gaps.length === 0 && res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// H4 (AC2). Flat section — header followed directly by bullets, no `###`
+// heading → ONE dated entry. Before this fix: zero entries, because the bullet
+// lines were dropped on the floor and the section vanished from the audit.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08\n- Committed abc1234\n',
+    today: TODAY,
+  });
+  check('H4 flat section is one dated entry that audits',
+    res.gaps.length === 0 && res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// H5 (AC2). Flat section WITH a Loaded: bullet → the entry is dated AND its
+// trail is read. Asserted as positives, not absences: the first version of this
+// case checked `gaps===0 && findings===0`, which the PRE-FIX reader also
+// satisfied by parsing nothing at all — a tautology that certified the bug
+// (roast finding 2026-09-19). Now the entry must appear in the stats.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08\n- Loaded: receipts\n- Committed abc1234\n',
+    today: TODAY,
+  });
+  check('H5 flat section with Loaded: is dated and counted',
+    res.gaps.length === 0 &&
+      res.findings.length === 0 &&
+      res.stats.loadedCounts['receipts'] === 1,
+    JSON.stringify({ gaps: res.gaps, findings: res.findings, counts: res.stats.loadedCounts }));
+}
+
+// H6 (AC2). Two flat sections must not leak into each other: the clean one
+// stays clean, the uncovered one is flagged exactly once.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08\n- Loaded: receipts\n- Committed aaa\n\n## 2026-09-09\n- Committed bbb\n',
+    today: TODAY,
+  });
+  check('H6 flat sections split per date header (one finding, no leak)',
+    res.gaps.length === 0 && res.findings.filter((f) => f.kind === 'loaded-gap').length === 1,
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// H7 (AC4). A comma list counts EVERY skill, not just the first token.
+// The real adopter ledger wrote 126 bullets containing `receipts`; the
+// first-token parser counted 16.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: expect-fail, root-cause, receipts\n- Committed abc1234'),
+    today: TODAY,
+  });
+  check('H7 comma-separated Loaded list counts all three skills',
+    res.stats.loadedCounts['expect-fail'] === 1 &&
+      res.stats.loadedCounts['root-cause'] === 1 &&
+      res.stats.loadedCounts['receipts'] === 1,
+    JSON.stringify(res.stats.loadedCounts));
+}
+
+// H8 (AC4). Every separator the real ledgers use parses the same way.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: expect-fail; root-cause + receipts / ship-log\n- Committed abc1234'),
+    today: TODAY,
+  });
+  check('H8 semicolon, plus and slash separators all parse',
+    ['expect-fail', 'root-cause', 'receipts', 'ship-log'].every((s) => res.stats.loadedCounts[s] === 1),
+    JSON.stringify(res.stats.loadedCounts));
+}
+
+// H9 (AC5). Annotation text is not a skill. The real ledger wrote
+// "- Loaded: (tanpa skill MANDATORY — perubahan teks UI murni, …)" and the
+// first-token parser counted `tanpa` as a skill.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: (tanpa skill MANDATORY — perubahan teks UI murni, tanpa logika perilaku)\n- Committed abc1234'),
+    today: TODAY,
+  });
+  check('H9 annotation-only Loaded line adds no counts',
+    Object.keys(res.stats.loadedCounts).length === 0,
+    JSON.stringify(res.stats.loadedCounts));
+}
+
+// H10 (AC5). A parenthetical AFTER a real skill name must not eat the name and
+// must not add the annotation as a skill.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: expect-fail (ticket 01), receipts (release)\n- Committed abc1234'),
+    today: TODAY,
+  });
+  check('H10 parenthetical annotation keeps the skill, drops the prose',
+    res.stats.loadedCounts['expect-fail'] === 1 &&
+      res.stats.loadedCounts['receipts'] === 1 &&
+      Object.keys(res.stats.loadedCounts).length === 2,
+    JSON.stringify(res.stats.loadedCounts));
+}
+
+// ---- I. M3 attribution gate (ticket 02, spec §AC7–AC8) ----
+// M3 exists to catch one failure: a fix driven by OWNER-SUPPLIED visual
+// feedback shipped without restating the context first (Iron Law 1). The old
+// trigger was a bare word match on `screenshot|mockup|diagram`, which on a
+// real 6-day UI ledger fired 60 times with ZERO owner-attributed entries —
+// and inverted the M2 gate, since `screenshot` was simultaneously valid
+// rendered evidence and an M3 trigger: an entry that PROVIDED evidence was
+// accused of skipping confirmation. Attribution is the discriminator.
+
+// I1 (AC7). Visual mention, NO owner attribution → not a context-gap. The
+// fixture is an agent's own rendered-evidence line — the exact shape that
+// produced 60 false positives.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Verifikasi screenshot browser: 2 kartu terlihat jelas, teks di atas garis tanpa overlap; tsc EXIT 0'),
+    today: TODAY,
+  });
+  check('I1 self-produced screenshot evidence without owner attribution is not a context-gap',
+    !res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I2 (AC7). Owner-attributed visual feedback, no restatement → flagged.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Owner screenshot showed the collision; fixed the chain list'),
+    today: TODAY,
+  });
+  check('I2 owner-attributed visual feedback without restatement is flagged',
+    res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I3 (AC7). The Indonesian attribution form the real ledger actually uses —
+// artifact first, human after ("mockup Master"). Taken verbatim from the one
+// genuine M3 hit in the 6-day adopter ledger.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Ruling: copy tanpa em dash — mockup Master pakai em dash, diganti titik dua'),
+    today: TODAY,
+  });
+  check('I3 Indonesian attribution form (artifact first) is recognized',
+    res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I3b (AC8). A REQUEST for a visual artifact is not owner-supplied feedback —
+// the entry is asking for data, not acting on it. Real line: "butuh
+// screenshot/lokasi persis + rentang tanggal dari Master".
+{
+  const res = auditLedger({
+    ledgerText: entry('- Open: identifikasi pasti sumber "CPR Rp 777" butuh screenshot/lokasi persis + rentang tanggal dari Master'),
+    today: TODAY,
+  });
+  check('I3b a request for an owner artifact is not a context-gap',
+    !res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I4 (AC7). The Master title is the same role — attribution, not a second rule.
+// Delivery form: the owner hands the artifact over.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Master kirim mockup sidebar; spacing diterapkan tanpa konfirmasi ulang'),
+    today: TODAY,
+  });
+  check('I4 Master-attributed visual feedback is flagged',
+    res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I5 (AC8). The inversion is closed: an entry carrying BOTH a rendered-evidence
+// line and a screenshot mention, with no owner attribution, is clean on M3.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Rendered evidence: screenshot 1440px, verified in browser\n- Modified src/app/page.tsx: fixed layout'),
+    today: TODAY,
+  });
+  check('I5 rendered evidence without owner attribution stays clean',
+    !res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I6 (AC8). QUOTING is not claiming. An entry that discusses the M3 rule itself
+// — a ledger entry about the audit, a test fixture quoted in prose — carries
+// the attribution phrase inside backticks. Found by dogfooding this very
+// session's ledger entry, which quotes the canonical fixture and was flagged
+// (the audit cannot tell a quote from a report unless quoting is excluded).
+{
+  const res = auditLedger({
+    ledgerText: entry('- The canonical `Owner screenshot showed the collision` fixture still fires'),
+    today: TODAY,
+  });
+  check('I6 a backticked quote of the attribution phrase is not a context-gap',
+    !res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
+// I7 (AC7 regression floor). The exclusion must not weaken the real case: the
+// same phrase UNquoted still fires.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Owner screenshot showed the collision; fixed the chain list'),
+    today: TODAY,
+  });
+  check('I7 the same phrase unquoted still fires',
+    res.findings.some((f) => f.kind === 'context-gap'),
+    JSON.stringify(res.findings));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
 process.exit(failures ? 1 : 0);
