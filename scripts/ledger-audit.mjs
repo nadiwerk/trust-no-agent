@@ -34,6 +34,8 @@
  * degrades to coverage gaps — never hard-fail on unprovable data.
  */
 
+import { classifyTask, MANDATORY_DOMAINS } from './mandatory-gate.mjs';
+
 export const RECENCY_DAYS = 14;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -223,6 +225,23 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
         message: `entry ${date} touches a MANDATORY skill's domain (bug/test/done-claim triggers) but carries no "- Loaded: <skill>" line — either the skill was not loaded (discipline silently dropped) or the audit trail is incomplete; fix the gap, per AGENTS.md §2`,
       });
 
+    // M6 — gate finding (docs/specs/mandatory-gate.md, ticket 02): the
+    // mandatory-gate classifier runs on the same Summary text M4's reader
+    // consumes, so no second parse. Additive to M1's literal markers — the
+    // gate's bilingual keyword tables catch phrasing the literal list misses
+    // ("please commit", "tulis test"), and vice versa (J5). Warn-level by
+    // contract: a keyword matcher is a signal to verify, never proof, and
+    // may not fail an audit by itself (spec §Constraints).
+    const gateVerdict = classifyTask(body);
+    for (const skill of MANDATORY_DOMAINS) {
+      if (gateVerdict[skill] && !LOADED_LINE.test(body))
+        findings.push({
+          date,
+          kind: 'gated-loaded-gap',
+          message: `entry ${date} matches the mandatory-gate keyword pattern for "${skill}" but carries no "- Loaded:" line — this is a keyword-pattern signal to verify, not a proven violation; confirm the skill was loaded or add the Loaded: line (docs/specs/mandatory-gate.md, AGENTS.md §2)`,
+        });
+    }
+
     // M2 — site/ visual change without rendered-output evidence
     const siteFix = body.includes(VISUAL_FIX_MARKER);
     const hasRendered = RENDERED_EVIDENCE.some((m) => body.toLowerCase().includes(m.toLowerCase()));
@@ -261,7 +280,7 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
   // M4 — mandatoryMentions: per-MANDATORY-skill Loaded: count (0 = blind spot
   // when domain hits exist). Domain hits are counted on marker presence per
   // entry; a marker appearing at all means the domain was touched ledger-wide.
-  const mandatoryMentions = MANDATORY_SKILLS.map((skill) => ({
+  const mandatoryMentions = MANDATORY_DOMAINS.map((skill) => ({
     skill,
     count: loadedCounts[skill] || 0,
     domainTouched: DOMAIN_MARKERS.some((m) => (domainHits[m] || 0) > 0),
@@ -270,8 +289,9 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
   return { findings, gaps, stats: { loadedCounts, mandatoryMentions } };
 }
 
-// MANDATORY skills per the router (kept in sync with eval.mjs check 6).
-const MANDATORY_SKILLS = ['expect-fail', 'root-cause', 'receipts'];
+// MANDATORY skills per the router — imported from the gate (one list, two
+// consumers, or the domain vocabulary drifts: roast finding 2026-09-20).
+// eval.mjs check 6 reads the router prose independently; keep that in sync.
 
 /**
  * One reader-facing line per finding kind, produced HERE rather than in the
@@ -328,7 +348,7 @@ export function ledgerVerdict({ findings = [], gaps = [] } = {}) {
   return { level: 'clean', warn: false, message: 'ledger audit clean (Loaded: trail, visual gate, context confirmation)' };
 }
 
-const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_SKILLS.map((skill) => ({ skill, count: 0, domainTouched: false })) });
+const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_DOMAINS.map((skill) => ({ skill, count: 0, domainTouched: false })) });
 
 /**
  * Split ledger text into entries. Two writer shapes exist in production and

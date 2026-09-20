@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-20
+
+### Added
+- Mandatory-gate — a mechanical pre-gate for MANDATORY skill routing (2026-09-20, full breakpoint → save-as → fork-it → make-it-so chain, owner-approved): `scripts/mandatory-gate.mjs` classifies task text (bilingual EN/ID keyword patterns, binary verdicts, zero dependencies) against the three MANDATORY domains (`expect-fail`, `root-cause`, `receipts`), closing the encode-twice gap for the trigger matrix — AGENTS.md §2 gains the paragraph (the why), the script plus its fail-first test are the check. Consumers: the ledger audit adds a `gated-loaded-gap` finding (WARN-level by contract — a keyword signal to verify, never proof; additive to M1's literal markers, bound by test K6) for a gated entry that carries no `Loaded:` line; doctor gains C8 (`gateVerdict` in `doctor-checks.mjs`), which runs the gate's self-test file as evidence — strict in repo mode, warn in adopter mode (the C2 lesson); CI runs both new self-tests. Fail-first throughout (classifier 33 checks, audit J-suite, doctor K-suite), three-axis roast findings fixed (domain-list import over duplication, boundary-matched keyword coverage, generic `expect` keyword dropped, CI wiring, warn-contract binding, C8 wiring test + audited-tree-execution documented). Spec with 10 falsifiable acceptance criteria: `docs/specs/mandatory-gate.md`. Provenance: the principle (mechanical enforcement over model initiative) is the framework's own — `docs/design.md` §Self-trigger is unreliable; original implementation, no external code reused.
+
 ## [0.1.15] - 2026-09-19
 
 ### Fixed

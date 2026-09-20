@@ -618,5 +618,69 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
     JSON.stringify(res.findings));
 }
 
+// ---- J. Gate finding (mandatory-gate integration) — flagged without Loaded: ----
+// New finding class from the gate classifier (docs/specs/mandatory-gate.md,
+// ticket 02): an entry whose Summary text the classifier flags for a MANDATORY
+// domain, but which carries no `Loaded:` line, surfaces as a WARNING-level
+// finding that says the verdict is a keyword-pattern signal, not proof.
+
+// J1 (AC1). Done-claim Summary ("commit") without a Loaded: line → gated-loaded-gap
+{
+  const res = auditLedger({
+    ledgerText: entry('- Finished the export feature, please commit'),
+    today: TODAY,
+  });
+  check('J1 gate-flagged done-claim entry without Loaded: fires gated-loaded-gap',
+    res.findings.some((f) => f.kind === 'gated-loaded-gap' && f.message.includes('receipts')),
+    JSON.stringify(res.findings));
+}
+
+// J2 (AC2). The same entry WITH a Loaded: line → no gate finding
+{
+  const res = auditLedger({
+    ledgerText: entry('- Finished the export feature, please commit\n- Loaded: receipts'),
+    today: TODAY,
+  });
+  check('J2 gate-flagged entry with Loaded: is clean',
+    !res.findings.some((f) => f.kind === 'gated-loaded-gap'),
+    JSON.stringify(res.findings));
+}
+
+// J3 (AC4). Off-domain Summary → no gate finding
+{
+  const res = auditLedger({
+    ledgerText: entry('- Renamed a variable in the export module'),
+    today: TODAY,
+  });
+  check('J3 off-domain entry fires no gate finding',
+    !res.findings.some((f) => f.kind === 'gated-loaded-gap'),
+    JSON.stringify(res.findings));
+}
+
+// J4 (AC9). The finding message names itself a keyword-pattern signal to
+// verify, not a proven violation.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Tulis test untuk modul export'),
+    today: TODAY,
+  });
+  const f = res.findings.find((x) => x.kind === 'gated-loaded-gap');
+  check('J4 gate finding message carries the signal-not-proof disclaimer and names expect-fail',
+    f && f.message.includes('keyword') && f.message.includes('not a proven violation') && f.message.includes('expect-fail'),
+    JSON.stringify(res.findings));
+}
+
+// J5 (regression floor). An entry the M1 literal-marker audit already flags
+// still fires loaded-gap — the gate finding is additive, never a replacement.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Root cause found: selector leaked\n- Committed 91f8ce6'),
+    today: TODAY,
+  });
+  check('J5 M1 loaded-gap still fires alongside the gate finding',
+    res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify(res.findings));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
 process.exit(failures ? 1 : 0);

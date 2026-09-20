@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict } from './doctor-checks.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -110,6 +110,34 @@ try {
       }
     }
   }
+}
+
+// ---- C8. mandatory-gate: the mechanical boundary of MANDATORY routing ----
+// Decision logic in doctor-checks.mjs (gateVerdict) — strict in repo mode,
+// warn in adopter mode (the gate is not part of the documented adopter
+// install). Self-test evidence: the gate's own test file must pass, so the
+// check RUNS it rather than trusting file presence alone. By design this
+// executes code from the audited tree (the test file is the evidence — roast
+// finding 2026-09-20, security axis): only point doctor at checkouts you
+// already trust enough to run its scripts. A missing test file counts as a
+// failed self-test (the gate cannot prove itself), distinct from a missing
+// gate script (which gateVerdict reports separately).
+{
+  const gateScript = join(cwd, 'scripts', 'mandatory-gate.mjs');
+  const gateTest = join(cwd, 'scripts', 'mandatory-gate.test.mjs');
+  const gateExists = existsSync(gateScript);
+  const gateTestExists = existsSync(gateTest);
+  let gateSelfTestPasses = false;
+  if (gateExists && gateTestExists) {
+    try {
+      execFileSync(process.execPath, [gateTest], { cwd, stdio: 'pipe' });
+      gateSelfTestPasses = true;
+    } catch { /* non-zero exit or spawn failure = self-test failed */ }
+  }
+  const res = gateVerdict({ gateExists, gateSelfTestPasses, mode: repoMode ? 'repo' : 'adopter' });
+  if (res.level === 'fail') fail(res.message);
+  else if (res.level === 'warn') warn(res.message);
+  else pass(res.message);
 }
 
 // ---- C3. skills in a discovery location ----

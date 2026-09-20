@@ -33,6 +33,12 @@ jobs:
       - name: Doctor corrective-tier self-test
         run: node scripts/doctor.test.mjs
 
+      - name: Mandatory-gate classifier self-test
+        run: node scripts/mandatory-gate.test.mjs
+
+      - name: Ledger audit self-test
+        run: node scripts/ledger-audit.test.mjs
+
       - name: Ticket-graph validator smoke
         run: node scripts/tickets.mjs
 

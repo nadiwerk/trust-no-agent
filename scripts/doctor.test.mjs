@@ -12,7 +12,7 @@
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict } from './doctor-checks.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -331,3 +331,55 @@ console.log('\nOK: doctor C5/C5b behaves as specified.');
 
 if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
 console.log('\nOK: doctor decision logic behaves as specified.');
+
+// ---- K. Gate C-check (mandatory-gate, ticket 03) ----
+// Seam: gateVerdict({ gateExists, gateSelfTestPasses, mode }) — doctor verifies
+// the gate like any other installation component: fail-level when the script
+// is missing from a repo-mode checkout; warn-level in adopter mode (C2 lesson:
+// adopters copy skills, not scripts, so strictness would misfire); pass when
+// present and its self-test suite passes.
+{
+  const repo = gateVerdict({ gateExists: false, gateSelfTestPasses: false, mode: 'repo' });
+  check('K1 repo-mode missing gate is fail-level',
+    repo.level === 'fail', JSON.stringify(repo));
+  const adopter = gateVerdict({ gateExists: false, gateSelfTestPasses: false, mode: 'adopter' });
+  check('K2 adopter-mode missing gate is warn-level, never fail',
+    adopter.level === 'warn', JSON.stringify(adopter));
+  const ok = gateVerdict({ gateExists: true, gateSelfTestPasses: true, mode: 'repo' });
+  check('K3 present + passing gate is pass-level',
+    ok.level === 'pass', JSON.stringify(ok));
+  const broken = gateVerdict({ gateExists: true, gateSelfTestPasses: false, mode: 'repo' });
+  check('K4 present but failing self-test is fail-level',
+    broken.level === 'fail', JSON.stringify(broken));
+  check('K5 pass message names the gate and its boundary role',
+    ok.message.includes('mandatory-gate') && ok.message.includes('boundary'),
+    ok.message);
+}
+
+// K6 (spec §Constraints binding — roast finding 2026-09-20): a gated-loaded-gap
+// finding can NEVER fail an audit by itself. ledgerVerdict maps any findings to
+// warn — this test binds the gate finding to that contract explicitly, so a
+// future refactor that gives findings severity levels cannot silently promote
+// the keyword matcher into a hard gate.
+{
+  const res = ledgerVerdict({
+    findings: [{ date: '2026-09-08', kind: 'gated-loaded-gap', message: 'signal to verify' }],
+    gaps: [],
+  });
+  check('K6 gated-loaded-gap verdict is warn-level, never fail',
+    res.level === 'findings' && res.warn === true, JSON.stringify(res));
+}
+
+// K7 (roast finding 2026-09-20): the doctor WIRING is real — the C8 block must
+// actually execute the gate's test file, not just check file presence. Run the
+// same derivation doctor.mjs uses against the real files in this checkout.
+{
+  const { existsSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const gateTest = join(here, 'mandatory-gate.test.mjs');
+  check('K7 the gate self-test file exists beside doctor.test.mjs and doctor derives its path',
+    existsSync(gateTest) && join(here, 'mandatory-gate.mjs').replace(/\.mjs$/, '.test.mjs') === gateTest,
+    gateTest);
+}

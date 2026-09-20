@@ -43,6 +43,8 @@ Three skills are **MANDATORY**, not advisory. Self-trigger is proven unreliable 
 
 These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." The mechanical check in `scripts/eval.mjs` verifies this section stays present; dropping it fails CI.
 
+**Mechanical boundary (mandatory-gate).** Trigger-matrix routing is also checked mechanically: `scripts/mandatory-gate.mjs` classifies task text (bilingual EN/ID, keyword patterns, binary verdicts) against the three MANDATORY domains, and the ledger audit surfaces a gated entry that carries no `Loaded:` line as a warning — a keyword signal to verify, never proof. Why: self-trigger is proven unreliable (0/3, `docs/design.md`), so the boundary cannot live in prose alone — encode-twice: this paragraph is the why, the script plus its fail-first test are the check. Spec and provenance: `docs/specs/mandatory-gate.md` (original implementation — internal evaluation origin, no external code reused; ledger 2026-09-20).
+
 **Audit trail for MANDATORY loads.** Every ledger entry for work in a MANDATORY skill's domain carries a `Loaded: <skill>` line naming the skill actually loaded. Self-trigger is unreliable (0/3 in evals) and without the line, compliance is indistinguishable from a dead skill — the line turns discipline into a countable fact. A domain-relevant entry missing it means the skill was not loaded: either fix the gap or treat it as evidence the discipline silently dropped (eval finding 2026-09-09: components relying on runtime initiative fail silently; components backed by written artifacts work).
 
 ## 3. The chain (for `loop`-class work)

@@ -98,3 +98,28 @@ export function blindSpotWarning({ mandatoryMentions = [] } = {}) {
         `${m.skill} is never named in a "Loaded:" line in this ledger, while entries here do touch the MANDATORY-skill domains — either it never loads in this project, or the trail is unwritten; both are worth a look (AGENTS.md §2)`,
     );
 }
+
+/**
+ * C8 — mandatory-gate: is the mechanical pre-gate classifier installed and
+ * passing? (docs/specs/mandatory-gate.md, ticket 03.) The gate is the
+ * mechanical boundary of MANDATORY skill routing (AGENTS.md §2); a broken or
+ * missing gate means the boundary is prose-only again.
+ *
+ * Two strictness levels, the C2 lesson applied: repo mode (this IS a
+ * trust-no-agent checkout) gets the strict contract — a missing or failing
+ * gate is a FAIL-level installation defect. Adopter mode (skills copied,
+ * scripts not) gets WARN — the gate is not part of the documented adopter
+ * install, so its absence is not a defect, only a lost capability.
+ *
+ * @returns {{level: 'pass'|'warn'|'fail', message: string}}
+ */
+export function gateVerdict({ gateExists, gateSelfTestPasses, mode }) {
+  if (!gateExists) {
+    if (mode === 'repo')
+      return { level: 'fail', message: 'mandatory-gate script missing — MANDATORY routing has no mechanical boundary. Restore scripts/mandatory-gate.mjs (spec: docs/specs/mandatory-gate.md)' };
+    return { level: 'warn', message: 'mandatory-gate script not installed (adopter mode) — MANDATORY routing runs on the router prose and the ledger Loaded: trail alone' };
+  }
+  if (!gateSelfTestPasses)
+    return { level: 'fail', message: 'mandatory-gate self-test fails — the classifier drifts from its keyword tables; run node scripts/mandatory-gate.test.mjs and reconcile before trusting the audit gate findings' };
+  return { level: 'pass', message: 'mandatory-gate active — mechanical boundary check for MANDATORY skill routing (keyword signal, not proof)' };
+}
