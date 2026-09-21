@@ -139,6 +139,43 @@ cp -r <trust-no-agent>/skills/*/* .claude/skills/     # project-wide
 cp -r <trust-no-agent>/skills/*/* ~/.claude/skills/   # or user-wide
 ```
 
+**Hooks (the mechanical half — skip this and the skills sit inert).** The copy
+above installs the router as *prose the model should follow*. Claude Code's hook
+system is what makes the boundary mechanical, and none of it is optional if you
+want the discipline enforced rather than suggested:
+
+1. **Session-start floor injection** — Claude Code does not guarantee AGENTS.md
+   survives compaction/resume; the floor (Iron Laws + MANDATORY section) can
+   fall out of context silently. Wire `scripts/reinject.mjs` into a
+   `SessionStart` hook so the floor is re-injected every session. The CLI reads
+   **both** router files by default — the four Iron Laws live in `WORKFLOW.md`,
+   the MANDATORY section in `AGENTS.md` — and exits 1 if the emitted block
+   still names a missing half, so a half floor cannot pass as complete
+   (2026-09-21 finding: the CLI originally defaulted to `AGENTS.md` alone).
+2. **Per-prompt mandatory-gate classification** — self-trigger is proven
+   unreliable (0/3, `docs/design.md`). A `UserPromptSubmit` hook running the
+   framework's own classifier (`scripts/mandatory-gate.mjs`) injects a LOAD
+   directive when a prompt touches a MANDATORY domain. It is a keyword signal,
+   not a hard gate (`docs/specs/mandatory-gate.md`).
+3. **Where to put the wiring** — two supported shapes:
+   - **Local plugin** (what the author's machine runs): a directory with
+     `.claude-plugin/plugin.json`, a `hooks/hooks.json` declaring the
+     `SessionStart` + `UserPromptSubmit` hooks, copies of `AGENTS.md` +
+     `WORKFLOW.md`, the two scripts above, and the flattened skills. Register
+     it in `~/.claude/settings.json` under `enabledPlugins`. Reversible by
+     removing one key.
+   - **Direct `settings.json` hooks**: point the hook commands at
+     `node <trust-no-agent>/scripts/reinject.mjs` (SessionStart) and a small
+     classifier wrapper (UserPromptSubmit) in your own `hooks.json`. Same
+     contract, no plugin machinery.
+
+Hooks must **fail open**: an injection failure exits 0 and says nothing — a
+discipline layer that can break session startup is worse than none. Verify the
+wiring after install: a fresh session should open with the floor text (ask it
+"What are the four Iron Laws?"), and `node <trust-no-agent>/scripts/eval.mjs`
+must pass (check 31 guards this section — dropping the wiring steps from these
+docs fails CI).
+
 ### Codex
 ```bash
 # AGENTS.md: read natively (root → cwd concatenation), nothing to do.

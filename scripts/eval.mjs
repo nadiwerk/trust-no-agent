@@ -582,6 +582,37 @@ if (!/blindSpotWarning\s*\(\s*stats\s*\)/.test(doctorSrc))
 if (!existsSync(join(ROOT, 'scripts', 'doctor-checks.mjs')))
   err('scripts/doctor-checks.mjs missing (hookVerdict / pickLedgerPath / blindSpotWarning decision logic must be testable outside doctor CLI)');
 
+// ---- 31. The Claude Code install path wires the router's mechanical half (HARD) ----
+// Origin: 2026-09-21 live install on Claude Code. The §[Claude Code] CLI section
+// documented the @-import and the skill copy and never mentioned hooks — an
+// install following the docs verbatim had the skills present and the router's
+// mechanical half (session-start floor injection, mandatory-gate prompt
+// classification) entirely absent, with no signal anything was missing. The
+// same install was also a live demonstration of WHY the hook matters: the
+// re-injection block it wires is the only mechanism that survived the
+// half-floor bug becoming visible at all. Skills sit inert without the router
+// (README: 0/3 self-trigger); the router without hooks is prose with no
+// mechanical boundary. Encode twice: prose in docs/installation.md §[Claude
+// Code] CLI, this check for the boundary. The markers name the artifacts an
+// install must wire, so a docs edit that drops the wiring step fails here.
+const ccInstallText = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+{
+  const ccSection = ccInstallText.match(/### \[Claude Code\] CLI[\s\S]*?(?=\n### )/);
+  if (!ccSection)
+    err('docs/installation.md: §[Claude Code] CLI section missing');
+  else {
+    const s = ccSection[0];
+    for (const [marker, why] of [
+      [/hooks/, 'the Claude Code install path must wire the hook layer (SessionStart floor injection + UserPromptSubmit mandatory-gate classification) — skills + router prose alone leave the mechanical boundary unwired'],
+      [/hooks\.json/, 'the hook wiring must reference hooks.json (the plugin/hook manifest), not just prose about hooks'],
+      [/reinject/, 'the install must wire re-injection (compaction/resume guard) — a harness that drops AGENTS.md after compaction loses the discipline floor'],
+      [/mandatory-gate|mandatory gate/i, 'the install must wire the mechanical MANDATORY-skill classifier, not rely on the model self-triggering (proven 0/3)'],
+    ])
+      if (!marker.test(s))
+        err(`docs/installation.md §[Claude Code] CLI: missing "${marker}" — ${why}`);
+  }
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
