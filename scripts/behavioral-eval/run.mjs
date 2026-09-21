@@ -131,7 +131,12 @@ const rubric = readFileSync(join(DIR, 'rubric.md'), 'utf8');
 const judgeTemplate = readFileSync(join(DIR, 'judge.md'), 'utf8');
 const weights = parseWeights(rubric);
 const dims = Object.keys(weights);
-const reinjectBlock = readFileSync(join(ROOT, 'scripts', 'reinject.mjs'), 'utf8') && (await import('../reinject.mjs')).buildReinject(readFileSync(join(ROOT, 'AGENTS.md'), 'utf8'));
+// Both router files: the laws live in WORKFLOW.md, the MANDATORY section in
+// AGENTS.md. Passing AGENTS.md alone yields a half floor (2026-09-21 finding).
+const reinjectSrc = readFileSync(join(ROOT, 'scripts', 'reinject.mjs'), 'utf8');
+const reinjectBlock = reinjectSrc && (await import('../reinject.mjs')).buildReinject(
+  readFileSync(join(ROOT, 'WORKFLOW.md'), 'utf8') + '\n\n' + readFileSync(join(ROOT, 'AGENTS.md'), 'utf8')
+);
 const chatReceiptText = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
 const candidatePrefix = buildCandidatePrefix(reinjectBlock, chatReceiptText);
 
