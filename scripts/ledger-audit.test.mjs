@@ -430,10 +430,12 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
 // trail is read. Asserted as positives, not absences: the first version of this
 // case checked `gaps===0 && findings===0`, which the PRE-FIX reader also
 // satisfied by parsing nothing at all — a tautology that certified the bug
-// (roast finding 2026-09-19). Now the entry must appear in the stats.
+// (roast finding 2026-09-19). Now the entry must appear in the stats. The
+// fixture carries `- Next: none` since M7 (2026-09-23): without the arrow the
+// entry is not clean under rule 4, so `findings.length === 0` would be false.
 {
   const res = auditLedger({
-    ledgerText: '## 2026-09-08\n- Loaded: receipts\n- Committed abc1234\n',
+    ledgerText: '## 2026-09-08\n- Loaded: receipts\n- Committed abc1234\n- Next: none\n',
     today: TODAY,
   });
   check('H5 flat section with Loaded: is dated and counted',
@@ -730,6 +732,86 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
   const res = auditLedger({ ledgerText: ledger, today: new Date('2026-09-23T00:00:00Z') });
   check('F6 genuine revert bullets inside Self-Review still count as churn',
     res.findings.some((f) => f.kind === 'churn' && /chain list/i.test(f.message)),
+    JSON.stringify(res.findings));
+}
+
+// ---- K. Forward arrow (M7) — an entry that closes without a Next: line ----
+// Owner feedback 2026-09-23: "sebagai user kadang tidak tau harus apa, termasuk
+// saya. Jadi next itu sangat diperlukan" — closes that end in "none pending"
+// mid-chain strand the reader. The contract (docs/chat-receipt.md rule 4) makes
+// the Next line mandatory and "none" a VALUE: silence is the gap, "none" is not.
+// Bar is presence of the literal writer-contract line, same doctrine as
+// LOADED_LINE (M1): expectations derive from the contract, never from observed
+// ledger output.
+
+// K1. Entry with no Next: line at all → flagged as next-gap
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Committed abc1234'),
+    today: TODAY,
+  });
+  check('K1 entry without a Next: line is flagged',
+    res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// K2. Entry WITH a Next: line → clean (the counter-direction: without this
+// case "flag every entry" would also satisfy K1).
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Committed abc1234\n- Next: run browser check with real data'),
+    today: TODAY,
+  });
+  check('K2 entry with a Next: line is clean',
+    !res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// K3. `Next: none` is a value (contract: "Never empty unless it says none") —
+// only silence is the gap.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Committed abc1234\n- Next: none'),
+    today: TODAY,
+  });
+  check('K3 explicit "Next: none" satisfies the arrow',
+    !res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// K4. Literal discipline (A5 analog): cousin phrases must not satisfy the line
+// — "Next steps:" is a different line, lowercase "next:" mid-prose is prose.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Next steps: revisit the seam\n- decided to follow up next: week'),
+    today: TODAY,
+  });
+  check('K4 cousin phrases do not satisfy the Next: line',
+    res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// K5. Degrade doctrine (G1 floor): an undated entry is unprovable — gap only,
+// never a next-gap claim on data the audit cannot date.
+{
+  const res = auditLedger({
+    ledgerText: undatedEntry('- Committed abc1234'),
+    today: TODAY,
+  });
+  check('K5 undated entry yields a gap and no next-gap finding',
+    res.gaps.length === 1 && !res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
+// K6. Additive, never a replacement (J5 floor): a doubly-silent entry fires
+// both findings.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Root cause found: selector leaked'),
+    today: TODAY,
+  });
+  check('K6 next-gap fires alongside loaded-gap',
+    res.findings.some((f) => f.kind === 'next-gap') && res.findings.some((f) => f.kind === 'loaded-gap'),
     JSON.stringify(res.findings));
 }
 

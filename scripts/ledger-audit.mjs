@@ -113,6 +113,13 @@ const CONTEXT_CONFIRMED = 'Context confirmed:';
 // names a skill.
 const LOADED_LINE = /^- Loaded:/m;
 
+// A line-start `Next:` bullet satisfies M7's forward arrow — same presence bar
+// and same literal-line doctrine as LOADED_LINE. `Next: none` is a VALUE
+// (docs/chat-receipt.md rule 4: "Never empty unless it says none"); only
+// silence is the gap. Origin: owner feedback 2026-09-23 — closes without a
+// forward arrow strand the reader ("sebagai user kadang tidak tau harus apa").
+const NEXT_LINE = /^- Next:/m;
+
 // The COUNT (M4) parses the line as a list instead of reading one token. The
 // first-token reader undercounted a real adopter ledger 5-8x (126 bullets
 // containing `receipts` counted as 16) because the writer lists skills
@@ -271,6 +278,16 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
         date,
         kind: 'context-gap',
         message: `entry ${date} fixes owner-supplied visual feedback without a "Context confirmed:" restatement line — Iron Law 1: confirm shared understanding (desktop/mobile, which block, what symptom) before the fix, not after a revert (AGENTS.md §6)`,
+      });
+
+    // M7 — forward arrow: an entry that closes with no Next: line at all.
+    // Presence bar: "none" is a value, silence is not (docs/chat-receipt.md
+    // rule 4). Mechanical twin of the §6 rule (encode-twice).
+    if (!NEXT_LINE.test(body))
+      findings.push({
+        date,
+        kind: 'next-gap',
+        message: `entry ${date} carries no "- Next:" line — every unit closes with one concrete forward arrow (a named action or the one decision the owner owns); "none" is a value, silence is not (docs/chat-receipt.md rule 4, AGENTS.md §6)`,
       });
   }
 
