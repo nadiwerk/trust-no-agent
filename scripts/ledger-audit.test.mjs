@@ -682,5 +682,56 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
     JSON.stringify(res.findings));
 }
 
+// F5/F6 (adopter regression 2026-09-23). A Self-Review checklist bullet is a
+// template repeat, not revert evidence: KNOWN_SUBSECTIONS fold `### Self-Review`
+// heads into the parent body before M5's bullet scan, so every session's
+// "- [x] **Maintainability**: ... (revert <hash>)" line collides on a shared
+// noun. Two unrelated checklists must not read as a fix-revert cycle.
+{
+  const ledger = [
+    '## 2026-09-21',
+    '',
+    '### S',
+    '- Modified config test — stateless now',
+    '',
+    '### Self-Review (4 Dimensi)',
+    '- [x] **Readability**: constants named',
+    '- [x] **Maintainability**: config restored to original state (revert 3001); wizard file untouched',
+    '',
+    '## 2026-09-22',
+    '',
+    '### S2',
+    '- Enforced single source of truth for port via test',
+    '',
+    '### Self-Review (4 Dimensi)',
+    '- [x] **Maintainability**: clean revert, no leftover diff in 7 config files',
+    '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: new Date('2026-09-23T00:00:00Z') });
+  check('F5 Self-Review checklist bullets are not churn evidence',
+    !res.findings.some((f) => f.kind === 'churn'),
+    JSON.stringify(res.findings));
+}
+
+// F6 sanity — the fix must not swallow genuine revert bullets: a real
+// `- Reverted ...` bullet (no checkbox marker) inside a Self-Review
+// subsection still counts toward churn.
+{
+  const ledger = [
+    '## 2026-09-21', '', '### S',
+    '### Self-Review (4 Dimensi)',
+    '- [x] **Maintainability**: ok',
+    '- Reverted the chain list spacing change', '',
+    '## 2026-09-22', '', '### S2',
+    '### Self-Review (4 Dimensi)',
+    '- [x] **Maintainability**: fine',
+    '- Reverted the chain list flex treatment', '',
+  ].join('\n');
+  const res = auditLedger({ ledgerText: ledger, today: new Date('2026-09-23T00:00:00Z') });
+  check('F6 genuine revert bullets inside Self-Review still count as churn',
+    res.findings.some((f) => f.kind === 'churn' && /chain list/i.test(f.message)),
+    JSON.stringify(res.findings));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
 process.exit(failures ? 1 : 0);

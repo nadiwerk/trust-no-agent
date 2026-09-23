@@ -159,6 +159,13 @@ const KNOWN_SUBSECTIONS = [/^###\s+Self-Review\b/i, /^###\s+Archive\b/i];
 // trace of that pattern; the finding tells the next session to stop fixing
 // and confirm context instead. Single reverts are normal maintenance.
 const REVERT_LINE = /revert/i;
+// A Self-Review checklist bullet ("- [x] **Maintainability**: ... (revert 3001)")
+// is a template repeat, not revert evidence: KNOWN_SUBSECTIONS folds the
+// `### Self-Review` head into the parent body before M5's bullet scan, so every
+// session's checklist collides on the same fixed noun ("Maintainability") and
+// reads as churn. Exclude checkbox lines (adopter regression F5, 2026-09-23);
+// genuine `- Reverted ...` bullets inside the subsection still count (F6).
+const CHECKBOX_LINE = /^- \[[ x]\]/;
 const REVERT_STOPWORDS = ['commit', 'change', 'treatment', 'approach'];
 const CHURN_THRESHOLD = 2;
 
@@ -209,7 +216,7 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
     // `### Session Summary - <title>` lines may contain "revert" as history
     // shorthand while the revert evidence itself lives in the entry's bullets.
     for (const line of body.split('\n')) {
-      if (!line.startsWith('- ') || !REVERT_LINE.test(line)) continue;
+      if (!line.startsWith('- ') || CHECKBOX_LINE.test(line) || !REVERT_LINE.test(line)) continue;
       const target = normalizeRevertTarget(line);
       if (!target) continue;
       if (!revertTargets[target]) revertTargets[target] = { count: 0, label: target };
