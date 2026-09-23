@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-09-23
+
+### Added
+- Every close now carries a forward arrow — `Next: none` only when the whole thread is closed, enforced twice (2026-09-23, owner feedback: "sebagai user kadang tidak tau harus apa, termasuk saya. Jadi next itu sangat diperlukan" — receipts whose `Next:` was missing or read "none pending" mid-chain left the owner stranded even when the work itself was correct; ledger drift confirmed: `Next:` lines routinely ended "none pending" while work waited). The receipt contract (`docs/chat-receipt.md` rule 4) now states that "none" is a value, not an absence — it means the whole thread is closed and nothing waits anywhere — and AGENTS.md §6 gains the permanent rule via `docs/rule-inheritance.md` (register row with origin/rationale/scope/undo; scope: global). Mechanical twin: `scripts/ledger-audit.mjs` M7 `next-gap` flags any in-window entry with no `- Next:` line (presence bar, literal-line doctrine as `LOADED_LINE`), surfaced through doctor C7 like its M1–M6 siblings — `Next: none` counts as a value, only silence is the gap. Fail-first: K1/K4/K6 (flag when the line is missing; cousin phrases like `Next steps:` don't satisfy it; additive to `loaded-gap`) were RED before the check existed (3 expectations broke, exit 1) and GREEN after (62/62, exit 0); H5's fixture gained `- Next: none` because the new boundary invalidated its cleanliness assertion — the fixture was completed, the assertion not weakened. Deliberate limit, stated: a false "none" mid-thread is NOT mechanically detected (a genuinely closed-then-reopened thread would false-positive) — that half is prose-guarded. Verified: fresh in-session batch — `ledger-audit.test.mjs`, `doctor.test.mjs`, `eval.mjs`, `validate.mjs`, `reinject.test.mjs` all EXIT 0; doctor C7 live against this repo's own ledger proves the pipeline on the real artifact (8 legacy entries flagged as WARN leads, the new entry clean). Cost, stated honestly: +104/−3 LOC across 5 files, one regex test per ledger entry, no new dependencies; adopters will see `next-gap` WARN leads for legacy entries inside the 14-day window — a signal to verify, never a failure.
+
 ## [0.1.18] - 2026-09-23
 
 ### Fixed
@@ -262,7 +267,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.17...v0.1.18
 [0.1.13]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.12...v0.1.13
 [0.1.7]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.6...v0.1.7
