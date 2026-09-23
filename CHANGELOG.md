@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-09-23
+
+### Fixed
+- Ledger audit counted Self-Review checklist bullets as churn evidence (2026-09-23, found while cleaning 125 warnings on the Metrian adopter ledger — the same reader-creates-the-signal class as v0.1.15): `KNOWN_SUBSECTIONS` folds every `### Self-Review` head into the parent entry's body before M5's bullet scan, so each session's `- [x] **Maintainability**: … (revert 3001)` checklist line was read as an ordinary revert bullet. `normalizeRevertTarget` reduces any such line to the shared fixed prefix `x maintainability` (`[x]`→`x`, `**Maintainability**`→`maintainability`), so two unrelated sessions' checklists collided and the audit demanded the owner be re-consulted about churn that never happened. Fixed: M5 skips checkbox lines (`- [x]` / `- [ ]`) — a completed review checklist is a template repeat, not revert evidence; genuine `- Reverted …` bullets inside a Self-Review subsection still count. Fail-first: F5 reproduces the adopter collision (RED pre-fix with the exact `"2 reverts on x maintainability"` message, GREEN after); F6 counter-tests that real revert bullets in the folded subsection keep firing pre- and post-fix. Verified: full suite PASS via pre-commit hook; adopter ledger re-audit 125 → 122 findings with context-gap 0 and churn 0 (remaining findings are historical `loaded-gap`s inside the 14-day window, aging out).
+
 ## [0.1.17] - 2026-09-21
 
 ### Fixed
@@ -257,7 +262,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.17...v0.1.18
 [0.1.13]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.12...v0.1.13
 [0.1.7]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.5...v0.1.6
