@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-09-23
+
+### Added
+- Receipt delivery contract — plain chat text, blocks separated (2026-09-23, two owner findings at the render layer in one session): (1) a receipt sent inside a fenced code block rendered in the owner's chat UI as a clipped scrollable file card ("file md tidak masalah tapi yang paling penting buat user adalah isi receipt langsung muncul di chat"); (2) four tight single-newline lines collapsed by markdown renderers into one merged paragraph ("saya tidak terbaca yangmana yang done, evidence, open, next. Pisahkan atau kasih spasi agar terbaca"). `docs/chat-receipt.md` gains two Delivery paragraphs: the receipt is plain chat text in the message body — never a fenced code block (a fence is a file, not a card) — and each block starts its own paragraph with a bold lead (verdict line bold; `Evidence:`/`Open:`/`Next:` bolded labels), because spacing is the skim test's rendering prerequisite. Archive files (ledger, `evidence.md`) supplement the in-chat receipt, never replace it. Encode twice: `scripts/eval.mjs` check 26 now guards all four receipt markers literally (skim test + delivery + separation). Teeth verified, not assumed: a neutralized marker turned eval RED (exit 1, naming the rule), a byte-identical restore turned it GREEN. Register rows, the corrective-tier lesson, and the private memory record kept aligned. Deliberate limit, stated: render quality itself is judged by the owner's eyes — no automated check claims it. Verified: full battery 12/12 EXIT 0 (validate, eval + all 10 suites) plus the pre-commit hook gates re-running at `5c7ad3f` and at the release commit.
+
+### Fixed
+- The chat-receipt Example taught a rule violation (2026-09-23, found by the consistency sweep the owner asked for with the commit): `Next: none` on T01, a chain ticket, contradicts rule 4's tightened "none" semantics (whole-thread-closed only) — the example now shows "proceed to T02". The Shape and Example also demonstrated the pre-delivery form (tight unlabeled lines), teaching every reader the exact shape the contract now forbids; both are rewritten in the canonical separated, bold-labeled form.
+
 ## [0.1.19] - 2026-09-23
 
 ### Added
@@ -267,7 +275,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.19...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.20...HEAD
+[0.1.20]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.17...v0.1.18
 [0.1.13]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.12...v0.1.13
