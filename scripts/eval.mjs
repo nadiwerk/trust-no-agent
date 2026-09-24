@@ -499,11 +499,16 @@ if (!/Context confirmed:/.test(shipLogText))
 // the cheap audit: a reader who reads ONLY the first line and the last line
 // of the receipt must know (a) what happened and (b) what happens next.
 // Encode twice: prose in docs/chat-receipt.md §Block rules, this mechanical
-// check for the boundary.
+// check for the boundary. Delivery layer (2026-09-23, two owner findings in one
+// session: fenced blocks rendered as clipped file cards; tight single-newline
+// lines collapsed into one merged paragraph): the skim test dies at the render
+// layer, so the delivery rules are part of the same boundary and guarded here.
 const chatReceiptText = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
 for (const marker of [
   /Skim test/,
   /reads only the first line and the last line/,
+  /Delivery: the receipt is plain chat text/,
+  /Blocks are separated, not run together/,
 ])
   if (!new RegExp(marker.source).test(chatReceiptText))
     err('docs/chat-receipt.md: missing skim-test rule (first line = verdict/state, last line = one concrete next action)');

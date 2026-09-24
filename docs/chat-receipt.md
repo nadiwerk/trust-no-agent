@@ -2,13 +2,20 @@
 
 Every verifiable unit closes in chat with these 4 blocks, in this order. Chat = live evidence (run fresh THIS message); files = archive. The ledger/tickets quote the run — they never replace it.
 
+**Delivery: the receipt is plain chat text in the message body** — its content must appear in chat itself, readable without opening or scrolling anything (owner: "yang paling penting buat user adalah isi receipt langsung muncul di chat"). Never wrap it in a fenced code block: chat UIs render a fence as a clipped, scrollable file card, which defeats the skim test below. Archive files (ledger entries, `evidence.md`) are fine — they supplement the in-chat receipt, never replace it.
+
+**Blocks are separated, not run together** — each block starts its own paragraph (a blank line between blocks) with a bold lead: the verdict line bold as a whole, `Evidence:`, `Open:`, `Next:` bolded as labels. Markdown chat renderers collapse single newlines into one merged paragraph, so four tight lines arrive as one unreadable lump (owner, 2026-09-23: "saya tidak terbaca yangmana yang done, evidence, open, next. Pisahkan atau kasih spasi agar terbaca"). Spacing is the skim test's rendering prerequisite.
+
 ## Shape
 
 ```md
-<✅ DONE | ❌ NOT done> <ticket-id> — <short title> | <command>: <result + exit>
-Evidence: <pre-impl FAIL> → <post-impl PASS> | <ACs satisfied>
-Open: <what was not proven, or "none">
-Next: <one action / none> — <archive location>
+**<✅ DONE | ❌ NOT done> <ticket-id> — <short title> | <command>: <result + exit>**
+
+**Evidence:** <pre-impl FAIL> → <post-impl PASS> | <ACs satisfied>
+
+**Open:** <what was not proven, or "none">
+
+**Next:** <one action / none> — <archive location>
 ```
 
 ## Block rules
@@ -34,10 +41,13 @@ The four-block shape is mandatory; this budget binds its size. A receipt over bu
 ## Example
 
 ```md
-✅ DONE T01-login-guard | tsc EXIT 0; vitest 1/1
-Evidence: pre-impl FAIL (500) → post-impl PASS (401) | AC1 ✔
-Open: browser check with real data
-Next: none — ledger `.trust/progress.txt` updated
+**✅ DONE T01-login-guard | tsc EXIT 0; vitest 1/1**
+
+**Evidence:** pre-impl FAIL (500) → post-impl PASS (401) | AC1 ✔
+
+**Open:** browser check with real data
+
+**Next:** proceed to T02 — ledger `.trust/progress.txt` updated
 ```
 
 ## Source per block
