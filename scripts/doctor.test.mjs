@@ -12,7 +12,7 @@
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict } from './doctor-checks.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -368,6 +368,27 @@ console.log('\nOK: doctor decision logic behaves as specified.');
   });
   check('K6 gated-loaded-gap verdict is warn-level, never fail',
     res.level === 'findings' && res.warn === true, JSON.stringify(res));
+}
+
+// ---- L. Manifest version must agree with the install stamp (C9) ----
+// Origin: 2026-09-27 cross-harness audit. The Claude Code plugin — the actual
+// enforcement mechanism on the author's machine — carried version 0.1.16 in its
+// .claude-plugin/plugin.json while .trust/tna-version said 0.1.20. Doctor read
+// only the stamp and reported "skills version current (v0.1.20)". plugin.json is
+// documented by docs/installation.md as part of the plugin shape and is written
+// by NO script, so nothing could ever bring the two into agreement: the same
+// computed-signal-with-no-consumer class as M4, inverted — a documented artifact
+// with no writer and no reader.
+{
+  const r = manifestVerdict({ stampVersion: '0.1.20', manifestVersion: '0.1.16' });
+  check('L1 manifest behind the stamp is warn-level', r.level === 'warn', JSON.stringify(r));
+  check('L2 the warning names both versions', /0\.1\.20/.test(r.message) && /0\.1\.16/.test(r.message), r.message);
+  check('L3 the warning names the manifest file', /plugin\.json/.test(r.message), r.message);
+  check('L4 matching versions pass', manifestVerdict({ stampVersion: '0.1.20', manifestVersion: '0.1.20' }).level === 'pass');
+  check('L5 a manifest AHEAD of the stamp is also flagged', manifestVerdict({ stampVersion: '0.1.16', manifestVersion: '0.1.20' }).level === 'warn');
+  check('L6 absent manifest degrades to pass (not every install has one)', manifestVerdict({ stampVersion: '0.1.20', manifestVersion: '' }).level === 'pass');
+  check('L7 absent stamp degrades to pass (C6 owns the unstamped case)', manifestVerdict({ stampVersion: '', manifestVersion: '0.1.16' }).level === 'pass');
+  check('L8 the warning says the update is a user decision, not a fix doctor performs', /user decision|installation\.md/i.test(r.message), r.message);
 }
 
 // K7 (roast finding 2026-09-20): the doctor WIRING is real — the C8 block must

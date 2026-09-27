@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict } from './doctor-checks.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -186,6 +186,37 @@ else
   else if (res.level === 'current' && installedVersion)
     pass(`skills version current (v${installedVersion})`);
   // 'unknown' (no upstream changelog or nothing installed) degrades silently
+
+  // ---- C9. plugin manifest agrees with the stamp ----
+  // Two writers of one fact. The stamp is what an install path wrote; the
+  // plugin manifest is what an installed plugin advertises. Until this check
+  // existed only the stamp was ever read, so a manifest could sit releases
+  // behind while every gate reported healthy (2026-09-27 audit: stamp 0.1.20,
+  // installed plugin.json 0.1.16, doctor said "current").
+  //
+  // Both documented manifest locations are probed, because the plugin and the
+  // project are different trees: the project-local `.claude-plugin/` (a repo
+  // that IS the plugin) and the harness install root `~/.claude/plugins/
+  // <name>/` (what docs/installation.md §[Claude Code] CLI describes). The
+  // first wiring of this check read only the project-local path and so reported
+  // nothing about the very manifest that was stale — the check was blind for
+  // the same reason the defect existed.
+  const manifestCandidates = [
+    join(cwd, '.claude-plugin', 'plugin.json'),
+    join(homedir(), '.claude', 'plugins', 'trust-no-agent', '.claude-plugin', 'plugin.json'),
+  ];
+  for (const manifestPath of manifestCandidates) {
+    if (!existsSync(manifestPath)) continue;
+    let manifestVersion = '';
+    try {
+      manifestVersion = String(JSON.parse(readFileSync(manifestPath, 'utf8')).version || '');
+    } catch {
+      warn(`${manifestPath} is not readable as JSON — cannot compare its version against the install stamp`);
+      continue;
+    }
+    const mv = manifestVerdict({ stampVersion: installedVersion, manifestVersion, manifestPath });
+    if (mv.level === 'warn') warn(mv.message);
+  }
 }
 
 // ---- C4. ledger ----

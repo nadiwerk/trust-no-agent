@@ -123,3 +123,36 @@ export function gateVerdict({ gateExists, gateSelfTestPasses, mode }) {
     return { level: 'fail', message: 'mandatory-gate self-test fails — the classifier drifts from its keyword tables; run node scripts/mandatory-gate.test.mjs and reconcile before trusting the audit gate findings' };
   return { level: 'pass', message: 'mandatory-gate active — mechanical boundary check for MANDATORY skill routing (keyword signal, not proof)' };
 }
+
+/**
+ * C9 — does the plugin manifest's version agree with the install stamp?
+ *
+ * The stamp (.trust/tna-version) records what an install path wrote; the plugin
+ * manifest records what the Claude Code plugin advertises. They are two writers
+ * of one fact, so a disagreement means one of them is lying — and until this
+ * check existed, only the stamp was ever read. Observed 2026-09-27: the stamp
+ * said 0.1.20 while the installed plugin.json said 0.1.16, and doctor reported
+ * the install healthy.
+ *
+ * Warn-level, never fail: a stale manifest breaks no gate, it misreports a
+ * version. And the repair is a user decision (Iron Law 4 territory — it is a
+ * write to an installed artifact), so the message points at the documented
+ * update path rather than prescribing an edit.
+ *
+ * Degrades to `pass` when either side is absent: a non-plugin install legitimately
+ * has no manifest, and C6 already owns the unstamped case.
+ *
+ * @returns {{level: 'pass'|'warn', message: string}}
+ */
+export function manifestVerdict({ stampVersion = '', manifestVersion = '', manifestPath = 'plugin.json' } = {}) {
+  if (!stampVersion || !manifestVersion) return { level: 'pass', message: '' };
+  if (stampVersion === manifestVersion) return { level: 'pass', message: '' };
+  return {
+    level: 'warn',
+    message:
+      `plugin manifest version disagrees with the install stamp: ${manifestPath} says v${manifestVersion}, ` +
+      `.trust/tna-version says v${stampVersion} — two writers of one fact, so one is stale. Compare the ` +
+      `manifest against the upstream release and update it through the documented path (docs/installation.md ` +
+      `"Updating"); the update is a user decision, and this is a write to an installed artifact.`,
+  };
+}

@@ -195,5 +195,57 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
     out);
 }
 
+// ---- H. The emitted header must not name a file the block did not come from ----
+// Origin: 2026-09-27 cross-harness audit. The header was a hardcoded constant
+// reading "restate of the live AGENTS.md", while the laws it introduces are
+// extracted from WORKFLOW.md — so every injected floor opened by citing the
+// wrong source. The block itself was correct; only its label lied, which is
+// exactly the class of claim this framework treats as a defect (AGENTS.md §6:
+// narration claims are graded as claims).
+{
+  const out = buildReinject(ROUTER);
+  const header = out.split('\n')[0];
+  check('H1 the header does not claim AGENTS.md as the source of a WORKFLOW.md law block',
+    !/live AGENTS\.md/.test(header),
+    header);
+  check('H2 the header still identifies itself as the reinsated router core',
+    /RE-INJECTED ROUTER CORE/.test(header),
+    header);
+}
+
+// ---- I. The CLI exit code is scoped to the MANDATORY half ----
+// The CLI scanned the whole block for /NOT FOUND/, so a block whose ONLY gap was
+// the MANDATORY section exited 1 while naming the laws as the missing half in
+// the emitted text — the caller gets a redirect-to-the-wrong-file instruction.
+// I1/I2 pin the per-half verdicts; they are extracted from the block text so the
+// CLI's own decision is what is under test, not a reimplementation of it.
+{
+  const LAWS_ONLY = `# Router
+
+## The four Iron Laws
+
+- No acting until the user confirms shared understanding.
+- No production code without a failing test first.
+- No completion claims without fresh verification evidence.
+- No expensive, irreversible, or shared-system action without explicit human sign-off.
+`;
+  const MANDATORY_ONLY = `# Router
+
+## MANDATORY discipline skills
+
+- expect-fail — load before writing any test.
+- root-cause — load before proposing any fix.
+- receipts — load before any done claim.
+`;
+  const lawsOnly = buildReinject(LAWS_ONLY);
+  const mandOnly = buildReinject(MANDATORY_ONLY);
+  check('I1 a laws-only block reports the MANDATORY half missing',
+    /## MANDATORY discipline skills — NOT FOUND/.test(lawsOnly),
+    lawsOnly.slice(0, 200));
+  check('I2 a MANDATORY-only block does not report the MANDATORY half missing',
+    /## MANDATORY discipline skills\n/.test(mandOnly) && !/## MANDATORY discipline skills — NOT FOUND/.test(mandOnly),
+    mandOnly.slice(0, 200));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll reinject expectations hold.');
 process.exit(failures ? 1 : 0);

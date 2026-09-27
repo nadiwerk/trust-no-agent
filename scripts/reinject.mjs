@@ -24,13 +24,26 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const HEADER = 'RE-INJECTED ROUTER CORE (compaction/resume guard — restate of the live AGENTS.md):';
+// The header names no single source file: the floor is assembled from two
+// (the Iron Laws from LAWS_SOURCE, the MANDATORY section from MANDATORY_SOURCE)
+// and a header naming one of them was false for the other half — it read
+// "restate of the live AGENTS.md" above a block whose laws came from
+// WORKFLOW.md (2026-09-27 audit). A caller that hands this extractor one file's
+// text gets that file named in the emitted block by the per-half NOT FOUND
+// notes, which is where source attribution belongs.
+const HEADER = 'RE-INJECTED ROUTER CORE (compaction/resume guard — restate of the live router):';
 
 // Which source file each half of the floor is expected to live in. Used only
 // to make a missing half legible in the emitted block; the extractor never
 // reads these files itself (it is a pure function over the text it is handed).
 const LAWS_SOURCE = 'WORKFLOW.md';
 const MANDATORY_SOURCE = 'AGENTS.md';
+
+// Per-half sentinels, exported so the CLI's exit-code decision and the tests
+// reference the same strings the block is built from — a copy of these literals
+// in the CLI would drift the moment a section heading is reworded.
+export const LAWS_NOT_FOUND = '## Iron Laws — NOT FOUND in the text handed to this extractor';
+export const MANDATORY_NOT_FOUND = '## MANDATORY discipline skills — NOT FOUND in the text handed to this extractor';
 
 /**
  * Canonical law stems, lowercase. Detection is stem-anchored rather than
@@ -128,7 +141,7 @@ export function buildReinject(routerText) {
     parts.push('## Iron Laws\n\n' + laws);
   } else {
     parts.push(
-      `## Iron Laws — NOT FOUND in the text handed to this extractor\n\n` +
+      `${LAWS_NOT_FOUND}\n\n` +
         `The four Iron Laws were not present in the router text passed in. They normally live in ` +
         `${LAWS_SOURCE}; if you are seeing this, pass that file's text too (or wire both files) — ` +
         `do not re-print this block as if the discipline floor were complete.`
@@ -145,7 +158,7 @@ export function buildReinject(routerText) {
     if (body) parts.push('## MANDATORY discipline skills\n\n' + body);
   } else {
     parts.push(
-      `## MANDATORY discipline skills — NOT FOUND in the text handed to this extractor\n\n` +
+      `${MANDATORY_NOT_FOUND}\n\n` +
         `The MANDATORY section was not present in the router text passed in. It normally lives in ` +
         `${MANDATORY_SOURCE}.`
     );
@@ -189,5 +202,12 @@ if (process.argv[1] && process.argv[1].endsWith('reinject.mjs')) {
   // A block that still names a missing half exits 1: the caller gets the
   // degraded text either way, but a silent half can no longer pass as a
   // complete injection in CI or a hook's exit-code check.
-  process.exit(/NOT FOUND/.test(block) ? 1 : 0);
+  //
+  // Scoped to the two per-half section sentinels, not a bare /NOT FOUND/ scan
+  // over the whole block (2026-09-27 audit): the block-wide test also fired on
+  // a NOT FOUND appearing in quoted router text, so a complete floor could exit
+  // 1, and a half floor could not say WHICH half failed without the caller
+  // re-reading the text.
+  const halfMissing = block.includes(LAWS_NOT_FOUND) || block.includes(MANDATORY_NOT_FOUND);
+  process.exit(halfMissing ? 1 : 0);
 }
