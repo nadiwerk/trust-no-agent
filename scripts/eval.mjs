@@ -618,6 +618,37 @@ const ccInstallText = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8'
   }
 }
 
+// ---- 32. The load_skills fallback is a countable artifact, not an appeal (HARD) ----
+// Origin: 2026-09-27 cross-harness audit. §5 says a harness without a
+// `load_skills` parameter "inject[s] the skill's procedure inline into the
+// prompt instead (an unloaded skill is a dead skill)" — but check 6b above only
+// guards the PARAMETERIZED path (`load_skills: ["x"]`). On a harness whose
+// delegation tool has no such parameter (the audit found one: this repo's own
+// Claude Code session), the primary layer cannot fire and the fallback is the
+// only layer — unverifiable prose, which is the exact component class the
+// framework's own evidence says fails silently (0/3 self-trigger).
+//
+// The fix is artifact-based, matching how every other discipline in this repo
+// is made checkable: the injected procedure carries a `Loaded: <skill>` line in
+// the delegation prompt, and the orchestrator verifies that line the way it
+// verifies everything else. That turns "did you inject the skill inline?" from
+// an appeal to a countable fact.
+//
+// This check guards the marker pair. It cannot verify that any individual
+// delegation carried the line — no mechanical check can see inside another
+// agent's prompt — so it is scoped honestly to what it proves: the contract
+// names an artifact, so a delegation without one is a visible gap rather than
+// an invisible one.
+for (const [marker, why] of [
+  [/inline procedure carries a `Loaded: <skill>` line/i,
+    'the load_skills fallback must name a countable artifact (a `Loaded:` line in the injected prompt) rather than relying on the delegate to remember'],
+  [/the delegation prompt carries it too/i,
+    'the delegation-prompt half must be named: the subagent prompt carries the Loaded: line, not only the ledger entry after the fact'],
+]) {
+  if (!marker.test(agentsText2))
+    err(`AGENTS.md §5 delegation contract: missing artifact-fallback marker ${marker} — ${why}`);
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
