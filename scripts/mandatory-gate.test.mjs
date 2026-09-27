@@ -102,6 +102,58 @@ const check = (label, cond, detail = '') => {
   }
 }
 
+// ---- G. Negated mentions — the user asks NOT to do the gated thing ----
+// Origin: 2026-09-27 cross-harness audit. The matcher fires on the WORD, not on
+// the polarity of the request, so a prompt that explicitly declines the gated
+// work was classified as demanding it — "no need to write a test for this"
+// returned expect-fail:true, "jangan tulis test dulu" likewise, "no commit yet"
+// and "dont ship it yet" both returned receipts:true. The hook then injects a
+// LOAD directive for work the user just forbade. A gate whose flags must be
+// verified before they mean anything cannot be trusted once it is inverted on
+// the most explicit signal a user can give.
+//
+// Expected verdicts here are intent-derived literals, not observations of the
+// current matcher's output: each prompt asks for the opposite of the gate, so
+// the correct verdict is "no domain".
+{
+  const cases = [
+    'no need to write a test for this, it is a one-liner',
+    'jangan tulis test dulu, langsung saja',
+    'there is no bug here, the code is fine',
+    'no commit yet, just show me the diff',
+    'dont ship it yet',
+    'without any tests, just tell me what it does',
+    'tanpa commit, cukup tunjukkan diff-nya',
+    'belum selesai, jangan dicatat dulu',
+  ];
+  for (const t of cases) {
+    const v = classifyTask(t);
+    check(`G1 negated mention is not a domain match: "${t}"`,
+      !MANDATORY_DOMAINS.some((s) => v[s]), JSON.stringify(v));
+  }
+}
+
+// ---- H. Negation must not become a blunt off-switch ----
+// The counterpart to G: a negation-tolerance that swallowed every keyword after
+// any negative word would be a worse gate than the one it replaced — it would
+// go blind exactly where a real gate is needed (a complaint IS the bug report).
+// Assertions of trouble are positive signals, not negated requests.
+{
+  const cases = [
+    ['there is a bug in the reader', 'root-cause'],
+    ['no, the tests are failing again', 'root-cause'],
+    ['the commit broke the build, why?', 'root-cause'],
+    ['commit and push this', 'receipts'],
+    ['this is done, ship it', 'receipts'],
+    ['tulis test untuk modul X', 'expect-fail'],
+    ['tidak apa-apa, tapi tolong perbaiki bug ini', 'root-cause'],
+  ];
+  for (const [t, domain] of cases) {
+    check(`H1 real requirement still matches (${domain}): "${t}"`,
+      classifyTask(t)[domain] === true, JSON.stringify(classifyTask(t)));
+  }
+}
+
 // ---- F. Keyword-table ↔ test consistency (spec §AC5) ----
 {
   // Every keyword must be exercised by a case in THIS file; otherwise the
@@ -129,6 +181,9 @@ const check = (label, cond, detail = '') => {
     'debug the parser', // root-cause: debug
     'the app can crash', // root-cause: crash
     'why does this fail', // root-cause: why does
+    'the build broke overnight', // root-cause: broke
+    'a broken pipeline', // root-cause: broken
+    'why is this red', // root-cause: why is this
     'deploy to staging', // receipts: deploy
   ].join(' ').toLowerCase();
   const untested = [];
