@@ -10,6 +10,8 @@
  *  - one file per ticket: <NN>-<slug>.md, NN unique
  *  - H1 matches the filename NN
  *  - a **Blocked by:** line names blockers by NN ("None" = frontier ticket)
+ *  - at least one acceptance criterion ("- [ ] <criterion>", cited from the spec;
+ *    the template's unfilled `<criterion 1 …>` placeholder does not count)
  *  - every named blocker resolves to an existing ticket (no dangling refs)
  *  - no self-dependency, no cycles (Kahn), blockers numbered first (NN order)
  */
@@ -19,6 +21,16 @@ import { fileURLToPath } from 'node:url';
 
 const FILENAME_RE = /^(\d+)-.+\.md$/;
 const NONE_RE = /^\s*none\b/i;
+// A criterion is an unchecked or checked list item whose text is real — not the
+// template's `<criterion 1 — cited from the spec>` placeholder left unfilled.
+const CRITERION_RE = /^\s*[-*]\s*\[[ xX]\]\s*(.+)$/gm;
+const PLACEHOLDER_RE = /^<.*>$/;
+
+/** Criteria lines that carry actual content (template placeholders excluded). */
+const realCriteria = (text) =>
+  [...text.matchAll(CRITERION_RE)]
+    .map((m) => m[1].trim())
+    .filter((body) => body.length > 0 && !PLACEHOLDER_RE.test(body));
 
 const parseTicket = (path) => {
   const text = readFileSync(path, 'utf8');
@@ -29,6 +41,12 @@ const parseTicket = (path) => {
   const h1 = text.match(/^#\s+(\d+)\s+[—–-]\s+(.+)$/m);
   if (!h1) errors.push(`${fileNN}: missing H1 "# <NN> — <title>" line`);
   else if (h1[1] !== fileNN) errors.push(`${fileNN}: H1 number ${h1[1]} != filename number ${fileNN}`);
+
+  // Acceptance criteria — the field fork-it's spec gate is named after. Without
+  // this, a ticket could validate green with an empty body: the graph was
+  // checked, the thing the graph exists to deliver was not.
+  if (realCriteria(text).length === 0)
+    errors.push(`${fileNN}: no acceptance criterion — add at least one "- [ ] <criterion>" line, cited from the spec (fork-it spec gate: a ticket with nothing testable is not a slice)`);
 
   const blockedLine = text.match(/^\*\*Blocked by:\*\*\s*(.+)$/m);
   if (!blockedLine) { errors.push(`${fileNN}: missing "**Blocked by:**" line`); return { nn: fileNN, blockers: [], errors }; }

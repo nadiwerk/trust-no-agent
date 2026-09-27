@@ -58,7 +58,7 @@ Refine until the user signs off on the breakdown.
 ### 5. Publish to the issue tracker
 
 - **Local files** → one file per ticket under `.trust/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). One ticket per file — never a single combined file.
-- **Validate the graph before work starts** → run `node scripts/tickets.mjs` against the issues dir. Every blocker must resolve to an existing ticket, numbering must stay blockers-first, and the graph must be acyclic. A red validator means the breakdown is malformed — fix the edges, don't start the tickets.
+- **Validate the graph before work starts** → run `node scripts/tickets.mjs` against the issues dir. Every ticket must carry at least one acceptance criterion cited from the spec (an unfilled placeholder is not a criterion), every blocker must resolve to an existing ticket, numbering must stay blockers-first, and the graph must be acyclic. A red validator means the breakdown is malformed — fix the edges or the criteria, don't start the tickets.
 - **A real tracker (GitHub, Linear, …)** → one issue per ticket in dependency order; use the platform's native blocking/sub-issue relationship where it has one. Apply the `ready-for-agent` label unless told otherwise. **Publish only after the user signs off on the breakdown** — the sign-off is what authorizes the tracker writes (Iron Law 4).
 
 **Project schema precedence:** if the project already tracks tickets with its own schema, template, or linter, that contract wins for FORMAT — publish tickets in the project's shape. The semantics below stay mandatory regardless: vertical slices, declared blockers, acceptance criteria, and approval before work starts.

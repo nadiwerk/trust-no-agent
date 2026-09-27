@@ -88,5 +88,73 @@ const cleanup = (root) => rmSync(root, { recursive: true, force: true });
   cleanup(root);
 }
 
+{ // 6. a ticket with NO acceptance criterion fails
+  // Origin: 2026-09-27 cross-harness audit. fork-it's spec gate argues "a spec
+  // that cannot be tested cannot be decomposed", and the ticket template makes
+  // the criteria the ticket's body — but the validator only ever checked the
+  // blocking graph. A ticket with zero criteria validated green, so a breakdown
+  // could pass the one mechanical gate at the acceptance-criteria boundary with
+  // the acceptance criteria missing entirely.
+  const { root, dir } = fixture({
+    '01-first.md':
+`# 01 — first
+
+**What to build:** behavior for first.
+
+**Blocked by:** None — can start immediately
+
+**Status:** ready-for-agent
+`,
+  });
+  const res = validateDir(dir);
+  check('ticket with no acceptance criterion is an error',
+    res.errors.some((e) => /criteri/i.test(e) && /01/.test(e)), JSON.stringify(res.errors));
+  cleanup(root);
+}
+
+{ // 7. an unchecked placeholder checkbox does not count as a criterion
+  // The template ships `- [ ] <criterion 1 — cited from the spec>`. A ticket
+  // that was never filled in still parses as a list item, so the check must
+  // reject the angle-bracket placeholder explicitly rather than counting
+  // bullets.
+  const { root, dir } = fixture({
+    '01-first.md':
+`# 01 — first
+
+**What to build:** behavior for first.
+
+**Blocked by:** None — can start immediately
+
+**Status:** ready-for-agent
+
+- [ ] <criterion 1 — cited from the spec>
+`,
+  });
+  const res = validateDir(dir);
+  check('unfilled angle-bracket placeholder is not a criterion',
+    res.errors.some((e) => /criteri/i.test(e)), JSON.stringify(res.errors));
+  cleanup(root);
+}
+
+{ // 8. a real criterion passes, and so does a checked one
+  const { root, dir } = fixture({
+    '01-first.md':
+`# 01 — first
+
+**What to build:** behavior for first.
+
+**Blocked by:** None — can start immediately
+
+**Status:** ready-for-agent
+
+- [ ] AC1 — invalid input is rejected with 400 (spec §Acceptance Criteria 1)
+- [x] AC2 — valid input returns 200
+`,
+  });
+  const res = validateDir(dir);
+  check('ticket with real criteria has no errors', res.errors.length === 0, JSON.stringify(res.errors));
+  cleanup(root);
+}
+
 if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
 console.log('\nOK: ticket-graph validator behaves as specified.');
