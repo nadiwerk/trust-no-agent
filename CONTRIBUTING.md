@@ -83,10 +83,15 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — `node scripts/validate.mjs`,
-  `node scripts/eval.mjs`, `node scripts/tickets.test.mjs`, and
-  `node scripts/doctor.test.mjs` must all exit 0.
-  CI runs the same four checks on every push and PR; a red CI blocks merge.
+- **Run the gates before pushing** — the eight self-tests CI runs must all exit 0:
+  `node scripts/validate.mjs`, `node scripts/eval.mjs`,
+  `node scripts/tickets.test.mjs`, `node scripts/doctor.test.mjs`,
+  `node scripts/mandatory-gate.test.mjs`, `node scripts/ledger-audit.test.mjs`,
+  `node scripts/tickets.mjs` (smoke), and `node scripts/site.test.mjs`.
+  CI runs the same set on every push and PR; a red CI blocks merge. The
+  pre-commit hook runs a superset (it adds `reinject.test.mjs`,
+  `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
+  be red where CI is green — that is the hook being stricter, not a mismatch.
 - **Link the issue** — reference the issue the PR addresses (e.g. `Closes #12`)
   so the decision record stays connected to the change.
 - **Describe what and why** — a short PR body stating the change, the evidence
@@ -95,14 +100,28 @@ This installs two hooks:
 ## What the CI checks
 
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
-`master`/`main`:
+`master`/`main`. Three jobs:
+
+**`validate`** — the eight gates:
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
 3. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
 4. `node scripts/doctor.test.mjs` — doctor C2/C4/C5/C6/C7b decision-logic self-test.
+5. `node scripts/mandatory-gate.test.mjs` — MANDATORY-classifier self-test.
+6. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
+7. `node scripts/tickets.mjs` — ticket-graph smoke run.
+8. `node scripts/site.test.mjs` — site acceptance contract.
 
-If any fails, the PR is not mergeable. Run all four locally before pushing.
+**`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
+proves a conventional commit passes both hooks while a non-conventional message
+is rejected by `commit-msg`. This exists because the hooks rot silently when
+nothing exercises them.
+
+**`windows`** — re-runs the structural and self-test gates on `windows-latest`,
+so a Windows-only path or line-ending break is caught before merge.
+
+If any fails, the PR is not mergeable. Run them locally before pushing.
 
 ## Repository layout
 
