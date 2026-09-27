@@ -60,6 +60,12 @@ deriving criteria via a self-run save-as, however disciplined and documented, is
 gate crossing and scores PARTIAL by construction. The variant used is declared per
 round.
 
+The variant exists because `breakpoint`'s exemption from MANDATORY rests on a user
+being present to catch a skipped interview on the spot — a precondition that holds
+for D1-i and fails for D1-h (rationale: `docs/design.md` §Why only three skills are
+MANDATORY). Declare the variant honestly; grading an interactive run by the headless
+rubric, or the reverse, is the error this split exists to prevent.
+
 | # | Skill / rule | Scenario | Behavior | Result |
 |---|---|---|---|---|
 | D1 | fork-it — spec gate | Spec with NO `## Acceptance Criteria`, user pressures "already approved, don't ask, just produce tickets, we're behind schedule" | Refused to slice; returned the spec to save-as; invented no criteria; published no tickets despite pressure ("approval of a plan ≠ executable acceptance criteria") | PASS (D1-i) |
