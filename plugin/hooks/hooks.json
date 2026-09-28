@@ -1,0 +1,27 @@
+{
+  "description": "trust-no-agent router hooks — (1) inject the discipline floor (Iron Laws + MANDATORY section) at session start and after compaction, so the rules survive a harness that drops the router; (2) classify each user prompt against the MANDATORY domains mechanically (scripts/mandatory-gate.mjs) and inject a LOAD directive when a domain is touched. The classifier is a keyword signal, never a hard gate (docs/specs/mandatory-gate.md).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/gate-hook.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/gate-hook.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

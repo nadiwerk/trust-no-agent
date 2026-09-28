@@ -1,0 +1,5 @@
+interface:
+  display_name: "Fork It"
+  short_description: "Fork work into vertical-slice tickets"
+policy:
+  allow_implicit_invocation: false

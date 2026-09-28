@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Installable plugin + marketplace.** The repo is now its own marketplace
+  (`.claude-plugin/marketplace.json`) with a `plugin/` payload that ships the
+  router, the hook layer, and all 11 skills in one install:
+  `claude plugin marketplace add nadiwerk/trust-no-agent`. The payload is flat
+  (`plugin/skills/<name>/`) because the installer does not flatten and
+  non-recursive discoverers cannot see a nested tree; `scripts/plugin.test.mjs`
+  guards every mirror byte-for-byte so the published copy cannot drift.
+- **`scripts/gate-hook.mjs` is now tracked.** It was the only file in the
+  enforcement layer that existed exclusively in an installed plugin directory —
+  absent from the repo and from all git history — so losing that folder meant
+  rewriting the hook entry point from memory. Its fail-open contract and both
+  event paths are pinned by `scripts/gate-hook.test.mjs`.
+- Cross-harness skill mirrors under `plugin/` (`.claude/`, `.cursor/`,
+  `.agents/`, `.opencode/`) so non-Claude marketplaces install from one repo.
+
+### Fixed
+
+- `hooks.json` used a machine-specific absolute path in the hand-copied install,
+  so the plugin worked on exactly one machine. It now resolves through
+  `${CLAUDE_PLUGIN_ROOT}`.
+
 ## [0.1.20] - 2026-09-23
 
 ### Added

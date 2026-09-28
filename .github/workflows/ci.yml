@@ -45,6 +45,12 @@ jobs:
       - name: Site acceptance contract
         run: node scripts/site.test.mjs
 
+      - name: Hook entry-point contract (fail-open)
+        run: node scripts/gate-hook.test.mjs
+
+      - name: Plugin mirror drift guard
+        run: node scripts/plugin.test.mjs
+
   hooks:
     name: Git hooks gate
     runs-on: ubuntu-latest

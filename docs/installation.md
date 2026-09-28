@@ -130,10 +130,34 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 Delegation uses `task(category, load_skills, run_in_background)` — the framework prompts already match this shape.
 
 ### [Claude Code] CLI
+
+**Recommended — install as a plugin (ships the router and the hooks together).**
+The repo is its own marketplace, so both halves arrive in one step:
+
+```bash
+# 1. Register this repo as a marketplace
+claude plugin marketplace add nadiwerk/trust-no-agent
+
+# 2. Install the plugin (router + hooks + skills)
+claude plugin install trust-no-agent@trust-no-agent
+```
+
+The plugin payload lives in `plugin/` and is **flat** — `plugin/skills/<name>/`,
+not `skills/<category>/<name>/` — because the marketplace installer does not
+flatten, and non-recursive skill discoverers see nothing in a nested tree
+(`docs/compatibility.md` finding #1). `scripts/plugin.test.mjs` guards that
+mirror byte-for-byte, so the published payload cannot drift from the source.
+
+Prefer the plugin install: it is the only path that wires the hooks for you, and
+**without the hooks the skills are inert** (self-trigger measured at 0/3 —
+`docs/design.md`). The manual copy below still works, but you must wire the hook
+layer yourself.
+
+**Manual copy (no plugin system).**
 ```bash
 # AGENTS.md is NOT read natively — add it to CLAUDE.md:
 echo "@/path/to/trust-no-agent/AGENTS.md" >> CLAUDE.md   # or symlink AGENTS.md into CLAUDE.md's @-import
-# Skills:
+# Skills (flat copy — never `cp -r skills/*`, that nests category dirs):
 mkdir -p .claude/skills ~/.claude/skills
 cp -r <trust-no-agent>/skills/*/* .claude/skills/     # project-wide
 cp -r <trust-no-agent>/skills/*/* ~/.claude/skills/   # or user-wide
