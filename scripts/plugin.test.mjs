@@ -178,5 +178,28 @@ const skills = canonicalSkills();
   }
 }
 
+// ---- H. One version, one writer — the marketplace and plugin agree with the CHANGELOG ----
+// Origin: the audit's §6 class, one layer up. `.trust/tna-version` and the
+// installed plugin.json drifted to different versions and nothing read the
+// second one, so doctor reported healthy while a manifest sat four releases
+// behind. Publishing multiplies the writers: the CHANGELOG names the release,
+// the marketplace advertises it, and the plugin manifest declares it. Three
+// files, one fact — so they are checked against each other here rather than
+// left to drift in the one place an installer actually reads.
+{
+  const changelog = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const released = (changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || '';
+  check('H1 the CHANGELOG has a released version heading', released !== '', 'no [x.y.z] heading found');
+
+  const mkt = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  const plugin = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));
+  const mktEntry = mkt.plugins?.find((p) => p.name === 'trust-no-agent');
+
+  check(`H2 the marketplace entry advertises the released version (${released})`,
+    mktEntry?.version === released, `marketplace says ${mktEntry?.version}`);
+  check(`H3 the plugin manifest declares the released version (${released})`,
+    plugin.version === released, `plugin.json says ${plugin.version}`);
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll plugin-mirror expectations hold.');
 process.exit(failures ? 1 : 0);
