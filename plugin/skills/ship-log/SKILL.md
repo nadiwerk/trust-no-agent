@@ -36,6 +36,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - Context confirmed: <required for fixes driven by owner visual feedback — restate display context (desktop/mobile), the exact block, and the symptom before the fix; audited by scripts/ledger-audit.mjs M3>
 - Verification: <evidence, e.g. tsc EXIT 0; vitest 42/42 pass>
 - Next: <the single open action, or "none">
+- Lesson: <required when the entry closes a repair — root_cause = <the specific broken feature> | correction = <one imperative sentence>; written here AND dated as the entry is, so the corrective tier can be matched to the repair (audited by scripts/ledger-audit.mjs M8)>
 - Recipe: task_type = <type of task, e.g. "add-validation"> | steps = <2-8 generalizable steps, no task-specific entities>
 - Tags: <2-5 short tags, comma-separated, e.g. "evals, harness, fail-first">
 
@@ -46,7 +47,11 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - [x] **Security**: no secrets in source, user input validated, no sensitive data in logs
 ```
 
-**The date header is mandatory and load-bearing.** Every entry opens with a `## <YYYY-MM-DD>` date header — same date as the entry's index line. The ledger audit (`scripts/ledger-audit.mjs`) and the corrective-tier grace check (`scripts/corrective-tier.mjs`) attach a date to each entry from that header; an entry without one is reported as an unprovable coverage gap, not audited. The date lives in the ledger (self-contained), the `.trust/index.md` one-liner stays the recovery shortcut — the index is not the date authority. The invariant is enforced mechanically by `scripts/eval.mjs` check 27, so it cannot regress to a blind "clean" silently.
+**The `Loaded:` and `Next:` lines are mandatory, and their absence is a finding.** Both were prose contracts with mechanical readers before the template taught them: a domain-relevant entry with no `Loaded:` line is the silent-drop signal (scripts/ledger-audit.mjs M1, AGENTS.md §2), and an entry with no `Next:` line strands the next session (scripts/ledger-audit.mjs M7, docs/chat-receipt.md rule 4). The template is the writer's surface — when the template dropped these lines, entries written from it inherited the omission and the audit reported gaps for a format no one was taught. `scripts/eval.mjs` check 33 guards the template itself, so the omission cannot silently return.
+
+**A repair entry carries its lesson inline.** When the entry closes a repair (root-cause / done-claim work), the `Lesson:` line belongs in the entry, dated as the entry is — the corrective tier's writer (`.trust/lessons.md`) and its reader (scripts/ledger-audit.mjs M8) are matched by that date. A repair whose lesson was never recorded is a finding, not a style choice.
+
+**The date header is mandatory and load-bearing.** Every entry opens with a `## <YYYY-MM-DD>` date header — same date as the entry's index line. The ledger audit (scripts/ledger-audit.mjs) and the corrective-tier grace check (scripts/corrective-tier.mjs) attach a date to each entry from that header; an entry without one is reported as an unprovable coverage gap, not audited. The date lives in the ledger (self-contained), the `.trust/index.md` one-liner stays the recovery shortcut — the index is not the date authority. The invariant is enforced mechanically by `scripts/eval.mjs` check 27, so it cannot regress to a blind "clean" silently.
 
 Mark `[x]` when checked, or `[ ]` + a one-line reason when skipped. Never skip silently. The four checkboxes compose into the verdict: the entry is **loggable only when every dimension is answered** — all `[x]`, or a `[ ]` that carries its one-line reason. A self-review with any unanswered dimension is a claim, not a record.
 

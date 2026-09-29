@@ -649,6 +649,43 @@ for (const [marker, why] of [
     err(`AGENTS.md §5 delegation contract: missing artifact-fallback marker ${marker} — ${why}`);
 }
 
+// ---- 33. The Log Format template teaches the two audited lines (HARD) ----
+// Origin: 2026-09-29, M8 (lesson-gap) wiring. Both lines were already PROSE
+// contracts with mechanical readers — the MANDATORY-skill audit trail (AGENTS.md
+// §2 / ledger-audit M1) and the closing forward arrow (docs/chat-receipt.md
+// rule 4 / ledger-audit M7) — but each had been dropped from the template at
+// some point, and every entry written from the template inherited the omission.
+// The result was a ledger that only LOOKED audited: seven of the repo's own
+// entries in the 2026-09-15..21 window carry findings for exactly these two
+// lines, while no check noticed the template was teaching a format the audit
+// reads as a gap. A format the writer never emits cannot be audited for — the
+// template is the writer's surface, so the invariant is guarded there.
+//
+// Matched against the Log Format TEMPLATE block, not the whole file: each line
+// also carries an explanatory sentence elsewhere in the skill, and a prose hit
+// would pass with the template stripped (the tautology class this repo has hit
+// before). Encode twice: prose in ship-log's Log Format, this check for the
+// boundary.
+// The terminator is a column-0 `## ` heading that is NOT the template's own
+// `## <YYYY-MM-DD>` placeholder — the first version used a bare `(?=\n## )`
+// lookahead and the lazy match stopped at the template's own header line, so
+// the block was 26 characters and the check was blind to the very lines it
+// guards (caught 2026-09-29 by the RED run after the template was fixed:
+// eval still reported both markers missing with them present).
+const logFormat = shipLogText.match(/## Log Format[\s\S]*?(?=\n## (?!<YYYY-MM-DD>))/);
+if (!logFormat)
+  err('ship-log: "## Log Format" section missing (the ledger writer contract must live where the writer reads it)');
+else
+  for (const [marker, why] of [
+    [/^- Loaded: /m,
+      'the template must carry the "Loaded: " line — it is the MANDATORY-skill audit trail (AGENTS.md §2, ledger-audit M1); entries written from a template without it are flagged forever'],
+    [/^- Next: /m,
+      'the template must carry the "Next: " line — every close needs its forward arrow (docs/chat-receipt.md rule 4, ledger-audit M7); "none" is a value, a missing line is a finding'],
+  ]) {
+    if (!marker.test(logFormat[0]))
+      err(`ship-log: Log Format missing ${marker} — ${why}`);
+  }
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
