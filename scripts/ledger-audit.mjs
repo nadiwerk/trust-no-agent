@@ -120,6 +120,43 @@ const LOADED_LINE = /^- Loaded:/m;
 // forward arrow strand the reader ("sebagai user kadang tidak tau harus apa").
 const NEXT_LINE = /^- Next:/m;
 
+// M8 — lesson-gap (audit 2026-09-27 §7b). receipts (MANDATORY) demands the
+// corrective tier be fed on EVERY repair ("Before accepting a fixed/done/repair
+// claim, check the lesson exists" — receipts skill §Lesson capture), but nothing
+// mechanically verified a lesson was written for the repair being closed: the
+// only link was a free-text backfill tag applied inconsistently. M8 makes it a
+// comparison — the entry carries a repair marker AND the lessons text carries a
+// lesson dated with the entry's date — or the entry is a finding.
+//
+// The contract is PRESENCE, same doctrine as M1/M7: the writer chooses the
+// wording; the audit counts the fact. The lesson needs the entry's date because
+// that is what "the lesson for THIS repair" means without inventing incident
+// keys — a lesson dated any other day cannot be this entry's by construction,
+// which is the honest limit of a date-keyed match (two repairs of different
+// bugs on one date share the satisfaction; the check is a floor, not a proof).
+const REPAIR_MARKERS = [
+  // root-cause domain (the repair verbs, not the diagnosis nouns)
+  'root cause', 'Root cause',
+  'test failure', 'failing test', 'failing tests',
+  'fixed the bug', 'bug fixed', 'fixed by',
+  'perbaikan', 'diperbaiki',
+  // done-claim domain (a closed repair commits)
+  'Committed ', 'committed the fix',
+];
+
+// A lesson line in .trust/lessons.md — the file's own documented format
+// ("Lesson: root_cause = … | correction = …"). The date annotation is the
+// established convention (29 of 30 existing lessons carry one); the bracketed
+// date may sit anywhere after the marker. No date in the LESSONS text at all
+// means the tier cannot prove any lesson corresponds to any entry — every
+// repair entry inside the window then reads as a gap, which is the correct
+// reading of a tier that records nothing.
+// The whole line, not just the marker: the date annotation lives at the END of
+// the lesson (`… | correction = … [2026-09-08]`), so a marker-only match would
+// never carry it (bug caught by L2 during the M8 wiring, 2026-09-29).
+const LESSON_LINE = /^Lesson:.*$/gm;
+const LESSON_DATE = /\[(\d{4}-\d{2}-\d{2})/;
+
 // The COUNT (M4) parses the line as a list instead of reading one token. The
 // first-token reader undercounted a real adopter ledger 5-8x (126 bullets
 // containing `receipts` counted as 16) because the writer lists skills
@@ -182,15 +219,38 @@ const CHURN_THRESHOLD = 2;
  * @param {Date} input.today reference "now" (injected for determinism)
  * @param {number} [input.recencyDays] audit window in days (default 14)
  * @returns {{findings: Array<{date: string, kind: string, message: string}>,
+ * @param {string} [input.lessonsText] full text of .trust/lessons.md (M8).
+ *   Omitted by callers that cannot read the tier — M8 then stays SILENT rather
+ *   than inventing gaps out of missing data (same degrade doctrine as an
+ *   undated entry: unprovable is never a finding). Tests and embedders that do
+ *   not pass it keep their old verdicts (pinned by L7).
+ * @returns {{findings: Array<{date: string, kind: string, message: string}>,
  *            gaps: Array<{date: null, kind: 'coverage-gap', reason: string}>,
  *            stats: object}}
  */
-export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
+export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, lessonsText = null }) {
   const findings = [];
   if (!ledgerText.trim()) return { findings, gaps: [], stats: emptyStats() };
 
   const entries = splitEntries(ledgerText);
   const windowStart = today.getTime() - recencyDays * DAY_MS;
+
+  // M8 needs the entry's own date to decide, so the tier is indexed ONCE by the
+  // date annotation the format already carries (`[2026-09-19]`, see
+  // .trust/lessons.md). A lesson with no bracketed date is deliberately not
+  // indexed: it cannot be attributed to any single repair, and a date-less
+  // index would let one lesson satisfy every repair in the window.
+  const lessonsProvided = typeof lessonsText === 'string';
+  const lessonDates = new Set();
+  if (lessonsProvided) {
+    // No `^` anchor in the line predicate: LESSON_LINE is a /gm regex whose
+    // lastIndex persists, so `.test()` on successive matches would skip every
+    // other lesson. matchAll resets it, and the predicate stays a plain check.
+    for (const m of lessonsText.matchAll(LESSON_LINE)) {
+      const d = m[0].match(LESSON_DATE);
+      if (d) lessonDates.add(d[1]);
+    }
+  }
 
   // M4 — per-skill Loaded: counts, ledger-wide (not windowed): the historical
   // ratio IS the signal. A MANDATORY skill with zero Loaded: lines while the
@@ -280,6 +340,21 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS }) {
         message: `entry ${date} fixes owner-supplied visual feedback without a "Context confirmed:" restatement line — Iron Law 1: confirm shared understanding (desktop/mobile, which block, what symptom) before the fix, not after a revert (AGENTS.md §6)`,
       });
 
+    // M8 — lesson-gap (audit 2026-09-27 §7b): the entry closes a REPAIR but
+    // the corrective tier carries no lesson dated with the entry. Comparison,
+    // not a word match, so an entry that merely mentions a lesson does not
+    // satisfy it (L4). Silent when the caller supplied no tier text (L7) and
+    // silent for entries with no repair marker at all (L3) — presence bar,
+    // same doctrine as M1/M7: the writer chooses the wording, the audit counts
+    // the fact. Warn-level in doctor like every other kind: the ledger is
+    // private working memory, so a finding is a lead, never an install defect.
+    if (lessonsProvided && REPAIR_MARKERS.some((m) => body.includes(m)) && !lessonDates.has(date))
+      findings.push({
+        date,
+        kind: 'lesson-gap',
+        message: `entry ${date} closes a repair (root-cause/done-claim markers) but .trust/lessons.md carries no lesson dated ${date} — the corrective tier was not fed for this repair; record the lesson (format: Lesson: root_cause = … | correction = … [${date}]) or the next session cannot learn from it (receipts §Lesson capture, audit 2026-09-27 §7b)`,
+      });
+
     // M7 — forward arrow: an entry that closes with no Next: line at all.
     // Presence bar: "none" is a value, silence is not (docs/chat-receipt.md
     // rule 4). Mechanical twin of the §6 rule (encode-twice).
@@ -361,7 +436,10 @@ export function ledgerVerdict({ findings = [], gaps = [] } = {}) {
     return {
       level: 'findings',
       warn: true,
-      message: `ledger audit: ${findings.length} finding(s)${gapNote} — fix the Loaded:/visual-gate/context gaps per AGENTS.md §2`,
+      // Name the kinds actually present: the old sentence listed three kinds
+      // hardcoded and could not describe a next-gap, a churn finding, a gate
+      // signal, or M8's lesson-gap (roast finding 2026-09-29).
+      message: `ledger audit: ${findings.length} finding(s)${gapNote} — ${[...new Set(findings.map((f) => f.kind))].join('/')} gap(s); fix per AGENTS.md §2`,
     };
   if (gaps.length)
     return {

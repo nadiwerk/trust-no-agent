@@ -5,10 +5,10 @@
  * Zero dependencies. Run: node scripts/ledger-audit.test.mjs
  * Exit 0 = all expectations hold. Exit 1 = audit behavior drift.
  *
- * Seam: auditLedger({ ledgerText, today }) — a pure function; the doctor wraps
- * it with output, this test exercises the decision logic with deterministic
- * fixtures. Fixtures are hand-written literals (independent source of truth),
- * never copied from implementation output.
+ * Seam: auditLedger({ ledgerText, today, lessonsText }) — a pure function; the
+ * doctor wraps it with output, this test exercises the decision logic with
+ * deterministic fixtures. Fixtures are hand-written literals (independent
+ * source of truth), never copied from implementation output.
  */
 import { auditLedger } from './ledger-audit.mjs';
 
@@ -788,6 +788,156 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
   });
   check('K4 cousin phrases do not satisfy the Next: line',
     res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// ---- L. Lesson gap (M8) — a repair entry that left no trace in the corrective tier ----
+// Origin: audit 2026-09-27 §7b. receipts (MANDATORY) demands the corrective tier
+// be fed on EVERY repair and says "Before accepting a fixed/done/repair claim,
+// check the lesson exists" — but nothing mechanically verified that a lesson was
+// written for the repair being closed; the only link was a free-text backfill tag
+// applied inconsistently. M8 makes the check a comparison: the entry carries the
+// repair markers, the lessons text (injected, same contract as C5's
+// lessonsExists) carries the date the entry is dated with — or the entry is a
+// finding. Presence bar, same doctrine as M1/M7: the writer chooses the wording;
+// the audit counts the fact.
+//
+// Expected verdicts are intent-derived: a repair demands a lesson dated with the
+// repair, silence is the gap.
+
+// L1. Repair entry, no lesson with that date anywhere in lessons text → flagged.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was a stale fixture\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = X | correction = Y [2026-09-01]',
+    today: TODAY,
+  });
+  check('L1 repair entry with no matching lesson date is flagged',
+    res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L2. Repair entry WITH a lesson carrying the entry's date → clean.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was a stale fixture\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = stale fixture drift | correction = build fixtures pristine [2026-09-08]',
+    today: TODAY,
+  });
+  check('L2 repair entry whose lesson carries the entry date is clean',
+    !res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L3. Non-repair entry (no repair markers) → no lesson demand at all.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Updated README install section\n- Next: none'),
+    lessonsText: '',
+    today: TODAY,
+  });
+  check('L3 an entry without repair markers demands no lesson',
+    !res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L4. Literal discipline: "lesson" mentioned in prose is NOT a lesson in the
+// corrective tier — the match is on the dated lesson line, not the word.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause fixed; wrote a lesson about it\n- Next: none'),
+    lessonsText: 'no lessons recorded yet',
+    today: TODAY,
+  });
+  check('L4 prose mentioning a lesson does not satisfy the tier (no dated lesson line)',
+    res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L5. Degrade doctrine (same floor as G1): an undated repair entry is
+// unprovable — a coverage gap, never a lesson-gap claim on undateable data.
+{
+  const res = auditLedger({
+    ledgerText: undatedEntry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: '',
+    today: TODAY,
+  });
+  check('L5 undated repair entry yields a coverage gap, not a lesson-gap',
+    !res.findings.some((f) => f.kind === 'lesson-gap') &&
+    res.gaps.some((g) => g.kind === 'coverage-gap'),
+    JSON.stringify({ f: res.findings, g: res.gaps }));
+}
+
+// L6. No lessons file at all (empty injected text) with repair markers →
+// flagged: an empty corrective tier is the starvation case for THIS entry,
+// even while checkStarve handles the file-level grace separately.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- test failure fixed\n- Next: none'),
+    lessonsText: '',
+    today: TODAY,
+  });
+  check('L6 repair entry with an empty corrective tier is flagged',
+    res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L7. Backward compatibility: callers that pass no lessonsText (existing
+// tests, existing doctor call before wiring) must not crash and must not
+// manufacture lesson-gaps out of nothing — the check degrades to silent when
+// the caller does not supply the tier text. (Doctor WILL pass it once wired;
+// this pins the seam, not the wiring.)
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    today: TODAY,
+  });
+  check('L7 lessonsText omitted → no lesson-gap findings (seam degrades silently)',
+    !res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L8. The date is the LAST thing on the lesson line (`… | correction = …
+// [date]`), so the reader must take the whole line, not the `Lesson:` marker.
+// The first M8 wiring matched the marker alone and read every tier as dateless
+// — L2 caught it on the first run (2026-09-29). Pinned here, and the assertion
+// also fails if the reader stops taking the annotation from the entry's own
+// line.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: 'Preamble line\nLesson: root_cause = Y | correction = Z [2026-09-08]\nMore text',
+    today: TODAY,
+  });
+  check('L8 the dated lesson line satisfies M8 even with text before and after',
+    !res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L9. A lesson dated 2026-09-01 does NOT buy silence for a repair dated
+// 2026-09-08 — the match is the DATE, not the existence of any lesson.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = Y | correction = Z [2026-09-01]',
+    today: TODAY,
+  });
+  check('L9 a lesson dated another day does not satisfy M8',
+    res.findings.some((f) => f.kind === 'lesson-gap' && f.date === '2026-09-08'),
+    JSON.stringify(res.findings));
+}
+
+// L10. Undated lessons do not satisfy any repair: without an incident key the
+// tier cannot prove which repair a lesson belongs to, so M8 stays a gap rather
+// than granting blanket silence (the honest limit of a date-keyed match).
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = Y | correction = Z',
+    today: TODAY,
+  });
+  check('L10 a lesson with no date annotation does not satisfy M8',
+    res.findings.some((f) => f.kind === 'lesson-gap'),
     JSON.stringify(res.findings));
 }
 

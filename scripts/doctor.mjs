@@ -17,6 +17,8 @@
  *  C4. Ledger ready: .trust/ either absent-but-creatable on first ship-log
  *      (warn) or present and confirmed gitignored.
  *  C5. Corrective tier enforced: a ledger with entries but no .trust/lessons.md
+ *  C7. Ledger audit (M1–M8) — the M8 half is fed the tier text so a repair
+ *      entry with no lesson dated with it is a configurable lead, not silence.
  *      warns during a 14-day grace period (measured from the oldest dated
  *      ledger entry, ship-log `## YYYY-MM-DD` headers), then FAILS — after
  *      grace, lesson capture is mandatory, not optional. Test override:
@@ -278,7 +280,13 @@ if (ledgerPath) {
   // tested by ledger-audit.test.mjs + doctor.test.mjs.
   try {
     const { auditLedger, ledgerVerdict, formatFindingGroup } = await import('./ledger-audit.mjs');
-    const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date() });
+    // M8 needs the corrective tier's text (the L7 seam: omitted means M8 stays
+    // silent). Read next to the ledger, degrade to null when the file is absent
+    // — checkStarve above already reports a missing tier, so M8 must not turn
+    // the same absence into a per-entry finding (one defect, one signal).
+    let lessonsText = null;
+    try { lessonsText = readFileSync(lessonsPath, 'utf8'); } catch { lessonsText = null; }
+    const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date(), lessonsText });
     const verdict = ledgerVerdict({ findings, gaps });
     if (verdict.level === 'clean') pass(`${verdict.message} — ${ledgerRel}`);
     else warn(`${verdict.message} — ${ledgerRel}`);
