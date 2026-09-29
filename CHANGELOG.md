@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.21] - 2026-09-28
+## [0.1.22] - 2026-09-29
+
+### Added
+
+- **M8 lesson-gap — a repair must leave a lesson dated with it** (2026-09-29,
+  closing audit 2026-09-27 §7b). `receipts` requires the corrective tier to be
+  fed on every repair, but nothing mechanical verified a lesson existed for the
+  repair being closed: the only link was a free-text backfill tag applied
+  inconsistently. `scripts/ledger-audit.mjs` now compares each entry's repair
+  markers (root-cause / done-claim) against `.trust/lessons.md` lesson lines
+  whose `[YYYY-MM-DD]` annotation matches the entry's date — a repair with no
+  such lesson is a finding. `doctor.mjs` feeds the tier text in; a caller that
+  supplies none keeps M8 silent rather than inventing gaps (pinned by test L7),
+  and a missing lessons file remains C5's starvation report, not per-entry noise.
+- **`scripts/eval.mjs` check 33 (HARD): the ledger writer's template is now
+  guarded.** The `Loaded:` and `Next:` lines were prose contracts with
+  mechanical readers (audit M1/M7) that had dropped out of the Log Format
+  template, so entries written from it inherited the omission — seven of this
+  repo's own early-September entries carry findings for exactly those two lines.
+  The check is scoped to the template block itself (not a prose mention
+  elsewhere in the skill), so teaching the format and reading it can no longer
+  drift apart silently.
+
+### Fixed
+
+- **`scripts/ledger-audit.mjs`: the lesson reader matched only the `Lesson:`
+  marker** while the date annotation sits at the end of the line
+  (`… | correction = … [YYYY-MM-DD]`), so every tier read as dateless and every
+  repair would have been flagged (found during this wiring — the failing L2 test
+  caught it). The reader now takes the whole lesson line, pinned by L8–L10.
 
 ### Added
 
@@ -300,7 +329,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.20...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.21...v0.1.22
+[0.1.21]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.17...v0.1.18
