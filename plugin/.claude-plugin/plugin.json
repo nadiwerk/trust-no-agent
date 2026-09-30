@@ -1,6 +1,6 @@
 {
   "name": "trust-no-agent",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "description": "Trust over speed for coding agents — the router (AGENTS.md + WORKFLOW.md), 11 discipline skills, and the mechanical enforcement layer: re-injection after compaction, per-prompt MANDATORY classification, and a fail-first test for every gate.",
   "author": {
     "name": "nadiwerk"

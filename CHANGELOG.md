@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-09-30
+
+A release-artifact fix, prompted by the release step itself corrupting the file
+twice in two consecutive releases.
+
+### Added
+
+- **`scripts/changelog-guard.mjs` (+ test, wired into pre-commit and CI).** The
+  compare-link block is now structurally checked: it must sit at the TAIL with
+  no heading inside it (the shape that lets an anchored edit swallow a section),
+  every release heading must have its compare link and every link its heading,
+  exactly one `[Unreleased]` pair, and headings must be newest-first by numeric
+  comparison. Every test case reproduces a real corrupt shape — both incidents
+  verbatim — plus the counter-direction that a sound file passes.
+
+### Fixed
+
+- **Three release sections had been silently swallowed.** `## [0.1.22]` and
+  `## [0.1.23]` were deleted during their own release steps and restored from
+  the tags that carried them; `## [0.1.21]` had been missing since the v0.1.22
+  release — its body was still in the file but headerless, folded into the
+  previous section, and only the new guard made that visible. Its text is
+  restored byte-identically (1238 bytes) and its compare link, which had never
+  existed, was added.
+- **Eight release headings had no compare link** (`0.1.17` … `0.1.8`). They are
+  completed rather than tolerated, so the guard's invariant holds against the
+  real artifact instead of being weakened to fit it.
+
+### Note
+
+- The guard is a check on the artifact, not on the runtime: it rides whichever
+  release follows, and it fails the commit that would corrupt the file.
+
 ## [0.1.24] - 2026-09-30
 
 Two gaps found by walking a fresh adopter's install path, both of them the same
@@ -449,7 +482,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.22...v0.1.23
 
