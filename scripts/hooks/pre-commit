@@ -17,3 +17,9 @@ root="$(git rev-parse --show-toplevel)"
 "$root/scripts/plugin.test.mjs" 2>/dev/null || node "$root/scripts/plugin.test.mjs" || exit 1
 "$root/scripts/codex-plugin.test.mjs" 2>/dev/null || node "$root/scripts/codex-plugin.test.mjs" || exit 1
 "$root/scripts/changelog-guard.test.mjs" 2>/dev/null || node "$root/scripts/changelog-guard.test.mjs" || exit 1
+# The workflow guard: a duplicated `run:` key in ci.yml is invalid YAML, and
+# GitHub then never BUILDS the job (every run fails at 0s with "workflow file
+# issue", logs not found) while every local gate stays green. That is exactly how
+# CI went dark for v0.1.25 and v0.1.26 — this hook is where it becomes visible.
+"$root/scripts/ci-guard.test.mjs" 2>/dev/null || node "$root/scripts/ci-guard.test.mjs" || exit 1
+"$root/scripts/ci-guard.mjs" 2>/dev/null || node "$root/scripts/ci-guard.mjs" || exit 1

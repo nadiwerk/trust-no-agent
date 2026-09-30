@@ -56,6 +56,15 @@ jobs:
       - name: Changelog structure guard
         run: node scripts/changelog-guard.test.mjs
 
+      # The workflow guard runs here too: a workflow file GitHub cannot BUILD
+      # never reports a normal failure, so nothing else in this job would notice
+      # (v0.1.25/v0.1.26: every run failed at 0s, "workflow file issue", no logs).
+      - name: Workflow file guard
+        run: node scripts/ci-guard.mjs
+
+      - name: Workflow file guard self-test
+        run: node scripts/ci-guard.test.mjs
+
   hooks:
     name: Git hooks gate
     runs-on: ubuntu-latest
