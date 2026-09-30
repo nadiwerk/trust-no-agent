@@ -156,6 +156,10 @@ is pinned by a test that was observed failing before the fix.
 
 ### Added
 
+## [0.1.21] - 2026-09-28
+
+### Added
+
 - **Installable plugin + marketplace.** The repo is now its own marketplace
   (`.claude-plugin/marketplace.json`) with a `plugin/` payload that ships the
   router, the hook layer, and all 11 skills in one install:
@@ -451,6 +455,14 @@ is pinned by a test that was observed failing before the fix.
 
 [0.1.22]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.20...v0.1.21
+[0.1.17]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.16...v0.1.17
+[0.1.16]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.15...v0.1.16
+[0.1.15]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.14...v0.1.15
+[0.1.14]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.13...v0.1.14
+[0.1.12]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.11...v0.1.12
+[0.1.11]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.9...v0.1.11
+[0.1.9]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.8...v0.1.9
+[0.1.8]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.7...v0.1.8
 [0.1.20]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.17...v0.1.18
