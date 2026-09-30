@@ -965,5 +965,122 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
     JSON.stringify(res.findings));
 }
 
+// ---- L11. The tier exists but cannot be MATCHED (audit 2026-09-29, adopter measure) ----
+// Measured on a real adopter ledger: 66 lessons recorded, ZERO dated and ZERO in
+// the framework's `Lesson:` form, so M8 could not link a single lesson to a
+// single repair and reported every repair in the window as a gap. That is a
+// correct reading of the data and a useless signal to the reader: the tier is not
+// starving, it is unmatchable. This case names the defect so the fix is legible.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: '- Login polish: jangan paksa wrapper memenuhi tinggi viewport; ukur render aktual\n- Chart: results lintas goal tidak boleh dijumlah',
+    today: TODAY,
+  });
+  check('L11 an undated, unformatted tier is reported as unmatchable, not as a plain gap',
+    res.findings.some((f) => f.kind === 'lesson-format') &&
+      res.findings.some((f) => f.kind === 'lesson-gap'),
+    JSON.stringify(res.findings));
+}
+
+// L12. A tier in the documented form is NOT accused of being unmatchable — the
+// counter-direction, without which "always report lesson-format" would pass L11.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = Y | correction = Z [2026-09-08]',
+    today: TODAY,
+  });
+  check('L12 a tier in the documented dated form raises no lesson-format finding',
+    !res.findings.some((f) => f.kind === 'lesson-format'),
+    JSON.stringify(res.findings));
+}
+
+// L13. An EMPTY tier is starvation (C5's territory), not a format defect: the
+// check must not manufacture a second finding for the same absence.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: '',
+    today: TODAY,
+  });
+  check('L13 an empty tier yields no lesson-format finding',
+    !res.findings.some((f) => f.kind === 'lesson-format'),
+    JSON.stringify(res.findings));
+}
+
+// L14. A tier with SOME dated lessons is matchable — a project mid-migration is
+// helped by the gap list, not accused of a format defect it is already fixing.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Committed abc1234\n- Root cause was X\n- Next: none'),
+    lessonsText: 'Lesson: root_cause = A | correction = B [2026-09-01]\n- free prose lesson without a date',
+    today: TODAY,
+  });
+  check('L14 a partly-dated tier raises no lesson-format finding',
+    !res.findings.some((f) => f.kind === 'lesson-format'),
+    JSON.stringify(res.findings));
+}
+
+// ---- K7. The Next arrow's entry class (audit 2026-09-29, adopter measure) ----
+// 35 of 35 dated entries in the adopter window lacked `- Next:` — the check was
+// 100% precise and useless: that ledger is a per-session lab notebook (its own
+// header says it keeps "40 entry terakhir"), not a per-unit close, so most of
+// its entries legitimately close nothing. The arrow is demanded from entries
+// that close a UNIT (a session summary carrying its own bullet body), never from
+// a one-line index pointer.
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08\n\n### Session Summary - unit\n- Loaded: receipts\n- Committed abc1234',
+    today: TODAY,
+  });
+  check('K7 a unit-level entry with no Next: is still flagged',
+    res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-08\n\n### Archive - 2026-08: 12 entries, see .trust/archive/2026-08.txt\n### 2026-08-14 closed - old unit',
+    today: TODAY,
+  });
+  check('K7b an index-pointer entry is not demanded a Next: arrow',
+    !res.findings.some((f) => f.kind === 'next-gap'),
+    JSON.stringify(res.findings));
+}
+
+// ---- G7. A third date source: the session heading's own day label ----
+// The adopter writes `### Ringkasan Sesi - … (27 Sep)` and puts NO `## YYYY-MM-DD`
+// header on most sections, so 16 entries were returned as unprovable coverage
+// gaps though their date is present and unambiguous. A heading label is a
+// legitimate date source when the year is inferable from the nearest preceding
+// date header (or defaults to the current year when none appeared yet).
+{
+  const res = auditLedger({
+    ledgerText: '## 2026-09-27\n\n### Ringkasan Sesi - codex 429 (27 Sep, lanjutan)\n- Committed abc1234\n- Next: none',
+    today: TODAY,
+  });
+  check('G7a a heading day label dates its entry (no coverage gap)',
+    res.gaps.length === 0 && res.findings.some((f) => f.kind === 'loaded-gap' && f.date === '2026-09-27'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+{
+  const res = auditLedger({
+    ledgerText: '### Ringkasan Sesi - codex 429 (27 Sep)\n- Committed abc1234\n- Next: none',
+    today: new Date('2026-09-29T00:00:00Z'),
+  });
+  check('G7b a label-only entry is dated from the current year instead of gapped',
+    res.gaps.length === 0 && res.findings.some((f) => f.kind === 'loaded-gap' && f.date === '2026-09-27'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+{
+  const res = auditLedger({
+    ledgerText: '### Session Summary - plain heading with no label\n- Committed abc1234',
+    today: TODAY,
+  });
+  check('G7c a heading with no label stays a coverage gap (no guessed dates)',
+    res.gaps.length === 1 && !res.findings.some((f) => f.date === '2026-09-08'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
 process.exit(failures ? 1 : 0);

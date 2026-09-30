@@ -120,6 +120,23 @@ const LOADED_LINE = /^- Loaded:/m;
 // forward arrow strand the reader ("sebagai user kadang tidak tau harus apa").
 const NEXT_LINE = /^- Next:/m;
 
+// M7's ENTRY CLASS (audit 2026-09-29, measured on a real adopter ledger): 35 of
+// 35 dated entries there lacked the arrow — 100% precise and 0% useful, because
+// that ledger is a per-session lab notebook (its own header: "file ini menyimpan
+// 40 entry terakhir"), so most of its entries legitimately close nothing. The
+// arrow is a property of a UNIT CLOSING, so it is demanded from entries that
+// carry a body of their own — not from index pointers (rotation lines, archive
+// references) that exist to route the reader somewhere else. This narrows WHICH
+// entries the rule applies to; it does not weaken the rule (K7 still fails a
+// body-carrying entry with no arrow).
+const isIndexPointerEntry = (body) => {
+  const ls = body.split('\n').map((l) => l.trim()).filter(Boolean);
+  // A real entry carries BULLETS (its report). A rotation pointer is a heading
+  // plus at most one prose/quote line pointing at the archive — it has none.
+  if (ls.some((l) => /^-\s/.test(l))) return false;
+  return ls.length <= 2;
+};
+
 // M8 — lesson-gap (audit 2026-09-27 §7b). receipts (MANDATORY) demands the
 // corrective tier be fed on EVERY repair ("Before accepting a fixed/done/repair
 // claim, check the lesson exists" — receipts skill §Lesson capture), but nothing
@@ -157,6 +174,28 @@ const REPAIR_MARKERS = [
 const LESSON_LINE = /^Lesson:.*$/gm;
 const LESSON_DATE = /\[(\d{4}-\d{2}-\d{2})/;
 
+// L11 — lesson-format (audit 2026-09-29). Measured on a real adopter tier: 66
+// lessons recorded, ZERO dated, ZERO in the framework's form — so M8 could not
+// link one lesson to one repair and reported every repair in the window as a
+// gap. That reading is correct and useless to the reader: the tier is not
+// starving, it is UNMATCHABLE, and the honest report says so in one finding
+// instead of leaving the reader with 15 gaps and no diagnosis. It fires only
+// when the tier has lessons AND none of them is dated — an empty tier is C5's
+// starvation report, and a partly-migrated tier is a gap list, not a defect.
+const LESSON_FORM_LINE = /^Lesson:.*\[\d{4}-\d{2}-\d{2}\]/m;
+
+// G7 — a third date source (audit 2026-09-29). The adopter writes the day inside
+// the session heading ("### Ringkasan Sesi - … (27 Sep, lanjutan 3)") and puts no
+// `## YYYY-MM-DD` header on most sections, so 16 entries whose date was present
+// and unambiguous came back as unprovable coverage gaps. A heading label counts
+// ONLY when the entry has no date header of its own: the header stays the
+// authority, and the label is a fallback. The year is taken from the nearest
+// preceding date header (a ledger runs chronologically, and a wrap to January is
+// then one year later) or, when no header appeared yet, from the audit's own
+// `today` — never guessed beyond that.
+const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
+const HEADING_DAY_LABEL = /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|Mei|May|Jun|Jul|Agu|Aug|Sep|Okt|Oct|Nov|Des|Dec)\b/i;
+
 // The COUNT (M4) parses the line as a list instead of reading one token. The
 // first-token reader undercounted a real adopter ledger 5-8x (126 bullets
 // containing `receipts` counted as 16) because the writer lists skills
@@ -165,6 +204,32 @@ const LESSON_DATE = /\[(\d{4}-\d{2}-\d{2})/;
 // "read-only Explore audit") adds no counts.
 const LOADED_LIST_LINE = /^- Loaded:\s*(.*)$/gm;
 const SKILL_TOKEN = /^[a-z][a-z0-9-]*$/;
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/**
+ * Resolve a `### … (27 Sep)` day label to a full ISO date.
+ *
+ * @param {string} heading the entry heading line
+ * @param {string|null} prevDate nearest preceding `## YYYY-MM-DD` header, if any
+ * @param {Date} today the audit's reference date (never the wall clock: the
+ *   seam stays deterministic and the caller already injects it)
+ * @returns {string|null} `YYYY-MM-DD`, or null when the label is absent
+ */
+function dateFromHeadingLabel(heading, prevDate, today) {
+  const m = heading.match(HEADING_DAY_LABEL);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = MONTHS[m[2].toLowerCase()];
+  if (!Number.isFinite(day) || day < 1 || day > 31 || month === undefined) return null;
+  if (prevDate) {
+    const [py, pm] = prevDate.split('-').map(Number);
+    // A month earlier than the previous header's means the ledger wrapped a year.
+    const year = month < pm - 1 ? py + 1 : py;
+    return `${year}-${pad2(month + 1)}-${pad2(day)}`;
+  }
+  return `${today.getUTCFullYear()}-${pad2(month + 1)}-${pad2(day)}`;
+}
 
 /**
  * Parse every `- Loaded:` bullet into skill tokens.
@@ -232,15 +297,40 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
   const findings = [];
   if (!ledgerText.trim()) return { findings, gaps: [], stats: emptyStats() };
 
-  const entries = splitEntries(ledgerText);
+  const entries = splitEntries(ledgerText, today);
   const windowStart = today.getTime() - recencyDays * DAY_MS;
+
+  // M8's tier text, read ONCE and used by both the tier-level L11 check below
+  // and the per-entry M8 comparison: the reader needs the same text for both,
+  // and a second read would be a second chance to drift.
+  const lessonsProvided = typeof lessonsText === 'string';
+
+  // L11 — one tier-level finding, emitted at most once per audit (the defect is
+  // a property of the FILE, not of each entry). Severity is informational in the
+  // summary: it names the fix (date the lesson, use the documented form) instead
+  // of leaving 15 entry-level gaps with no diagnosis.
+  if (lessonsProvided) {
+    // The tier's shape is measured on LINES THAT RECORD A LESSON, and a lesson
+    // is not always prefixed with the framework's marker: the adopter measure
+    // (2026-09-29) found 66 lessons written as plain bullets, which is why the
+    // doc form is a guidance and the tier can be unmatchable in either shape.
+    const lessonLines = lessonsText
+      .split('\n')
+      .filter((l) => /^\s*(?:-\s|\d+[.)]\s)/.test(l) || /^Lesson:/.test(l))
+      .filter((l) => l.trim().length > 24);
+    if (lessonLines.length && !LESSON_FORM_LINE.test(lessonsText))
+      findings.push({
+        date: 'tier',
+        kind: 'lesson-format',
+        message: `.trust/lessons.md holds ${lessonLines.length} lesson(s) but none carries a [YYYY-MM-DD] annotation in the documented \`Lesson: root_cause = … | correction = …\` form — the corrective tier cannot be MATCHED to any repair, so every repair in the window reads as an unattributed gap; date the lessons (or record new ones) in the documented form so the tier can be linked to what it taught (receipts §Lesson capture, audit 2026-09-27 §7b)`,
+      });
+  }
 
   // M8 needs the entry's own date to decide, so the tier is indexed ONCE by the
   // date annotation the format already carries (`[2026-09-19]`, see
   // .trust/lessons.md). A lesson with no bracketed date is deliberately not
   // indexed: it cannot be attributed to any single repair, and a date-less
   // index would let one lesson satisfy every repair in the window.
-  const lessonsProvided = typeof lessonsText === 'string';
   const lessonDates = new Set();
   if (lessonsProvided) {
     // No `^` anchor in the line predicate: LESSON_LINE is a /gm regex whose
@@ -307,8 +397,15 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
     // contract: a keyword matcher is a signal to verify, never proof, and
     // may not fail an audit by itself (spec §Constraints).
     const gateVerdict = classifyTask(body);
+    // The gate and the literal audit report DIFFERENT populations, verified by
+    // measurement rather than assumed (2026-09-29): on a real adopter ledger the
+    // gate flagged 33 trail-less entries of which only 11 also tripped a literal
+    // marker — the other 22 are entries M1 cannot see at all, which is the gate
+    // earning its keep. A body carrying `- Loaded:` is out of the gate's scope by
+    // construction (it is not missing a trail), so it is never double-reported.
+    const hasLoadedTrail = LOADED_LINE.test(body);
     for (const skill of MANDATORY_DOMAINS) {
-      if (gateVerdict[skill] && !LOADED_LINE.test(body))
+      if (gateVerdict[skill] && !hasLoadedTrail)
         findings.push({
           date,
           kind: 'gated-loaded-gap',
@@ -357,8 +454,10 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
 
     // M7 — forward arrow: an entry that closes with no Next: line at all.
     // Presence bar: "none" is a value, silence is not (docs/chat-receipt.md
-    // rule 4). Mechanical twin of the §6 rule (encode-twice).
-    if (!NEXT_LINE.test(body))
+    // rule 4). Mechanical twin of the §6 rule (encode-twice). Entry class is
+    // narrowed (audit 2026-09-29): an index-pointer line routes the reader
+    // elsewhere and closes nothing, so it is not asked for an arrow.
+    if (!NEXT_LINE.test(body) && !isIndexPointerEntry(body))
       findings.push({
         date,
         kind: 'next-gap',
@@ -475,7 +574,7 @@ const emptyStats = () => ({ loadedCounts: {}, mandatoryMentions: MANDATORY_DOMAI
  *
  * @returns {Array<{date: string|null, body: string}>}
  */
-function splitEntries(ledgerText) {
+function splitEntries(ledgerText, today) {
   // CRLF-safe: Windows ledgers are the norm for adopters, and a trailing `\r`
   // defeats every `$`-anchored pattern downstream.
   const lines = ledgerText.split(/\r?\n/);
@@ -488,6 +587,13 @@ function splitEntries(ledgerText) {
     if (hasContent(current)) entries.push(current);
     current = null;
   };
+  // G7: a heading's own day label dates the entry it opens, with the previous
+  // header's year (or today's when none appeared yet). The header stays the
+  // authority — this only fills entries the header left undated.
+  const open = (date, body) => ({
+    date: date ?? dateFromHeadingLabel(body, currentDate, today),
+    body,
+  });
 
   for (const line of lines) {
     const dateMatch = line.match(DATE_HEADER);
@@ -507,7 +613,7 @@ function splitEntries(ledgerText) {
         continue;
       }
       close();
-      current = { date: currentDate, body: line };
+      current = open(currentDate, line);
       continue;
     }
     if (current) current.body += `\n${line}`;

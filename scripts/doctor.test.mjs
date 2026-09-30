@@ -12,7 +12,7 @@
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict } from './doctor-checks.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -329,7 +329,33 @@ console.log('\nOK: doctor C5/C5b behaves as specified.');
   check('verdict message still reports the unprovable count', /\b2\b/.test(res.message), res.message);
 }
 
-if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
+
+// ---- M. Adopter-mode gate OVERLAP note (audit 2026-09-29; the first design
+// was suppression and measurement killed it — the gate's findings are mostly
+// invisible to the literal audit, so filtering them would delete real signal).
+// The contract is now: report every gate finding, and print how many overlap
+// the literal audit versus how many are unique to the gate.
+{
+  const v = gateFindingVerdict({ gateFindings: 33, literalFindings: 11 });
+  check('M1 the annotation reports every gate finding, none suppressed',
+    v.reported === 33, JSON.stringify(v));
+  check('M2 it separates the unique gate findings from the overlapping ones',
+    v.unique === 22 && v.overlapping === 11, JSON.stringify(v));
+  check('M3 the message names both counts (reader sees the duplication as a number)',
+    /22 unique/.test(v.message) && /11 alongside/.test(v.message), v.message);
+}
+{
+  const v = gateFindingVerdict({ gateFindings: 3, literalFindings: 3 });
+  check('M4 a fully overlapping gate set says so without hiding the count',
+    v.reported === 3 && v.unique === 0 && /all on entries the literal audit already flags/.test(v.message),
+    JSON.stringify(v));
+}
+{
+  const v = gateFindingVerdict({ gateFindings: 0, literalFindings: 4 });
+  check('M5 no gate findings yields an empty, honest annotation',
+    v.reported === 0 && v.unique === 0, JSON.stringify(v));
+}
+
 console.log('\nOK: doctor decision logic behaves as specified.');
 
 // ---- K. Gate C-check (mandatory-gate, ticket 03) ----

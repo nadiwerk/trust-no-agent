@@ -300,7 +300,18 @@ if (ledgerPath) {
       if (!byKind.has(f.kind)) byKind.set(f.kind, []);
       byKind.get(f.kind).push(f);
     }
-    for (const [kind, list] of byKind) warn(formatFindingGroup(kind, list));
+    // C8b — the gate's findings are annotated, never filtered (2026-09-29: the
+    // first design suppressed them as duplicates; measurement showed 22 of 33
+    // are entries the literal audit cannot see, so suppression would have thrown
+    // away real signal). Every gate finding is reported; the count that overlaps
+    // the literal audit is a number in the message.
+    const { gateFindingVerdict } = await import('./doctor-checks.mjs');
+    const gateList = byKind.get('gated-loaded-gap') || [];
+    if (gateList.length) {
+      warn(formatFindingGroup('gated-loaded-gap', gateList));
+      warn(gateFindingVerdict({ gateFindings: gateList.length, literalFindings: (byKind.get('loaded-gap') || []).length }).message);
+    }
+
   } catch (e) {
     // Name the real failure: this block now covers grouping and the M4 call, so
     // blaming an unreadable module for any crash here is the confident-false-

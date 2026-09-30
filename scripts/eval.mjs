@@ -686,6 +686,20 @@ else
       err(`ship-log: Log Format missing ${marker} — ${why}`);
   }
 
+// ---- 34. The ledger writer's template and the corrective tier agree (HARD) ----
+// Origin: 2026-09-29. Two independent drifts met in one measurement: (a) the
+// template stopped teaching the `Lesson:` line while ledger-audit.mjs M8 was
+// reading it, and (b) a real adopter tier held 66 lessons with none dated and
+// none in the documented form, so M8 could match nothing. The template is the
+// writer's surface and the tier format is the reader's contract — both are
+// guarded here, in the skill that owns them, so neither can drift silently
+// again. The tier-shape half is a literal marker (the format string), matching
+// repo doctrine: a loose /lesson/i would pass on prose about lessons.
+if (!/^- Lesson:/m.test(shipLogText))
+  err('ship-log: Log Format missing the "- Lesson:" line (a repair entry must record the lesson it produced, dated with the entry — ledger-audit.mjs M8 reads it)');
+if (!/Lesson: root_cause = .*\| correction = .*\[YYYY-MM-DD\]/.test(shipLogText))
+  err('ship-log: the corrective-tier format (Lesson: root_cause = … | correction = … [YYYY-MM-DD]) must be stated literally — an undated prose tier cannot be matched to the repair it taught (measured on a real adopter tier, 2026-09-29)');
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

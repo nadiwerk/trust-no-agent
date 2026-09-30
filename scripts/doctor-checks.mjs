@@ -156,3 +156,36 @@ export function manifestVerdict({ stampVersion = '', manifestVersion = '', manif
       `"Updating"); the update is a user decision, and this is a write to an installed artifact.`,
   };
 }
+
+/**
+ * C8b — adopter-mode gate OVERLAP note (audit 2026-09-29, corrected the same day).
+ *
+ * First design: suppress the gate findings when they duplicate M1. Measurement
+ * killed it. On the real adopter ledger the gate flagged 33 trail-less entries,
+ * of which only 11 also tripped a literal marker — 22 findings the literal audit
+ * cannot see at all, which is the gate doing exactly its job. A filter that
+ * removed 'duplicates' would have deleted two thirds of the real signal. The
+ * design was wrong, the check that would have shipped it was wrong in the same
+ * direction, and the numbers are what caught it.
+ *
+ * So the verdict annotates instead of filtering: the reader sees how many of the
+ * gate findings overlap the literal audit and how many are unique to the gate.
+ * Nothing is hidden, and the duplication that DOES exist (one entry, two lines)
+ * is legible as a number rather than as a repeated paragraph.
+ *
+ * @param {{gateFindings?: number, literalFindings?: number}} input
+ * @returns {{reported: number, overlapping: number, unique: number, message: string}}
+ */
+export function gateFindingVerdict({ gateFindings = 0, literalFindings = 0 } = {}) {
+  // The module emits gate findings only for trail-less entries, so the overlap is
+  // bounded by the smaller population; the subtraction is an upper bound on
+  // same-entry duplication, which is the honest number to print (never a claim
+  // of exact entry identity — the findings carry dates, not entry ids).
+  const overlapping = Math.min(gateFindings, literalFindings);
+  const unique = gateFindings - overlapping;
+  const message =
+    unique > 0
+      ? `${gateFindings} gate finding(s) — ${unique} unique to the gate (the literal audit could not see these phrasings), ${overlapping} alongside an entry the literal audit already flags`
+      : `${gateFindings} gate finding(s), all on entries the literal audit already flags`;
+  return { reported: gateFindings, overlapping, unique, message };
+}
