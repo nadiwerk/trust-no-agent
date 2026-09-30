@@ -503,6 +503,38 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
  * @param {Array<{date: string, message: string}>} list findings of that kind
  * @returns {string}
  */
+/**
+ * A per-DAY rollup for kinds that arrive in bulk.
+ *
+ * Why this exists (measured 2026-09-29 on a real adopter ledger): `next-gap`
+ * alone produced 44 findings, and `formatFindingGroup` answered a question the
+ * reader did not ask — it listed three dates and a `(+1 more)` tail, which is
+ * the same wall of text with a shorter first line. The reader's question is
+ * "how bad is each day?", and the answer is a count per day, busiest first.
+ *
+ * It is ADDITIVE, never a filter: every finding is counted in the total, so an
+ * implementation that drops entries changes the number and fails N1. The kind's
+ * meaning is still carried by the first message (the wording belongs with the
+ * messages, not with this printer — same reasoning as formatFindingGroup).
+ *
+ * @param {string} kind finding kind (closed set)
+ * @param {Array<{date: string, message: string}>} list findings of that kind
+ * @returns {string} one line, or '' for an empty list (no fabricated summary)
+ */
+export function formatFindingGroupNextDay(kind, list) {
+  if (!list.length) return '';
+  const counts = new Map();
+  for (const f of list) counts.set(f.date, (counts.get(f.date) || 0) + 1);
+  const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1] || String(b[0]).localeCompare(String(a[0])));
+  const perDay = ordered.map(([d, n]) => `${d} (${n})`).join(', ');
+  const summary = list[0].message.replace(/^entry \S+ /, '').replace(/^window /, '');
+  return `${list.length} × ${kind} across ${counts.size} day(s) — ${perDay}. ${summary}`;
+}
+
+/**
+ * One reader-facing line per finding kind, produced HERE rather than in the
+ * caller.
+ */
 export function formatFindingGroup(kind, list) {
   const dates = [...new Set(list.map((f) => f.date))];
   const label = dates.includes('window') && dates.length === 1 ? 'scope' : 'entries';

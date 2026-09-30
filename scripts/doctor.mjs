@@ -279,7 +279,7 @@ if (ledgerPath) {
   // this framework exists to prevent. Decision logic lives in ledger-audit.mjs,
   // tested by ledger-audit.test.mjs + doctor.test.mjs.
   try {
-    const { auditLedger, ledgerVerdict, formatFindingGroup } = await import('./ledger-audit.mjs');
+    const { auditLedger, ledgerVerdict, formatFindingGroup, formatFindingGroupNextDay } = await import('./ledger-audit.mjs');
     // M8 needs the corrective tier's text (the L7 seam: omitted means M8 stays
     // silent). Read next to the ledger, degrade to null when the file is absent
     // — checkStarve above already reports a missing tier, so M8 must not turn
@@ -306,9 +306,20 @@ if (ledgerPath) {
     // away real signal). Every gate finding is reported; the count that overlaps
     // the literal audit is a number in the message.
     const { gateFindingVerdict } = await import('./doctor-checks.mjs');
+    // Kinds that arrive in BULK get the per-day rollup; the rest keep the flat
+    // listing (a handful of findings reads better as dates than as counts). A
+    // threshold rather than a per-kind special case: measured 2026-09-29, the
+    // adopter ledger's next-gap ran to 44 findings and read as a wall, while a
+    // three-finding kind stays legible as-is — a number the reader cannot scan
+    // is the defect, whatever kind produced it.
+    const BULK_THRESHOLD = 8;
+    for (const [kind, list] of byKind) {
+      if (kind === 'gated-loaded-gap') continue; // annotated below
+      warn(list.length > BULK_THRESHOLD ? formatFindingGroupNextDay(kind, list) : formatFindingGroup(kind, list));
+    }
     const gateList = byKind.get('gated-loaded-gap') || [];
     if (gateList.length) {
-      warn(formatFindingGroup('gated-loaded-gap', gateList));
+      warn(gateList.length > BULK_THRESHOLD ? formatFindingGroupNextDay('gated-loaded-gap', gateList) : formatFindingGroup('gated-loaded-gap', gateList));
       warn(gateFindingVerdict({ gateFindings: gateList.length, literalFindings: (byKind.get('loaded-gap') || []).length }).message);
     }
 

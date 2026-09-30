@@ -10,7 +10,7 @@
  * deterministic fixtures. Fixtures are hand-written literals (independent
  * source of truth), never copied from implementation output.
  */
-import { auditLedger } from './ledger-audit.mjs';
+import { auditLedger, formatFindingGroup, formatFindingGroupNextDay } from './ledger-audit.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -1083,4 +1083,43 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
 }
 
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expectations hold.');
+
+// ---- N. Readability rollup: a per-day count for high-volume kinds ----
+// Measured on a real adopter ledger: next-gap alone produced 44 findings, so
+// the one-line-per-kind summary named three dates and a '(+1 more)' tail while
+// the reader's actual question ('how bad is each day?') went unanswered. The
+// rollup keeps the same facts in a form a human can scan: counts per day,
+// busiest first, and the total. It never hides a finding - the total is the
+// finding count, so a suppressed entry would change the number and fail here.
+{
+  const list = [
+    { date: '2026-09-29', kind: 'next-gap', message: 'entry 2026-09-29 carries no "- Next:" line' },
+    { date: '2026-09-29', kind: 'next-gap', message: 'entry 2026-09-29 carries no "- Next:" line' },
+    { date: '2026-09-27', kind: 'next-gap', message: 'entry 2026-09-27 carries no "- Next:" line' },
+    { date: '2026-09-28', kind: 'next-gap', message: 'entry 2026-09-28 carries no "- Next:" line' },
+  ];
+  const line = formatFindingGroupNextDay('next-gap', list);
+  check('N1 the rollup names the total, never a silent subset',
+    line.includes('4'), JSON.stringify(line));
+  check('N2 it counts per day, busiest first',
+    /2026-09-29 \(2\)/.test(line) && line.indexOf('2026-09-29') < line.indexOf('2026-09-27'),
+    JSON.stringify(line));
+  check('N3 every day with findings appears',
+    ['2026-09-27', '2026-09-28', '2026-09-29'].every((d) => line.includes(d)),
+    JSON.stringify(line));
+}
+{
+  const line = formatFindingGroupNextDay('next-gap', []);
+  check('N4 an empty list is empty (no fabricated line)', line === '', JSON.stringify(line));
+}
+{
+  // The existing per-kind summary must stay intact: callers that want dates
+  // listed (not counted) keep using it, so the rollup is additive.
+  const list = [{ date: '2026-09-27', kind: 'next-gap', message: 'entry 2026-09-27 carries no "- Next:" line' }];
+  const flat = formatFindingGroup('next-gap', list);
+  check('N5 formatFindingGroup is unchanged by the rollup (additive, not a rewrite)',
+    flat.includes('1 × next-gap') && flat.includes('2026-09-27'),
+    JSON.stringify(flat));
+}
+
 process.exit(failures ? 1 : 0);
