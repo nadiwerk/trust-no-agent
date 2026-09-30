@@ -113,5 +113,58 @@ const run = (stdin) => {
     ctx.slice(0, 200));
 }
 
+
+// ---- F. The floor states where skills ACTUALLY are (gap 1, 2026-09-30) ----
+// The floor used to end with a hardcoded claim: "Skills are installed globally
+// (~/.claude/skills)". That is an ASSUMPTION, not a fact — the marketplace
+// installer puts skills under the plugin root, and on a machine that never
+// copied them to the personal dir the sentence points the agent at a directory
+// with nothing in it. An instruction that assumes an unverified state is the
+// exact silent failure this framework exists to kill, so the hook now CHECKS
+// and only names directories that exist; when none exists it says so instead of
+// inventing one.
+{
+  const { code, stdout } = run('{"hook_event_name":"SessionStart"}');
+  const ctx = JSON.parse(stdout).hookSpecificOutput?.additionalContext ?? '';
+  // The floor must name a location for EACH skill root the hook found, and what
+  // it names has to be a real place: assert against the resolved roots, not
+  // against a literal from the assertion (the first version of this case
+  // hardcoded the repo path and failed on a correct fix — the check was wrong,
+  // not the artifact).
+  // The sentence continues past the list, so cut the list at its terminator
+  // before splitting — the first version split the whole sentence and treated
+  // prose as paths (the check was wrong again; the artifact was correct).
+  const skillLine = (ctx.split('\n').find((l) => /^Skills are available at:/.test(l)) || '');
+  const listPart = skillLine.replace('Skills are available at: ', '').split('. Check the trigger matrix')[0];
+  const named = listPart.split(', ').filter(Boolean);
+  check('F1 the floor names at least one skill location',
+    named.length > 0 && skillLine.length > 0,
+    ctx.slice(-260));
+  check('F1b every location it names actually exists',
+    named.length > 0 && named.every((p) => existsSync(p)),
+    JSON.stringify(named));
+  check('F2 the floor does not assert the personal dir unconditionally',
+    !/Skills are installed globally \(~\.claude\/skills\)/.test(ctx),
+    ctx.slice(-260));
+  check('F3 the floor tells the agent what to do when no skill dir is found',
+    /no skill directory found|verify the install/.test(ctx) || /Skills are available at/.test(ctx),
+    ctx.slice(-260));
+}
+
+// ---- G. A missing hook is DETECTABLE (gap 2, 2026-09-30) ----
+// The hook fails open by design, which also means its absence is silent: a
+// session with no floor looks exactly like a session with one. Silence cannot
+// be the only signal, so the hook exposes a self-check mode that reports what it
+// resolved — the difference between "wired and quiet" and "not wired" has to be
+// observable by the person running the install.
+{
+  const r = spawnSync(process.execPath, [HOOK, '--self-check'], { encoding: 'utf8' });
+  const out = (r.stdout ?? '') + (r.stderr ?? '');
+  check('G1 --self-check reports the resolved router and skill roots',
+    /router:/i.test(out) && /skills:/i.test(out), out.slice(0, 300));
+  check('G2 --self-check exits 0 when the install is healthy',
+    r.status === 0, 'exit=' + r.status + ' ' + out.slice(0, 200));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll gate-hook expectations hold.');
 process.exit(failures ? 1 : 0);

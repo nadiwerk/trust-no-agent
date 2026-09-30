@@ -194,9 +194,30 @@ want the discipline enforced rather than suggested:
      contract, no plugin machinery.
 
 Hooks must **fail open**: an injection failure exits 0 and says nothing — a
-discipline layer that can break session startup is worse than none. Verify the
-wiring after install: a fresh session should open with the floor text (ask it
-"What are the four Iron Laws?"), and `node <trust-no-agent>/scripts/eval.mjs`
+discipline layer that can break session startup is worse than none. The cost of
+that safety is that a MISSING hook is silent too: a session with no floor looks
+exactly like a session with one. So the hook ships its own check —
+
+```bash
+node "<plugin-root>/scripts/gate-hook.mjs" --self-check
+```
+
+which prints what it resolved (`router:`, `skills:`, `classifier:`) and says
+NOT FOUND when a piece is absent. Run it whenever the floor does not appear. Two
+things it reports that used to be assumptions:
+
+- **The router is read from the plugin payload, not from this project.** No
+  `CLAUDE.md` edit and no `AGENTS.md` in the project are needed; the hook quotes
+  both router files from its own directory. A project whose own `CLAUDE.md`
+  exists is untouched — Claude Code reads it as usual.
+- **The skill location is discovered, never asserted.** The floor names the
+  skill directories that actually exist (the plugin's own `skills/` and the
+  personal dir) and tells you to verify the install when none does. An earlier
+  version stated `~/.claude/skills` unconditionally, which was false for every
+  install that came through the marketplace alone.
+
+Verify the wiring after install: a fresh session should open with the floor text
+(ask it "What are the four Iron Laws?"), and `node <trust-no-agent>/scripts/eval.mjs`
 must pass (check 31 guards this section — dropping the wiring steps from these
 docs fails CI).
 

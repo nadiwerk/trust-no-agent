@@ -84,6 +84,41 @@ function extractFloor(agentsText) {
   return body || null;
 }
 
+/**
+ * Where are the skills, really?
+ *
+ * Both candidate roots ship with the plugin, and the personal dir is where the
+ * documented manual install copies them. The floor used to assert the personal
+ * dir unconditionally — an assumption, and the plugin install does not put
+ * skills there, so on a machine that installed only through the marketplace the
+ * sentence pointed the agent at an empty directory. Check, then say only what
+ * exists (2026-09-30, gap found by walking the install paths of a fresh
+ * adopter).
+ *
+ * @returns {{roots: string[], text: string}}
+ */
+function resolveSkillRoots() {
+  const candidates = [
+    join(PLUGIN_ROOT, 'skills'),
+    join(process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || process.env.USERPROFILE || '', '.claude'), 'skills'),
+  ];
+  const roots = candidates.filter((p) => p && existsSync(p));
+  if (roots.length)
+    return {
+      roots,
+      text:
+        `Skills are available at: ${roots.join(', ')}. Check the trigger matrix before ` +
+        'responding; the three MANDATORY skills load on their domain, not on self-trigger.',
+    };
+  return {
+    roots: [],
+    text:
+      'No skill directory found next to the router or in the personal skills dir — the ' +
+      'router is active but the skills may not be installed; verify the install ' +
+      '(docs/installation.md) before relying on a skill load.',
+  };
+}
+
 function buildSessionStartContext() {
   for (const root of ROUTER_ROOTS) {
     if (!root) continue;
@@ -97,11 +132,35 @@ function buildSessionStartContext() {
       'trust-no-agent — the router is installed. These rules are active in this session, ' +
       'quoted verbatim from the router (WORKFLOW.md + AGENTS.md):\n\n' +
       floor +
-      '\n\nSkills are installed globally (~/.claude/skills). Check the trigger matrix before ' +
-      'responding; the three MANDATORY skills load on their domain, not on self-trigger.'
+      '\n\n' +
+      resolveSkillRoots().text
     );
   }
   return null;
+}
+
+/**
+ * `--self-check`: report what this hook resolved, for the human verifying an
+ * install.
+ *
+ * Why it exists: the hook fails OPEN by design, so its absence is silent — a
+ * session with no floor looks exactly like a session with one, and the only
+ * honest signal was the user noticing the rules were not there. This mode makes
+ * the difference between "wired and quiet" and "not wired" observable without
+ * breaking the fail-open contract: it is opt-in, and the hook paths the harness
+ * calls stay exactly as before (2026-09-30).
+ */
+function selfCheck() {
+  const routerRoot = ROUTER_ROOTS.find((r) => r && existsSync(join(r, 'WORKFLOW.md')) && existsSync(join(r, 'AGENTS.md')));
+  const skills = resolveSkillRoots();
+  const classifier = existsSync(join(HERE, 'mandatory-gate.mjs'));
+  const lines = [
+    `router: ${routerRoot ? 'FOUND at ' + routerRoot : 'NOT FOUND (looked in: ' + ROUTER_ROOTS.filter(Boolean).join(', ') + ')'}`,
+    `skills: ${skills.roots.length ? 'FOUND at ' + skills.roots.join(', ') : 'NOT FOUND'}`,
+    `classifier: ${classifier ? 'FOUND at ' + join(HERE, 'mandatory-gate.mjs') : 'NOT FOUND'}`,
+    `hooks: wired by the harness — if the floor does not appear at session start, re-check hooks.json (${join(HERE, '..', 'hooks', 'hooks.json')})`,
+  ];
+  process.stdout.write(lines.join('\n') + '\n');
 }
 
 const DOMAIN_INSTRUCTION = {
@@ -160,6 +219,9 @@ function emit(eventName, context) {
 }
 
 function main() {
+  // Opt-in reporting path: the harness never passes --self-check, so this
+  // cannot affect a live session.
+  if (process.argv.includes('--self-check')) return selfCheck();
   let payload = {};
   try {
     const raw = readStdin();
