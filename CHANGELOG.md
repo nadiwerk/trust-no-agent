@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-09-30
+
+The repo now serves two agent marketplaces from one payload, and the second one
+was verified with its real installer rather than by reading its docs.
+
+### Added
+
+- **Codex marketplace.** `.agents/plugins/marketplace.json` (the path Codex
+  reads) points at `./plugin`, and `plugin/plugin.json` is the portable Agent
+  Plugins manifest: `$schema`, `skills: ./skills/`, and hooks routed to the Codex
+  variant. Shapes taken from a real installed marketplace on this machine
+  (`openai-primary-runtime`, `sisyphuslabs`), not from prose.
+- **`plugin/hooks/codex.hooks.json`** — the same wiring with `${PLUGIN_ROOT}`,
+  the variable Codex substitutes; `${CLAUDE_PLUGIN_ROOT}` is Claude-only, so the
+  two hook files cannot be one file. `SessionStart`, `PostCompact`, and
+  `UserPromptSubmit` are wired.
+- **`scripts/codex-plugin.test.mjs`** — a fail-first guard for the second
+  payload (19 expectations observed RED before it existed), wired into
+  pre-commit and CI beside the Claude mirror guard, so one payload serving two
+  marketplaces cannot drift in either direction.
+
+### Note
+
+- **No new hook code was needed.** Codex's hook contract is
+  `hookSpecificOutput.additionalContext`, which `gate-hook.mjs` already emitted,
+  and Codex also exports `CLAUDE_PLUGIN_ROOT` for compatibility. Verified end to
+  end with the real CLI: `codex plugin marketplace add <repo>` →
+  `codex plugin add trust-no-agent@trust-no-agent` reports `installed, enabled`
+  at `0.1.26`, and the installed payload emits the session floor (both halves)
+  when driven directly.
+- **Codex skips plugin hooks until the user trusts them.** Its config records a
+  `trusted_hash` per hook file, and a fresh plugin has none — so the floor's
+  hooks fire only after a one-time trust prompt. That is a user action, and this
+  release does not pretend otherwise.
+
 ## [0.1.25] - 2026-09-30
 
 A release-artifact fix, prompted by the release step itself corrupting the file
@@ -482,7 +517,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.22...v0.1.23

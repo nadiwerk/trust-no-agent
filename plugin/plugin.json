@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "trust-no-agent",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Trust over speed for coding agents — the router (AGENTS.md + WORKFLOW.md), 11 discipline skills, and the mechanical enforcement layer: floor re-injection and per-prompt MANDATORY classification.",
   "author": {
     "name": "nadiwerk"
