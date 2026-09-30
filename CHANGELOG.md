@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-09-30
+
+Two gaps found by walking a fresh adopter's install path, both of them the same
+class: an artifact claiming a state nobody verified.
+
+### Fixed
+
+- **The session floor asserted where skills live.** It ended with "Skills are
+  installed globally (`~/.claude/skills`)" — false for every install that came
+  through the marketplace, whose skills live under the plugin root. The floor
+  now checks both candidate roots and names only those that exist; when none
+  does, it tells the agent to verify the install instead of pointing at an
+  empty directory.
+- **A missing hook was silent.** Fail-open is deliberate — a discipline layer
+  must never break session startup — but the cost is that a session with no
+  floor looks exactly like a session with one. `gate-hook.mjs --self-check` now
+  prints what it resolved (`router:`, `skills:`, `classifier:`) and says NOT
+  FOUND for anything absent, making "wired and quiet" distinguishable from "not
+  wired". It is opt-in; the paths the harness calls are unchanged.
+
+### Added
+
+- `docs/installation.md` documents both behaviours, including the fact that no
+  `CLAUDE.md` edit is needed when the plugin wires the hooks — the router is
+  quoted from the plugin payload, and a project's own `CLAUDE.md` is untouched.
+
+Four defects surfaced by measuring the ledger audit against a REAL adopter
+ledger (911 lines, 65 dated entries) instead of against its own fixtures. Each
+is pinned by a test that was observed failing before the fix.
+
+### Added
+
+- **A third date source: the session heading's own day label.** The adopter
+  writes `### Ringkasan Sesi - … (27 Sep, lanjutan 3)` and puts no
+  `## YYYY-MM-DD` header before most sections, so 16 entries whose date was
+  present and unambiguous came back as unprovable coverage gaps. A heading label
+  now dates its entry when no header precedes it — the header stays the
+  authority, the year comes from the nearest preceding header (or the audit's
+  reference date) and is never guessed beyond that. Measured: coverage gaps
+  **16 → 1**, and what surfaced (previously invisible entries) is now audited.
+- **Lesson-format diagnosis (M9).** `lesson-gap` alone could not distinguish a
+  starving tier from an unmatchable one: the measured adopter tier held 66
+  lessons with **none dated and none in the documented form**, so every repair
+  in the window read as an unattributed gap. The audit now says that once, in
+  those words. `ship-log` teaches the dated form and `scripts/eval.mjs` check 34
+  guards the template plus the format string.
+- **Per-day rollup for high-volume finding kinds.** `next-gap` on that ledger
+  produced 44 findings and read as a wall; it now prints as one scannable line
+  (`44 × next-gap across 4 day(s) — 2026-09-27 (22), …`). The total printed IS
+  the finding count, so nothing is hidden — the adopter ledger reports the
+  identical 113 findings before and after the change.
+
+### Fixed
+
+- **`Next:` was demanded from entries that close nothing.** An index-pointer
+  line routes the reader elsewhere; it owes no forward arrow. The arrow is now
+  demanded from entries that close a unit, without weakening the rule for them.
+- **Gate findings are annotated, not suppressed.** The first design hid
+  `gated-loaded-gap` findings that duplicated the literal audit. Measurement
+  killed it: on the real ledger **22 of 33** gate findings were entries the
+  literal audit cannot see at all, so the filter would have deleted two thirds
+  of the real signal. The reader now sees the split as a number instead.
+
+### Note
+
+- `gated-loaded-gap` is still additive to `loaded-gap` on purpose: the keyword
+  classifier catches phrasings the literal markers miss. If a project's ledger
+  already emits the literal lines, its gate findings are mostly unique signal,
+  not duplication — that is the case this release measured.
+
 ## [0.1.23] - 2026-09-30
 
 Four defects surfaced by measuring the ledger audit against a REAL adopter
@@ -375,7 +445,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.22...v0.1.23
 
 [0.1.22]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.21...v0.1.22
