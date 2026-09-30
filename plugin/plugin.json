@@ -1,0 +1,35 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "trust-no-agent",
+  "version": "0.1.25",
+  "description": "Trust over speed for coding agents — the router (AGENTS.md + WORKFLOW.md), 11 discipline skills, and the mechanical enforcement layer: floor re-injection and per-prompt MANDATORY classification.",
+  "author": {
+    "name": "nadiwerk"
+  },
+  "homepage": "https://github.com/nadiwerk/trust-no-agent",
+  "repository": "https://github.com/nadiwerk/trust-no-agent",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "codex-plugin",
+    "hooks",
+    "skills",
+    "discipline",
+    "agents-md",
+    "trust",
+    "verification"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/codex.hooks.json",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Trust No Agent",
+        "shortDescription": "Discipline the agent will not skip",
+        "longDescription": "Four Iron Laws, eleven discipline skills, and a mechanical boundary the model does not have to remember: the session-start floor is re-injected from the router, and every prompt is classified against the MANDATORY domains (expect-fail, root-cause, receipts) with a LOAD directive injected when one is touched. Self-trigger measured 0/3 — the hooks exist because relying on the model to remember fails silently.",
+        "developerName": "nadiwerk",
+        "category": "Developer Tools"
+      }
+    }
+  }
+}

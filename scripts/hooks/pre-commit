@@ -15,4 +15,5 @@ root="$(git rev-parse --show-toplevel)"
 # in either ships silently — see each test's header.
 "$root/scripts/gate-hook.test.mjs" 2>/dev/null || node "$root/scripts/gate-hook.test.mjs" || exit 1
 "$root/scripts/plugin.test.mjs" 2>/dev/null || node "$root/scripts/plugin.test.mjs" || exit 1
+"$root/scripts/codex-plugin.test.mjs" 2>/dev/null || node "$root/scripts/codex-plugin.test.mjs" || exit 1
 "$root/scripts/changelog-guard.test.mjs" 2>/dev/null || node "$root/scripts/changelog-guard.test.mjs" || exit 1

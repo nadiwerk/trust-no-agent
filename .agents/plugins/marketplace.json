@@ -1,0 +1,20 @@
+{
+  "name": "trust-no-agent",
+  "interface": {
+    "displayName": "Trust No Agent"
+  },
+  "plugins": [
+    {
+      "name": "trust-no-agent",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
