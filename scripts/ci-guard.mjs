@@ -24,8 +24,8 @@
  *      probed by loading the module, not by asking whether the specifier
  *      resolves: `require('yaml')` resolves in some sandboxes where the module
  *      cannot be loaded, which would let M1 claim a verdict it never computed.
- *      A duplicated mapping key, the incident's exact shape, is caught by the
- *      structural walk in either case.
+ *      A duplicated mapping key and tab indentation — the incident's shapes —
+ *      are caught by the structural walk in either case.
  *   2. Structurally, in the step blocks: no step item repeats a key (M2), every
  *      step item has exactly one of `run:`/`uses:` (M3), and `jobs:` exists with
  *      at least one job that has at least one step (M4) — a workflow with no
@@ -33,6 +33,12 @@
  *   3. Every `run:` in this repo names a script that EXISTS (M5). A workflow
  *      whose step calls a renamed or deleted script fails remotely for a reason
  *      no local suite can see.
+ *   4. No line is indented with a TAB (M6). YAML forbids tabs as indentation, so
+ *      such a file is not parseable and GitHub does not build the job — the same
+ *      class as the duplicated key, and the one member of that class the step
+ *      walk cannot fail on by construction: a tab-indented step line still READS
+ *      as a step line, so the shape has to be named explicitly. A tab inside a
+ *      value is legal and is not reported.
  *
  * The structural walk deliberately stands alone rather than delegating to a
  * parser: a corrupt shape must be caught on a machine where no YAML package is
@@ -77,6 +83,11 @@ export async function checkWorkflow(text, opts = {}) {
   // stays `null` and the structural walk below is the verdict.
   let valid = null;
   let parserNote = 'no YAML parser reachable';
+  // Shapes that make the file unparseable on their own, caught without a parser.
+  // Declared before the parser probe: M6 (below, and the duplicate-key walk)
+  // both write it, and a `let` read before its declaration is a TDZ crash, not a
+  // default (this cost one RED run, 2026-09-30).
+  let unparseableShape = false;
   try {
     const { createRequire } = await import('node:module');
     const req = createRequire(import.meta.url);
@@ -94,6 +105,24 @@ export async function checkWorkflow(text, opts = {}) {
     }
   } catch {
     /* no module system here — the structural walk stands alone */
+  }
+
+  // ---- M6: YAML forbids tabs as indentation ----
+  // This is the shape the walk below cannot catch by construction: a line
+  // indented with a tab (or with spaces followed by a tab) still PARSES as a
+  // mapping key for a reader that trims, so every other check here stays quiet
+  // while YAML rejects the file and GitHub refuses to build the job. Named
+  // explicitly because a check that never examines a shape cannot fail on it.
+  // A tab inside a value is legal, so only indentation counts: the tab must
+  // appear before the line's first non-space character.
+  for (let i = 0; i < lines.length; i++) {
+    const lead = lines[i].match(/^[ \t]*/)[0];
+    if (lead.includes('\t')) {
+      unparseableShape = true;
+      errors.push(
+        `line ${i + 1} is indented with a TAB — YAML forbids tabs as indentation, so GitHub will not build the job (same class as the duplicated \`run:\` key: no job log exists to read)`,
+      );
+    }
   }
 
   // ---- M2/M3: hand-rolled step-block walk, parser-free ----
@@ -205,6 +234,7 @@ export async function checkWorkflow(text, opts = {}) {
     for (const { key, line } of item.keys) {
       if (seen.has(key)) {
         structuralDuplicate = true;
+        unparseableShape = true;
         errors.push(
           `duplicate key \`${key}:\` in the step at line ${line} (job \`${item.job}\`) — a duplicated key is invalid YAML and GitHub will not build the job at all (the 2026-09-30 incident, twice)`,
         );
@@ -260,11 +290,11 @@ export async function checkWorkflow(text, opts = {}) {
   // "not checked" about a file that is known broken.
   if (valid === null && errors.length) valid = false;
 
-  // A parser that loaded without throwing has already accepted the file; a
-  // duplicated key is the one shape that can survive structural reading and
-  // still be unbuildable, so the walk keeps its veto even in that case.
+  // A parser that loaded without throwing has already accepted the file; these
+  // shapes can survive structural reading and still be unbuildable, so the walk
+  // keeps its veto in that case too.
   return {
-    valid: structuralDuplicate ? false : valid,
+    valid: unparseableShape ? false : valid,
     errors,
     stats: { jobs: jobs.length, steps: stepItems.map((s) => ({ job: s.job, name: s.name })), scriptRefs, parser: parserNote },
   };

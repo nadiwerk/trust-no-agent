@@ -161,6 +161,34 @@ const SOUND = [
   );
 }
 
+// F1/F2. A TAB in indentation. YAML forbids tabs as indentation, so a workflow
+// carrying one is not parseable — the same class as the duplicated `run:` key
+// (the file does not build and no job log exists to read). It is the one member
+// of that class the structural walk does NOT catch by construction, because a
+// tab-indented step line still reads as a step line: the walk cannot fail on a
+// shape it never examines, so the shape gets its own check. F2 is the
+// counter-direction — a tab INSIDE a value is legal and must not be flagged.
+{
+  const broken = SOUND.replace('      - name: Validate structure', '\t- name: Validate structure');
+  check('F1 the case actually inserts a tab', broken !== SOUND);
+  const { errors, valid } = await on(broken);
+  check(
+    'F1a tab indentation is reported',
+    errors.some((e) => /tab/i.test(e) && /line 1[0-9]/.test(e)),
+    JSON.stringify(errors),
+  );
+  check('F1b a file with tab indentation is not reported as valid YAML', valid === false, JSON.stringify({ valid, errors }));
+}
+{
+  const legal = SOUND.replace('run: node scripts/validate.mjs', 'run: echo "a\tb"');
+  const { errors } = await on(legal);
+  check(
+    'F2 a tab inside a value is NOT reported (tabs are only illegal as indentation)',
+    !errors.some((e) => /tab/i.test(e)),
+    JSON.stringify(errors),
+  );
+}
+
 // E1. The real artifact, dogfooded: the committed .github/workflows/ci.yml must
 // pass. This is the case that would have caught the incident on the day it
 // landed, and it is the one that keeps the guard honest about this repo.
