@@ -298,7 +298,7 @@ cp -r <trust-no-agent>/skills/*/* <worktree>/.agents/skills/    # project-local 
 
 Routing + skills install per the sections above; the *veto* wires separately per harness (one adapter each, same boundary — AGENTS.md §5 adapter matrix):
 
-- **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate.js` autoloads; irreversible calls without fresh evidence in `.trust/tna-gate-state.json` throw before running. State is created by test runs in the same project dir.
+- **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate/` autoloads; `execute.before` denies irreversible calls without fresh evidence, `execute.after` records test runs; both persist via `ctx.storage` (hook FS-writes vanish live — proven 2026-10-12). Proven live on v2.0.27 (4 denials + 1 post-evidence allow, 2026-10-13). The `.trust/` FS copy is read-preferred by doctor/audit, synced out-of-hook.
 - **Claude Code — veto:** `plugin/hooks/hooks.json` wires `PreToolUse` (Bash matcher) to `scripts/gate-hook.mjs` (exit 2 denies); reads the same project state file. Blocking contract assumed from harness docs — live check open.
 - **Codex — veto:** `plugin/hooks/codex.hooks.json` wires `PreToolUse` the same way; runner must forward pre-tool events in gate-hook stdin shape — live check open.
 - **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known.

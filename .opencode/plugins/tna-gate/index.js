@@ -19,7 +19,7 @@
  * the V2 event shape + storage seam onto it — no discipline logic here.
  * Fail-closed is irreversible-only.
  */
-import { decideBeforeWith, logVetoWith } from '../../../scripts/tna-gate.mjs';
+import { decideBeforeWith, logVetoWith, observeAfterWith } from '../../../scripts/tna-gate.mjs';
 import { makeStore } from '../../../scripts/tna-store.mjs';
 
 export default {
@@ -43,8 +43,26 @@ export default {
       }
     });
 
+    // Evidence recorder: the after-event carries { tool, input:{command},
+    // result:{output:{exit}, metadata:{exit}} } (shape proven live
+    // 2026-10-12). Only an explicit exit code records — an unknown outcome
+    // touches nothing, and recording never throws (it must not break the
+    // session it observes).
+    const afterRegistration = await ctx.tool.hook('execute.after', async (event) => {
+      try {
+        const tool = String(event?.tool ?? '');
+        const input = event?.input && typeof event.input === 'object' ? event.input : {};
+        const exit = event?.result?.output?.exit ?? event?.result?.metadata?.exit;
+        if (exit === undefined) return;
+        await observeAfterWith(store, { tool, command: String(input.command ?? ''), pass: exit === 0 });
+      } catch {
+        /* recording never breaks the session */
+      }
+    });
+
     return () => {
       registration?.dispose?.();
+      afterRegistration?.dispose?.();
     };
   },
 };

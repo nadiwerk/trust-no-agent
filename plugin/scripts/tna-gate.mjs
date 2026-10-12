@@ -27,7 +27,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { classifyAction } from './action-gate.mjs';
+import { classifyAction, SHELL_TOOLS } from './action-gate.mjs';
 
 const STATE_FILE = 'tna-gate-state.json';
 const LOG_FILE = 'tna-gate-log.jsonl';
@@ -99,6 +99,25 @@ export async function logVetoWith(store, entry = {}) {
     return await store.logVeto(entry);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Store-backed test-evidence recorder for runtimes where hook FS-writes
+ * vanish (opencode V2, proven live 2026-10-12). Same TEST_RUN boundary as
+ * observeAfter; `pass` must be an explicit boolean — an unknown outcome
+ * records nothing (a guessed pass is the forgery hole again).
+ * @returns {boolean|null} recorded pass/fail, or null when not a test run
+ */
+export async function observeAfterWith(store, { tool = '', command = '', pass = null } = {}) {
+  if (!SHELL_TOOLS.has(String(tool ?? '').toLowerCase())) return null;
+  if (!TEST_RUN.test(String(command ?? ''))) return null;
+  if (typeof pass !== 'boolean') return null;
+  try {
+    await store.writeState({ testPassFresh: pass, command: String(command) });
+    return pass;
+  } catch {
+    return null;
   }
 }
 

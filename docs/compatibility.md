@@ -59,7 +59,7 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 
 | Harness | Irreversible-action guarantee | Level |
 |---|---|---|
-| opencode V2 | `tool.execute.before` deny-by-throw over the project's `.trust/` evidence state | veto (automated suite; live load check open) |
+| opencode V2 | `tool.execute.before` deny-by-throw + `execute.after` evidence recorder over `ctx.storage` | veto (proven live 2026-10-13 on v2.0.27: 4 denials + 1 post-evidence allow) |
 | Claude Code | `PreToolUse` exit-2 deny over the shared project state | veto (blocking contract assumed from harness docs; live check open) |
 | Codex | `PreToolUse` via the hooks file, shared project state | veto (runner forwarding in gate-hook stdin shape assumed; live check open) |
 | OMO | `load_skills` delegation load + ledger audit | audit-only (no tool veto known) |

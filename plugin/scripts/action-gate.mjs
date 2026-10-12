@@ -43,7 +43,7 @@ export const IRREVERSIBLE_PATTERNS = [
  * the exact hole the live veto probe fell through (commit executed, log
  * empty). Both names gate the same command patterns.
  */
-const SHELL_TOOLS = new Set(['bash', 'shell']);
+export const SHELL_TOOLS = new Set(['bash', 'shell']);
 
 function matchesAnyCommand(command) {
   for (const p of IRREVERSIBLE_PATTERNS) {

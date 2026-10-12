@@ -114,5 +114,39 @@ const throwsWith = async (fn) => {
     log.length === 1 && /git commit/.test(log[0].command), JSON.stringify(log));
 }
 
+// ---- F. execute.after records test evidence (live shape, ticket 08) ----
+// V2 after-event (proven live): { tool:'shell', input:{command}, status,
+// result:{output:{exit}, metadata:{exit}} }. Pass (exit 0) opens the gate for
+// later commits; fail (exit != 0) closes it; non-test commands touch nothing.
+{
+  const dir = freshDir();
+  const ctx = fakeCtx(dir);
+  await plugin.setup(ctx);
+  check('F0 setup registers execute.after', typeof ctx.hooks['execute.after'] === 'function');
+  const passEvent = { tool: 'shell', sessionID: 's', input: { command: 'node scripts/x.test.mjs' }, status: 'completed', result: { output: { exit: 0 }, metadata: { exit: 0 } } };
+  await ctx.hooks['execute.after'](passEvent);
+  let threw = null;
+  try {
+    await ctx.hooks['execute.before']({ tool: 'shell', sessionID: 's', input: { command: 'git commit -m "feat: x"' } });
+  } catch (e) { threw = e; }
+  check('F1 commit after a recorded passing test run does NOT throw', threw === null, String(threw?.message ?? threw));
+}
+{
+  const dir = freshDir();
+  const ctx = fakeCtx(dir);
+  await plugin.setup(ctx);
+  await ctx.hooks['execute.after']({ tool: 'shell', sessionID: 's', input: { command: 'node scripts/x.test.mjs' }, status: 'completed', result: { output: { exit: 1 }, metadata: { exit: 1 } } });
+  const deny = await throwsWith(() => ctx.hooks['execute.before']({ tool: 'shell', sessionID: 's', input: { command: 'git commit -m "feat: x"' } }));
+  check('F2 commit after a recorded FAILING test run THROWS', typeof deny === 'string', String(deny));
+}
+{
+  const dir = freshDir();
+  const ctx = fakeCtx(dir);
+  await plugin.setup(ctx);
+  await ctx.hooks['execute.after']({ tool: 'shell', sessionID: 's', input: { command: 'git status --short' }, status: 'completed', result: { output: { exit: 0 }, metadata: { exit: 0 } } });
+  const deny = await throwsWith(() => ctx.hooks['execute.before']({ tool: 'shell', sessionID: 's', input: { command: 'git commit -m "feat: x"' } }));
+  check('F3 non-test commands record nothing (gate stays closed)', typeof deny === 'string', String(deny));
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
