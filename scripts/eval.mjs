@@ -700,6 +700,52 @@ if (!/^- Lesson:/m.test(shipLogText))
 if (!/Lesson: root_cause = .*\| correction = .*\[YYYY-MM-DD\]/.test(shipLogText))
   err('ship-log: the corrective-tier format (Lesson: root_cause = … | correction = … [YYYY-MM-DD]) must be stated literally — an undated prose tier cannot be matched to the repair it taught (measured on a real adopter tier, 2026-09-29)');
 
+// ---- 35. The delegation contract is an adapter matrix, not one API (HARD) ----
+// Origin: hardening-general 2026-10-12 (the "dead API" crack — enforcement
+// rode `load_skills`, which does not exist on Claude Code or opencode V2, so a
+// minor harness upgrade broke the whole discipline layer). Check 6b guards the
+// PARAMETERIZED path only; this check guards the matrix: AGENTS.md §5 must
+// name the per-harness adapters (load_skills where it exists, veto hooks
+// where it does not) and state that no single harness API carries
+// enforcement. Fail-first proof: delete the matrix paragraph → RED here;
+// restore → GREEN (spec AC9).
+for (const [marker, why] of [
+  [/adapter matrix/i,
+    '§5 must name the enforcement adapter matrix — one harness API (load_skills) already died under the framework once'],
+  [/tool\.execute\.before/,
+    'the matrix must name the opencode veto adapter (tool.execute.before deny-by-throw)'],
+  [/PreToolUse/,
+    'the matrix must name the Claude/Codex pre-tool veto adapter'],
+  [/No single harness API carries enforcement/,
+    'the matrix must state the no-single-API rule literally — otherwise the next dead parameter silently becomes the only path again'],
+]) {
+  if (!marker.test(agentsText2))
+    err(`AGENTS.md §5 adapter matrix: missing ${marker} — ${why}`);
+}
+
+// ---- 36. The veto guarantee is legible per harness, doc-first where unproven (HARD) ----
+// Origin: hardening-general 2026-10-12 (AC5/AC10). An adopter deciding where
+// to rely on the veto must read, per harness, veto vs audit-only — and
+// harnesses without a live veto proof (omp, Devin) must be marked doc-first
+// WARN, never hostable-by-assertion. Both docs carry the same table markers
+// so neither can drift into promising what was never proven.
+for (const [file, text] of [
+  ['docs/compatibility.md', readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8')],
+  ['docs/installation.md', readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8')],
+]) {
+  for (const [marker, why] of [
+    [/veto vs audit-only/i,
+      'the doc must carry a per-harness veto-vs-audit-only table — the guarantee differs by harness'],
+    [/doc-first/i,
+      'the doc must mark unproven harnesses doc-first — a veto without a live proof is a proposal, not a guarantee'],
+    [/audit-only/i,
+      'the doc must carry at least one explicit audit-only row — a harness with no veto wired must be named, not left to implication'],
+  ]) {
+    if (!marker.test(text))
+      err(`${file}: missing veto-guarantee marker ${marker} — ${why}`);
+  }
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

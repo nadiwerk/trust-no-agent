@@ -105,6 +105,14 @@ const stripQuoted = (body) => body.replace(/`[^`\n]*`/g, ' ');
 // The literal restatement line that satisfies the confirmation gate.
 const CONTEXT_CONFIRMED = 'Context confirmed:';
 
+// M9 — fake-compliance (audit 2026-10-12, hardening-general ticket 03/AC6).
+// A claimed all-yes verdict is prose; the EVIDENCE_TOKEN list is what a real
+// receipt leaves behind (test runner output, exit code, diff ref). Literal
+// markers, repo doctrine: a loose /proof|verified/i would pass on prose about
+// proof ("verified in browser" without a run is M2's whole failure class).
+const VERDICT_CLAIM = /all five `yes`|5-boolean|all-yes/i;
+const EVIDENCE_TOKEN = /\bEXIT\b|exit \d|\bPASS\b|\bFAIL\b|`node |diff\b/i;
+
 // A line-start `Loaded:` bullet satisfies the M1 trail — PRESENCE is the bar,
 // because choosing the right skill is judgment (the audit is the boundary, not
 // the judge). An annotation-only bullet ("- Loaded: (tanpa skill MANDATORY —
@@ -412,6 +420,24 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
           message: `entry ${date} matches the mandatory-gate keyword pattern for "${skill}" but carries no "- Loaded:" line — this is a keyword-pattern signal to verify, not a proven violation; confirm the skill was loaded or add the Loaded: line (docs/specs/mandatory-gate.md, AGENTS.md §2)`,
         });
     }
+
+    // M9 — fake-compliance (audit 2026-10-12, hardening-general 03/AC6): the
+    // entry CLAIMS an all-yes verdict (Loaded: receipts + verdict claim) but
+    // carries no evidence token (test output, exit code, diff ref). Presence
+    // bar, same doctrine as M1/M7: the writer chooses the wording, the audit
+    // counts the fact. Warn-level like every ledger kind: the ledger is
+    // private working memory, so a finding is a lead, never an install defect.
+    // Ruling: token lists are judgment — cost if wrong is a warn-level false
+    // positive on a terse-but-honest entry, which the message tells the reader
+    // to verify rather than obey.
+    const claimsVerdict = parseLoadedTokens(body).includes('receipts') && VERDICT_CLAIM.test(body);
+    const showsEvidence = EVIDENCE_TOKEN.test(body);
+    if (claimsVerdict && !showsEvidence)
+      findings.push({
+        date,
+        kind: 'fake-compliance',
+        message: `entry ${date} claims an all-yes verdict (Loaded: receipts + verdict claim) with no evidence token (test output, exit code, diff ref) — a claimed receipt without evidence is indistinguishable from compliance; attach the run (command + output + exit) or drop the claim (docs/specs/hardening-general.md AC6)`,
+      });
 
     // M2 — site/ visual change without rendered-output evidence
     const siteFix = body.includes(VISUAL_FIX_MARKER);

@@ -35,6 +35,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/gate-hook.mjs\"",
+            "timeout": 15,
+            "statusMessage": "trust-no-agent: vetoing irreversible tool calls without fresh evidence"
+          }
+        ]
+      }
     ]
   }
 }

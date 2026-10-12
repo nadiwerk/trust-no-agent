@@ -430,3 +430,32 @@ console.log('\nOK: doctor decision logic behaves as specified.');
     existsSync(gateTest) && join(here, 'mandatory-gate.mjs').replace(/\.mjs$/, '.test.mjs') === gateTest,
     gateTest);
 }
+
+// K8 (hardening-general 06/AC8): the meter WIRING is real — doctor.mjs must
+// CALL meterVerdict (check-30 doctrine: match the call, not the import), or
+// the meter module ships while doctor never prints it.
+{
+  const { readFileSync } = await import('node:fs');
+  const { join: joinK8, dirname: dirnameK8 } = await import('node:path');
+  const { fileURLToPath: fptK8 } = await import('node:url');
+  const src = readFileSync(joinK8(dirnameK8(fptK8(import.meta.url)), 'doctor.mjs'), 'utf8');
+  check('K8 doctor.mjs CALLS meterVerdict (a computed-but-unread meter is a dead component)',
+    /meterVerdict\s*\(/.test(src), 'no meterVerdict( call in doctor.mjs');
+}
+
+// M1/M2 (hardening-general roast/AC8): the meter block can never fail the
+// install it reports on. Slice the C10 region and assert it contains no
+// fail( invocation and no process.exit — every path warns. An absence test:
+// its RED was proven by injecting fail('x') into the region (suite FAILs),
+// then reverting (suite PASSes).
+{
+  const { readFileSync: readM } = await import('node:fs');
+  const { join: joinM, dirname: dirnameM } = await import('node:path');
+  const { fileURLToPath: fptM } = await import('node:url');
+  const srcM = readM(joinM(dirnameM(fptM(import.meta.url)), 'doctor.mjs'), 'utf8');
+  const region = srcM.slice(srcM.indexOf('C10. gate meter'), srcM.indexOf('// ---- summary'));
+  check('M1 the meter region never calls fail (WARN-only by decision)',
+    !/[^a-zA-Z]fail\s*\(/.test(region), region.slice(0, 200));
+  check('M2 the meter region never exits the process (exit code stays with health checks)',
+    !/process\.exit/.test(region), region.slice(0, 200));
+}

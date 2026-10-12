@@ -323,6 +323,31 @@ if (ledgerPath) {
       warn(gateFindingVerdict({ gateFindings: gateList.length, literalFindings: (byKind.get('loaded-gap') || []).length }).message);
     }
 
+    // ---- C10. gate meter (WARN-only, hardening-general 06/AC8) ----
+    // "Kuat" is measured, not asserted: veto fires from the project's
+    // veto-fire log, fake-compliance detections from this audit's own
+    // findings, TRIGGER scores from the evals evidence log. Every source is
+    // optional — an absent source reads as "no data yet" inside the message,
+    // and the verdict is warn-level by Master decision (a missing meter is a
+    // gap in knowledge, never an install defect), so this block cannot fail
+    // the install it reports on.
+    try {
+      const { parseVetoLog, parseTriggerTable, meterVerdict } = await import('./gate-meter.mjs');
+      let vetoFires = 0;
+      try {
+        vetoFires = parseVetoLog(readFileSync(join(cwd, '.trust', 'tna-gate-log.jsonl'), 'utf8')).fires;
+      } catch { /* no log yet = no data yet */ }
+      let triggerRows = [];
+      try {
+        const battery = join(ROOT, 'evals', 'scenarios.md');
+        if (existsSync(battery)) triggerRows = parseTriggerTable(readFileSync(battery, 'utf8'));
+      } catch { /* unreadable table = no data yet */ }
+      const fakeDetects = findings.filter((f) => f.kind === 'fake-compliance').length;
+      warn(meterVerdict({ vetoFires, fakeDetects, triggerRows }).message);
+    } catch (e) {
+      warn(`gate meter could not run — ${e && e.message ? e.message : 'unknown error'}`);
+    }
+
   } catch (e) {
     // Name the real failure: this block now covers grouping and the M4 call, so
     // blaming an unreadable module for any crash here is the confident-false-

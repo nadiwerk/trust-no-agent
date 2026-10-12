@@ -36,6 +36,21 @@ jobs:
       - name: Mandatory-gate classifier self-test
         run: node scripts/mandatory-gate.test.mjs
 
+      - name: Action-gate self-test
+        run: node scripts/action-gate.test.mjs
+
+      - name: TNA veto gate self-test
+        run: node scripts/tna-gate.test.mjs
+
+      - name: TNA veto V2 adapter self-test
+        run: node scripts/tna-gate-v2.test.mjs
+
+      - name: TNA evidence store self-test
+        run: node scripts/tna-store.test.mjs
+
+      - name: Gate meter self-test
+        run: node scripts/gate-meter.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 

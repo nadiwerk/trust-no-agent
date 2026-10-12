@@ -53,6 +53,21 @@ Every item below was a real failure on a real harness (origin noted), not a hypo
 9. **AGENTS.md re-injection after compaction/resume is not guaranteed.** A harness that drops it leaves the Iron Laws and the MANDATORY skill contract out of context, and the ledger compensation relies on the agent's initiative to re-read — initiative fails silently (evals, docs/design.md). Wire the mechanical re-injection block (`node scripts/reinject.mjs`, derived from the live router so it cannot drift) into any session-start/resume/compact hook the harness offers; without hooks, re-print the block by hand as the first act after compaction, before resuming work (origin: 2026-09-10 harness-dependency finding; closure tested by `scripts/reinject.test.mjs`). **The floor spans two files:** the four Iron Laws live in `WORKFLOW.md`, the MANDATORY section in `AGENTS.md`. Run the CLI bare (`node scripts/reinject.mjs`) so it reads both; a harness that can only hand it one file's text must pass the other's alongside it, and a block that still names a missing half exits 1 — a half floor must never pass as a complete one (origin: 2026-09-21 finding — the CLI defaulted to `AGENTS.md` alone, so the laws were never in the injected block and nothing said so).
 10. **OS notification backends degrade, never block, the scheduled check.** The opt-in weekly update check (`scripts/update-check-cli.mjs`) picks its notification per platform (Windows PowerShell toast, macOS osascript, Linux notify-send); where none works it degrades to log-only, and all-current/failure runs stay silent by design. Porting to a new platform means adding a `pickBackend` case — not weakening the log-always invariant (origin: 2026-09-13 scheduled-check feature; decisions pinned by `scripts/update-delivery.test.mjs`).
 
+## Veto guarantee per harness (veto vs audit-only)
+
+Skill routing and AGENTS.md work on every harness above; the *veto* — refusing an irreversible tool call before it runs — does not. Read this table before relying on it:
+
+| Harness | Irreversible-action guarantee | Level |
+|---|---|---|
+| opencode V2 | `tool.execute.before` deny-by-throw over the project's `.trust/` evidence state | veto (automated suite; live load check open) |
+| Claude Code | `PreToolUse` exit-2 deny over the shared project state | veto (blocking contract assumed from harness docs; live check open) |
+| Codex | `PreToolUse` via the hooks file, shared project state | veto (runner forwarding in gate-hook stdin shape assumed; live check open) |
+| OMO | `load_skills` delegation load + ledger audit | audit-only (no tool veto known) |
+| omp / Devin | documented adapter only | doc-first WARN until a live veto proof exists |
+| Current API harness (this session: tool-calling API, subagent without skill-loading, no prompt/tool-hook surface observed) | no veto wired — enforcement falls back to prose + ledger audit | audit-only (live 2026-10-12: veto log empty, meter "no data yet", self-trigger gap applies) |
+
+A veto without a live proof is a proposal, not a guarantee: omp/Devin rows stay doc-first and degrade to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing. Every other harness's install section in docs/installation.md states which of the two levels it wires.
+
 ## Evidence integrity
 
 All rows above were verified against each harness's official documentation and repositories. Two verification waves: 2026-08-31 (OMO, Hermes Agent, omp/Senpi, OpenClaw) and a follow-up wave (Codex, [Claude Code] CLI, Cursor, Gemini CLI, Zed). Items marked "unverified", "unknown", or "no evidence found" are stated as such — they were not assumed to be absent. A cross-tool note from the second wave: all Agent Skills standard tools converge on `~/.agents/skills/` + `.agents/skills/` as the shared path — that, alongside AGENTS.md, is the actual interoperability seam.

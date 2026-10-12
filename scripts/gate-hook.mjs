@@ -29,6 +29,14 @@
  *   - THE FLOOR TEXT IS LOADED FROM THE ROUTER, NOT COPIED. If AGENTS.md is
  *     missing, the hook says nothing rather than injecting a stale copy.
  *
+ *   - PRETOOL DENY IS THE ONE LOUD EXIT. PreToolUse on a classified
+ *     irreversible action without fresh evidence exits 2 with the reason on
+ *     stderr (the harness's blocking contract — assumed from the harness
+ *     docs, live verification still open). Everything else about this hook
+ *     stays fail-open: unparseable input, unknown shapes, and allowed calls
+ *     all exit 0 silent. A veto that fires on hook confusion would teach the
+ *     user to uninstall it.
+ *
  * Usage (this is a hook, not a CLI):
  *   echo '{"hook_event_name":"UserPromptSubmit","prompt":"fix the crash"}' \
  *     | node gate-hook.mjs
@@ -39,6 +47,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildReinject } from './reinject.mjs';
+import { decideBefore, logVeto } from './tna-gate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -218,6 +227,34 @@ function emit(eventName, context) {
   );
 }
 
+/**
+ * PreToolUse verdict: the same irreversible-action boundary as the opencode
+ * veto (ticket 02's decideBefore over the project's recorded evidence),
+ * answered in the hook runner's exit code. The tool name and input are read
+ * from the harness payload (`tool_name`/`tool_input`, with `tool`/`args`
+ * aliases); the evidence is read from the payload's `cwd`, so a session
+ * running in a project dir shares that project's test-run record. A payload
+ * too shapeless to judge returns null — deny needs a classified action, and
+ * confusion is always fail-open (the contract pinned by the B-suite).
+ */
+function buildPreToolVerdict(payload) {
+  const toolName =
+    typeof payload.tool_name === 'string' && payload.tool_name
+      ? payload.tool_name
+      : typeof payload.tool === 'string'
+        ? payload.tool
+        : '';
+  const input =
+    payload.tool_input && typeof payload.tool_input === 'object'
+      ? payload.tool_input
+      : payload.args && typeof payload.args === 'object'
+        ? payload.args
+        : null;
+  const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : '';
+  if (!toolName || !input || !cwd) return null;
+  return decideBefore({ dir: cwd, tool: toolName, args: input });
+}
+
 function main() {
   // Opt-in reporting path: the harness never passes --self-check, so this
   // cannot affect a live session.
@@ -236,6 +273,19 @@ function main() {
       emit(event, buildPromptContext(String(payload.prompt || '')));
     } else if (event === 'SessionStart' || event === 'PostCompact') {
       emit(event, buildSessionStartContext());
+    } else if (event === 'PreToolUse') {
+      let verdict = null;
+      try {
+        verdict = buildPreToolVerdict(payload);
+      } catch {
+        verdict = null; // unjudgeable → fail-open, same as every other error here
+      }
+      if (verdict && !verdict.allow) {
+        logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
+        process.stderr.write(`[trust-no-agent] ${verdict.reason}\n`);
+        process.exit(2); // the harness's blocking contract: deny the tool call
+      }
+      // Allowed or unjudgeable: silent, exit 0 below.
     }
     // Any other event: nothing to say.
   } catch {

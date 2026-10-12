@@ -171,7 +171,7 @@ const skills = canonicalSkills();
     const b = readFileSync(join(PLUGIN, rel));
     check(`G1 plugin/${rel} is byte-identical to the repo copy`, a.equals(b));
   }
-  for (const rel of ['reinject.mjs', 'mandatory-gate.mjs', 'gate-hook.mjs']) {
+  for (const rel of ['reinject.mjs', 'mandatory-gate.mjs', 'gate-hook.mjs', 'tna-gate.mjs', 'tna-store.mjs', 'action-gate.mjs']) {
     const a = readFileSync(join(ROOT, 'scripts', rel));
     const b = readFileSync(join(PLUGIN, 'scripts', rel));
     check(`G2 plugin/scripts/${rel} is byte-identical to the repo copy`, a.equals(b));

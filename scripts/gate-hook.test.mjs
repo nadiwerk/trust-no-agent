@@ -25,7 +25,8 @@
  * it would test a different thing than what runs).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -167,4 +168,60 @@ const run = (stdin) => {
 }
 
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll gate-hook expectations hold.');
+
+// ---- H. PreToolUse veto (hardening-general 04/AC2-AC3) ----
+// The blocking contract (assumed from the harness docs, live verification
+// still open): exit 2 denies the tool call, stderr carries the reason to the
+// model; exit 0 passes silent. Errors and unknown shapes stay fail-open
+// (exit 0) — the veto closes on CLASSIFIED irreversible actions, never on
+// hook confusion. Fixtures drive the REAL CLI with temp cwds, never the repo.
+const runPre = (payload) => {
+  const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(payload), encoding: 'utf8' });
+  return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? '') };
+};
+const bareDir = () => mkdtempSync(join(tmpdir(), 'tna-pre-'));
+const passedDir = () => {
+  const d = bareDir();
+  mkdirSync(join(d, '.trust'), { recursive: true });
+  writeFileSync(join(d, '.trust', 'tna-gate-state.json'),
+    JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: '2026-10-12T00:00:00.000Z' }));
+  return d;
+};
+{
+  const d = bareDir();
+  const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: d });
+  check('H1 commit without evidence exits 2 (deny)', code === 2, `exit=${code}`);
+  check('H2 the denial names the missing evidence', /fresh test/i.test(out), out.slice(0, 200));
+  check('H6 the denial is logged as one parseable veto-fire line',
+    (() => { try { const o = JSON.parse(readFileSync(join(d, '.trust', 'tna-gate-log.jsonl'), 'utf8').trim().split('\n').pop()); return o.tool === 'Bash' && /git commit/.test(o.command); } catch { return false; } })());
+}
+{
+  const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: passedDir() });
+  check('H3 commit with fresh evidence exits 0 silent', code === 0 && out.trim() === '', `exit=${code} out=${JSON.stringify(out.slice(0, 120))}`);
+}
+{
+  const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { filePath: 'docs/x.md' }, cwd: bareDir() });
+  check('H4 read tool exits 0 silent (fail-open preserved)', code === 0 && out.trim() === '', `exit=${code}`);
+}
+{
+  const { code, out } = runPre({ hook_event_name: 'PreToolUse' });
+  check('H5 PreToolUse with no tool shape stays fail-open', code === 0 && out.trim() === '', `exit=${code}`);
+}
+
+// ---- I. Manifests wire the veto (AC2/AC3 automated half) ----
+{
+  const hooks = JSON.parse(readFileSync(join(HERE, '..', 'plugin', 'hooks', 'hooks.json'), 'utf8'));
+  const pre = hooks?.hooks?.PreToolUse ?? [];
+  check('I1 hooks.json carries a PreToolUse entry', Array.isArray(pre) && pre.length > 0, JSON.stringify(Object.keys(hooks?.hooks ?? {})));
+  check('I2 the entry targets the Bash tool and calls gate-hook',
+    JSON.stringify(pre).includes('Bash') && JSON.stringify(pre).includes('gate-hook.mjs'), JSON.stringify(pre).slice(0, 200));
+}
+{
+  const codex = JSON.parse(readFileSync(join(HERE, '..', 'plugin', 'hooks', 'codex.hooks.json'), 'utf8'));
+  const pre = codex?.hooks?.PreToolUse ?? [];
+  check('I3 codex.hooks.json carries a PreToolUse entry', Array.isArray(pre) && pre.length > 0, JSON.stringify(Object.keys(codex?.hooks ?? {})));
+  check('I4 the codex entry calls gate-hook',
+    JSON.stringify(pre).includes('gate-hook.mjs'), JSON.stringify(pre).slice(0, 200));
+}
+
 process.exit(failures ? 1 : 0);

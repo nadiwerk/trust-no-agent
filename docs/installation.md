@@ -294,6 +294,19 @@ cp -r <trust-no-agent>/skills/*/* <worktree>/.agents/skills/    # project-local 
 
 ---
 
+## Veto vs audit-only (what each harness guarantees)
+
+Routing + skills install per the sections above; the *veto* wires separately per harness (one adapter each, same boundary — AGENTS.md §5 adapter matrix):
+
+- **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate.js` autoloads; irreversible calls without fresh evidence in `.trust/tna-gate-state.json` throw before running. State is created by test runs in the same project dir.
+- **Claude Code — veto:** `plugin/hooks/hooks.json` wires `PreToolUse` (Bash matcher) to `scripts/gate-hook.mjs` (exit 2 denies); reads the same project state file. Blocking contract assumed from harness docs — live check open.
+- **Codex — veto:** `plugin/hooks/codex.hooks.json` wires `PreToolUse` the same way; runner must forward pre-tool events in gate-hook stdin shape — live check open.
+- **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known.
+- **Current API harness (this session) — audit-only:** no prompt-hook or tool-veto surface observed (subagent has no skill-loading parameter; no tool-gate host ran the veto — veto log empty 2026-10-12). Framework runs as prose + ledger audit here; do not rely on veto. A future adapter needs a hook/tool-gate surface first (ticket 07 candidate, not manual discipline).
+- **omp / Devin — doc-first WARN:** adapter documented only; no live veto proof exists, so any install here reports WARN (never hostable-by-assertion) until a run shows the denial firing.
+
+---
+
 ## Updating
 
 Skills are copied frozen at install time — an upstream release does not reach an installed copy by itself. Detection is mechanical, the update is a decision:

@@ -1122,4 +1122,41 @@ console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expe
     JSON.stringify(flat));
 }
 
+// ---- O. Fake-compliance (M9) — a claimed verdict with no evidence ----
+// Spec docs/specs/hardening-general.md AC6 (ticket 03): an entry carrying
+// `- Loaded: receipts` plus an all-yes verdict claim but no reference to test
+// output/diff is a warn-level finding. Presence bar, same doctrine as M1/M7:
+// the writer chooses the wording, the audit counts the fact. Fixtures are
+// hand-written literals from the spec's intent, never implementation output.
+// NOTE: fixtures carry `- Next: none` so M7 stays silent and each check reads
+// exactly one kind; they avoid repair/visual/owner words so M8/M2/M3 stay
+// silent too, and avoid gate keywords so M6 stays silent.
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verdict: all five `yes`, closing the unit\n- Next: none'),
+    today: TODAY,
+  });
+  check('O1 claimed all-yes verdict without evidence is flagged fake-compliance',
+    res.findings.some((f) => f.kind === 'fake-compliance'),
+    JSON.stringify(res.findings));
+}
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verdict: all five `yes`, closing the unit\n- Verification: `node scripts/x.test.mjs` 17/17, exit 0\n- Next: none'),
+    today: TODAY,
+  });
+  check('O2 same claim WITH evidence is clean of fake-compliance',
+    !res.findings.some((f) => f.kind === 'fake-compliance'),
+    JSON.stringify(res.findings));
+}
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node scripts/x.test.mjs` 17/17, exit 0\n- Next: none'),
+    today: TODAY,
+  });
+  check('O3 no verdict claim means nothing to judge (M9 stays silent)',
+    !res.findings.some((f) => f.kind === 'fake-compliance'),
+    JSON.stringify(res.findings));
+}
+
 process.exit(failures ? 1 : 0);
