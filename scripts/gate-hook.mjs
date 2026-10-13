@@ -48,6 +48,8 @@ import { fileURLToPath } from 'node:url';
 
 import { buildReinject } from './reinject.mjs';
 import { decideBefore, logVeto } from './tna-gate.mjs';
+import { parseSkillOverlays } from './overlay-registry.mjs';
+import { composeFloor } from './floor-composer.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -137,13 +139,26 @@ function buildSessionStartContext() {
     if (!texts.length) continue;
     const floor = extractFloor(texts.join('\n\n'));
     if (!floor) continue;
-    return (
+    const canonical = (
       'trust-no-agent — the router is installed. These rules are active in this session, ' +
       'quoted verbatim from the router (WORKFLOW.md + AGENTS.md):\n\n' +
       floor +
       '\n\n' +
       resolveSkillRoots().text
     );
+    // Decision composition (ticket 03): user overlays join the session floor.
+    // The overlay directory belongs to the project the session runs in
+    // (cwd/.trust/skills-overlay). Fail-open by construction: an absent
+    // directory yields no entries and composeFloor emits the canonical floor
+    // verbatim; a broken overlay is not a valid entry, so it never enters the
+    // floor (the doctor reports it) and the canonical portion stays
+    // byte-identical. Any read error leaves the canonical floor standing.
+    try {
+      const { entries } = parseSkillOverlays(join(process.cwd(), '.trust', 'skills-overlay'));
+      return composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).text;
+    } catch {
+      return canonical;
+    }
   }
   return null;
 }

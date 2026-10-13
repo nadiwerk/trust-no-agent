@@ -25,7 +25,7 @@
  * it would test a different thing than what runs).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -222,6 +222,48 @@ const passedDir = () => {
   check('I3 codex.hooks.json carries a PreToolUse entry', Array.isArray(pre) && pre.length > 0, JSON.stringify(Object.keys(codex?.hooks ?? {})));
   check('I4 the codex entry calls gate-hook',
     JSON.stringify(pre).includes('gate-hook.mjs'), JSON.stringify(pre).slice(0, 200));
+}
+
+// ---- F. Overlay composition in the live floor (decision-composition 03) ----
+// Live derivation against a temp cwd with a fixture overlay: the pure seams
+// (overlay-registry, floor-composer) are tested in their own suites; this
+// proves the SESSION HOOK actually wires them — a suite pinning only the pure
+// seams would stay green with the directory scan deleted. The overlay
+// directory belongs to the project the session runs in (cwd/.trust/
+// skills-overlay), so the fixture lives in a temp cwd, not the repo.
+{
+  const runIn = (cwd) => {
+    const r = spawnSync(process.execPath, [HOOK],
+      { input: JSON.stringify({ hook_event_name: 'SessionStart' }), encoding: 'utf8', cwd });
+    let ctx = '';
+    try { ctx = JSON.parse(r.stdout || '{}').hookSpecificOutput?.additionalContext || ''; } catch { /* fail-open shape */ }
+    return { code: r.status, ctx };
+  };
+  const withDir = mkdtempSync(join(tmpdir(), 'gate-hook-overlay-'));
+  const noDir = mkdtempSync(join(tmpdir(), 'gate-hook-nooverlay-'));
+  const overlayFile = join(withDir, '.trust', 'skills-overlay', 'error-forensics', 'SKILL.md');
+  mkdirSync(join(withDir, '.trust', 'skills-overlay', 'error-forensics'), { recursive: true });
+  writeFileSync(overlayFile, [
+    '---', 'name: error-forensics', 'extends: root-cause/Phase-1', 'role: insert-after',
+    'triggers: error, crash', '---', '# error-forensics', 'body',
+  ].join('\n'));
+
+  const without = runIn(noDir);
+  const withOverlay = runIn(withDir);
+  check('F1 a live session floor carries the canonical floor plus the user:-marked overlay entry',
+    withOverlay.code === 0 && /Iron Law/i.test(withOverlay.ctx) && /user:error-forensics/.test(withOverlay.ctx)
+    && /root-cause\/Phase-1/.test(withOverlay.ctx), `code=${withOverlay.code} ctx=${withOverlay.ctx.slice(-200)}`);
+  check('F2 a live session floor with no overlay directory carries no user: entries (canonical intact)',
+    without.code === 0 && !/user:/.test(without.ctx) && /Iron Law/i.test(without.ctx), `code=${without.code}`);
+  check('F3 the canonical portion is a byte-identical prefix when an overlay is present',
+    withOverlay.ctx.startsWith(without.ctx), JSON.stringify({ tail: withOverlay.ctx.slice(without.ctx.length, without.ctx.length + 80) }));
+  writeFileSync(overlayFile, 'no frontmatter at all');
+  const malformed = runIn(withDir);
+  check('F4 a malformed overlay leaves the canonical portion byte-identical (fail-open; the doctor reports it)',
+    malformed.code === 0 && malformed.ctx.startsWith(without.ctx) && !/user:/.test(malformed.ctx),
+    `code=${malformed.code} ctx=${malformed.ctx.slice(-120)}`);
+  rmSync(withDir, { recursive: true, force: true });
+  rmSync(noDir, { recursive: true, force: true });
 }
 
 process.exit(failures ? 1 : 0);

@@ -89,6 +89,8 @@ const skills = canonicalSkills();
     ['AGENTS.md', 'the router'],
     ['WORKFLOW.md', 'the Iron Laws half of the floor'],
     ['scripts/gate-hook.mjs', 'the hook entry point both events call'],
+    ['scripts/overlay-registry.mjs', 'the overlay parser gate-hook delegates to'],
+    ['scripts/floor-composer.mjs', 'the bounded floor composer gate-hook delegates to'],
     ['scripts/reinject.mjs', 'the floor extractor gate-hook delegates to'],
     ['scripts/mandatory-gate.mjs', 'the classifier gate-hook delegates to'],
   ]) {
