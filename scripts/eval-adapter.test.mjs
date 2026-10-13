@@ -7,7 +7,8 @@
  * exits 1 when the matrix is removed — was proven live in-session
  * (2026-10-12: 8 errors, exit 1, recorded in .trust/progress.txt) before the
  * prose landed, and re-proven for THIS file by the strip-and-restore dance
- * (matrix paragraph removed → this suite FAILs; restored → PASS).
+ * (matrix paragraph removed → this suite FAILs; restored → PASS). Check 37
+ * (newcomer onboarding) pinned the same way: markers stripped → FAIL.
  *
  * Zero dependencies. Run: node scripts/eval-adapter.test.mjs
  */
@@ -44,6 +45,29 @@ for (const [file, text] of [['compatibility.md', compat], ['installation.md', in
 const evalSrc = readFileSync(join(HERE, 'eval.mjs'), 'utf8');
 check('eval.mjs carries check 35 (adapter matrix)', /---- 35\. /.test(evalSrc));
 check('eval.mjs carries check 36 (veto guarantee docs)', /---- 36\. /.test(evalSrc));
+check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
+for (const [label, re] of [
+  ['per-step Verify: line', /Verify:/],
+  ['dual-router refusal named', /dual-router/i],
+  ['purge documented', /purge/i],
+  ['sweep documented', /sweep/i],
+  ['doctor-output-first support flow', /doctor output first/i],
+]) {
+  check(`37 ${label} in installation.md`, re.test(install), String(re));
+}
+
+// Check 37 pins (newcomer-escalation ticket 03 pinning ticket 01's AC1/AC3/AC4/AC5): every onboarding rule has a
+// marker, and the check code exists. FAIL direction proven by the
+// strip-and-restore dance (markers removed → this suite FAILs).
+for (const [label, re] of [
+  ['per-step Verify: line', /Verify:/],
+  ['dual-router refusal named', /dual-router/i],
+  ['purge documented', /purge/i],
+  ['doctor-output-first support flow', /doctor output first/i],
+]) {
+  check(`37 ${label} in installation.md`, re.test(install), String(re));
+}
+check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

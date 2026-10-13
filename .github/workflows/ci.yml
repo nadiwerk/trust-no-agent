@@ -51,6 +51,12 @@ jobs:
       - name: Gate meter self-test
         run: node scripts/gate-meter.test.mjs
 
+      - name: First-run gate self-test
+        run: node scripts/first-run.test.mjs
+
+      - name: Eval adapter pins self-test
+        run: node scripts/eval-adapter.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 

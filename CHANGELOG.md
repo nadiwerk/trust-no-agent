@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Newcomer onboarding hardening.** `docs/installation.md` install steps
+  carry one-line `Verify:` commands, adoption refuses dual-router setups by
+  name, stale-skill purge and the post-adoption sweep are documented, and
+  support starts from the doctor output. Pinned by eval check 37.
+- **First-run gate** (`scripts/first-run.mjs`): one verdict from doctor green
+  plus the full floor emitted — either side missing fails closed.
+
 ## [0.1.26] - 2026-09-30
 
 The repo now serves two agent marketplaces from one payload, and the second one

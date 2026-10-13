@@ -746,6 +746,43 @@ for (const [file, text] of [
   }
 }
 
+// ---- 37. Onboarding hardening markers (HARD) ----
+// Origin: newcomer-escalation ticket 01 (AC1/AC3/AC4/AC5). Each install step
+// carries its one-line verification; adoption refuses dual-router setups;
+// purge + sweep are documented; support starts from the doctor output.
+// Prose without these markers rots silently — this check is the teeth.
+{
+  const installText = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+  for (const [marker, why] of [
+    [/Verify:/,
+      'each install step must carry its one-line verification (AC1)'],
+    [/dual-router/i,
+      'adoption must refuse dual-router setups by name (AC3)'],
+    [/purge/i,
+      'stale-skill purge must be documented (AC4)'],
+    [/sweep/i,
+      'the post-adoption sweep must be documented (AC4 — purge without sweep leaves dead names)'],
+    [/doctor output first/i,
+      'support must start from the doctor output (AC5)'],
+  ]) {
+    if (!marker.test(installText))
+      err(`docs/installation.md: missing onboarding marker ${marker} — ${why}`);
+  }
+  // Region discipline (Spec-axis finding): a global /Verify:/ passes while
+  // the changed steps carry none. The adoption region and the de-adoption
+  // region each carry their own Verify: line, so coverage is positional,
+  // not incidental.
+  const adoptRegion = installText.slice(
+    installText.indexOf('## Adopting into an existing project'),
+    installText.indexOf('### De-adoption'),
+  );
+  const deadoptRegion = installText.slice(installText.indexOf('### De-adoption'));
+  for (const [label, region] of [['adoption', adoptRegion], ['de-adoption', deadoptRegion]]) {
+    if (!/Verify:/.test(region))
+      err(`docs/installation.md: ${label} region carries no Verify: line — verification must sit on the changed steps (AC1), not only on veto rows`);
+  }
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

@@ -53,7 +53,7 @@ Before touching anything, the agent runs this short interview. It should ask the
 4. **"Any chain stage you want mapped to a local name instead of adopted?"**
    - If your router already has a stage under a different name, the local name stays and a mapping is recorded (step 3 below) — the project is never renamed around the framework.
 
-Only after your answers does the agent produce a **merge plan** — which lines go where, what stays untouched — shows it to you, and waits for an explicit "yes" before writing. Each step below is then applied additively; the diff is shown, and any step you dislike is reverted before the next one runs.
+Only after your answers does the agent produce a **merge plan** — which lines go where, what stays untouched — shows it to you, and waits for an explicit "yes" before writing. If the plan would leave two routers claiming the session, the interview STOPS here — dual-router setups are refused outright (step 2 below); no file is written until one router remains. Each step below is then applied additively; the diff is shown, and any step you dislike is reverted before the next one runs.
 
 ### Why this cannot break your existing router
 
@@ -67,7 +67,7 @@ Adoption touches your project additively only:
 With the interview answered and the merge plan confirmed, adoption proceeds as a merge in five steps:
 
 1. **Audit the overlap first.** Read the project's router and mark what it already covers — task classification, interview/spec/ticket stages, review, logging, delegation rules. Mature routers usually cover part of the chain under different names. The framework's adoption value is usually its **gates** (fail-first, fresh-evidence receipts, human sign-off), not a second chain.
-2. **One router.** The project's router stays the only router. Cherry-pick the framework rules it lacks — a MANDATORY discipline-skills section, a trigger-matrix row — **into** that router instead of copying `AGENTS.md` wholesale. Two routers claiming the same session silently disagree, and the model arbitrates by forgetting one of them.
+2. **One router.** The project's router stays the only router. Cherry-pick the framework rules it lacks — a MANDATORY discipline-skills section, a trigger-matrix row — **into** that router instead of copying `AGENTS.md` wholesale. Two routers claiming the same session silently disagree, and the model arbitrates by forgetting one of them. Dual-router setups are refused outright: if both files would claim the session, stop and merge first — never run with two routers hoping the model picks correctly. Verify: `node scripts/eval.mjs` exits 0 (check 37 pins the refusal sentence).
 3. **Map the names; don't rename the project — but never keep a dead name.** Where a chain stage already exists under a local name, keep the local name and record the mapping so the skills still resolve. The mapping is the project's own — write it from the project's router, not from any external list. The premise of a mapping is that the name **still resolves**: if the skill behind a local name is later removed or migrated, drop the mapping with it — a mapping that outlives its target is dead weight the router keeps citing for weeks with nothing detecting it.
 
 4. **Skills project-local, not global.** An actively developed project keeps its skills in its own repo directory (`.opencode/skills/`, `.claude/skills/`) — a global skills dir is shared across projects and collides with whatever the project already has.
@@ -80,7 +80,7 @@ De-adoption is a **user decision** — the agent prepares and proposes (grep the
 
 Adoption is forward-looking; so is removal. A framework that documents how to install but not how to retire leaves zombie skills alive — a retired chain stage keeps "resurrecting" from a global dir or registry long after the project moved on (observed: a pre-adoption skill chain survived in the global skills dir and could still fire weeks after adoption):
 
-1. **Remove the skill files** from every install location they were copied to (project-local dir, global dir). A skill left in the global dir outlives the project's adoption — global dirs are shared across projects and nothing in the project repo signals it is dead.
+1. **Remove the skill files** from every install location they were copied to (project-local dir, global dir). Purge stale copies everywhere — a skill left in the global dir outlives the project's adoption — global dirs are shared across projects and nothing in the project repo signals it is dead. Verify: re-run the post-adoption sweep (step 6 above) — zero dangling names means the purge is complete.
 2. **Clean the router.** Remove or re-point every trigger-matrix row, mapping, and prose mention that cites the retired skill (step 3's dead-name rule applies: the mapping goes when the target goes).
 3. **Verify nothing still references it.** Grep the repo for the skill name; check `docs/skills/` mirrors if present. Then run the post-adoption sweep above — every name the router cites must resolve.
 4. **Log the retirement** in the ledger (`Recipe: task_type = skill-deadoption`) so the removal is part of the history — a skill that vanishes without a trace invites re-installation.
@@ -298,12 +298,12 @@ cp -r <trust-no-agent>/skills/*/* <worktree>/.agents/skills/    # project-local 
 
 Routing + skills install per the sections above; the *veto* wires separately per harness (one adapter each, same boundary — AGENTS.md §5 adapter matrix):
 
-- **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate/` autoloads; `execute.before` denies irreversible calls without fresh evidence, `execute.after` records test runs; both persist via `ctx.storage` (hook FS-writes vanish live — proven 2026-10-12). Proven live on v2.0.27 (4 denials + 1 post-evidence allow, 2026-10-13). The `.trust/` FS copy is read-preferred by doctor/audit, synced out-of-hook.
-- **Claude Code — veto:** `plugin/hooks/hooks.json` wires `PreToolUse` (Bash matcher) to `scripts/gate-hook.mjs` (exit 2 denies); reads the same project state file. Blocking contract assumed from harness docs — live check open.
-- **Codex — veto:** `plugin/hooks/codex.hooks.json` wires `PreToolUse` the same way; runner must forward pre-tool events in gate-hook stdin shape — live check open.
-- **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known.
-- **Current API harness (this session) — audit-only:** no prompt-hook or tool-veto surface observed (subagent has no skill-loading parameter; no tool-gate host ran the veto — veto log empty 2026-10-12). Framework runs as prose + ledger audit here; do not rely on veto. A future adapter needs a hook/tool-gate surface first (ticket 07 candidate, not manual discipline).
-- **omp / Devin — doc-first WARN:** adapter documented only; no live veto proof exists, so any install here reports WARN (never hostable-by-assertion) until a run shows the denial firing.
+- **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate/` autoloads; `execute.before` denies irreversible calls without fresh evidence, `execute.after` records test runs; both persist via `ctx.storage` (hook FS-writes vanish live — proven 2026-10-12). Proven live on v2.0.27 (4 denials + 1 post-evidence allow, 2026-10-13). The `.trust/` FS copy is read-preferred by doctor/audit, synced out-of-hook. Verify: `node scripts/tna-gate-v2.test.mjs` exits 0.
+- **Claude Code — veto:** `plugin/hooks/hooks.json` wires `PreToolUse` (Bash matcher) to `scripts/gate-hook.mjs` (exit 2 denies); reads the same project state file. Blocking contract assumed from harness docs — live check open. Verify: `node scripts/gate-hook.test.mjs` exits 0.
+- **Codex — veto:** `plugin/hooks/codex.hooks.json` wires `PreToolUse` the same way; runner must forward pre-tool events in gate-hook stdin shape — live check open. Verify: `node scripts/codex-plugin.test.mjs` exits 0.
+- **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known. Verify: `node scripts/ledger-audit.test.mjs` exits 0.
+- **Current API harness (this session) — audit-only:** no prompt-hook or tool-veto surface observed (subagent has no skill-loading parameter; no tool-gate host ran the veto — veto log empty 2026-10-12). Framework runs as prose + ledger audit here; do not rely on veto. A future adapter needs a hook/tool-gate surface first (ticket 07 candidate, not manual discipline). Verify: `node scripts/doctor.mjs` exits 0 with the audit-only row present.
+- **omp / Devin — doc-first WARN:** adapter documented only; no live veto proof exists, so any install here reports WARN (never hostable-by-assertion) until a run shows the denial firing. Verify: `node scripts/eval.mjs` exits 0 (check 36 pins the doc-first marking).
 
 ---
 
@@ -352,6 +352,15 @@ On any harness, confirm the framework is active:
 5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, git hooks wired for your mode, all 11 skills reachable from a harness discovery location, the ledger gitignored and audited, and the corrective tier enforced — a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period (measured from the oldest dated ledger entry), then fails. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
 
    Doctor reads your project's mode rather than assuming one. **Repo mode** (the project carries the framework's own `scripts/`) holds the strict hook contract: `core.hooksPath` set, both hooks present and identical to the tracked copies. **Adopter mode** (you copied skills, per the install above) checks that *some* git hook exists and never fails on this — a project that installed skills only cannot be expected to carry the framework's hook path, and a check that fails on a correct install teaches you to ignore it.
+
+### Support: doctor output first
+
+"It disobeys" reports start from the doctor output first — paste the full
+`doctor.mjs` run before describing the symptom. Half of all apparent-defiance
+reports end at this step (unwired hooks, stale skills, dual routers), and the
+other half arrive with the evidence already attached. Verify: the pasted run
+shows `OK:` (exit 0) or names its gaps — a report without it is returned
+unprocessed.
 
 ### The ledger contract (what the audit reads)
 
