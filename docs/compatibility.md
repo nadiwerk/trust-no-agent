@@ -68,6 +68,23 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 
 A veto without a live proof is a proposal, not a guarantee: omp/Devin rows stay doc-first and degrade to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing. Every other harness's install section in docs/installation.md states which of the two levels it wires.
 
+**OMO verdict (AC4):** audit-only is the ceiling, for a stated reason — OMO's
+documented surfaces are skill routing (`~/.agents/skills/`), invocation
+gating via config, and `task(category, load_skills, …)` delegation. None is
+a pre-tool interception point: `load_skills` loads discipline into the
+delegate, it cannot refuse a tool call the delegate then makes. No veto
+adapter is claimed until a hook/tool-gate surface is found on OMO; if one is
+found, it lands as a new adapter row with its own live proof, not as an edit
+to this verdict.
+
+**omp/Devin live-proof plan (AC5, review-by 2026-11-13):** each gets one
+attempted live denial run on or before review-by 2026-11-13, conditional on
+access (omp: local harness present; Devin: subscription present). A run that
+denies promotes the row to veto with its evidence attached; a run that cannot
+happen (no access) keeps doc-first WARN and sets the next review-by date in
+this paragraph — the date moves only forward with a written reason, never
+silently. No green fixture alone promotes any row.
+
 ## Evidence integrity
 
 All rows above were verified against each harness's official documentation and repositories. Two verification waves: 2026-08-31 (OMO, Hermes Agent, omp/Senpi, OpenClaw) and a follow-up wave (Codex, [Claude Code] CLI, Cursor, Gemini CLI, Zed). Items marked "unverified", "unknown", or "no evidence found" are stated as such — they were not assumed to be absent. A cross-tool note from the second wave: all Agent Skills standard tools converge on `~/.agents/skills/` + `.agents/skills/` as the shared path — that, alongside AGENTS.md, is the actual interoperability seam.

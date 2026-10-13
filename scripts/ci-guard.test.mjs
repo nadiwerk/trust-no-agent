@@ -33,7 +33,9 @@ const check = (label, cond, detail = '') => {
 const sound = () => checkWorkflow(SOUND, { resolveScript: () => null });
 const on = (text) => checkWorkflow(text, { resolveScript: () => null });
 
-// A minimal, structurally sound workflow: two jobs, two steps, standard keys.
+// A minimal, structurally sound workflow: two jobs, three steps, standard keys.
+// It carries the boundary-gate step M7 requires — a sound workflow that drops
+// its gates is exactly what M7 exists to catch, so SOUND includes them.
 const SOUND = [
   'name: CI',
   '',
@@ -47,6 +49,8 @@ const SOUND = [
   '    runs-on: ubuntu-latest',
   '    steps:',
   '      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5',
+  '      - name: Gate',
+  '        run: node scripts/eval.mjs && node scripts/action-gate.test.mjs && node scripts/tna-gate.test.mjs && node scripts/tna-gate-v2.test.mjs && node scripts/tna-store.test.mjs && node scripts/tna-portable.test.mjs && node scripts/gate-hook.test.mjs && node scripts/ledger-audit.test.mjs && node scripts/plugin.test.mjs && node scripts/eval-adapter.test.mjs',
   '      - name: Validate structure',
   '        run: node scripts/validate.mjs',
   '  windows:',
@@ -65,7 +69,7 @@ const SOUND = [
   check('A1 a structurally sound workflow passes', errors.length === 0, JSON.stringify(errors));
   check(
     'A2 it counted the jobs and steps it saw',
-    stats.jobs === 2 && stats.steps.length === 3,
+    stats.jobs === 2 && stats.steps.length === 4,
     JSON.stringify(stats),
   );
 }
@@ -198,6 +202,45 @@ const SOUND = [
   const target = resolve(import.meta.dirname, '..', '.github', 'workflows', 'ci.yml');
   const { errors, stats } = await checkWorkflow(readFileSync(target, 'utf8'));
   check(`E1 the committed ci.yml passes (${stats.jobs} job(s), ${stats.steps.length} step(s))`, errors.length === 0, JSON.stringify(errors));
+}
+
+// ---- G. M7: boundary-gate suites must run in CI (full-enforcement 04/AC6) ----
+// A CI that silently drops a gate suite stays green while the boundary it
+// enforced goes unwatched — the v0.1.25/26 darkness in a new shape (there the
+// job never built; here the job builds but checks nothing). SOUND already
+// carries the gate step; the stripped variant removes one suite from it.
+// SOUND_WITH_GATES: the sound baseline already carrying the boundary-gate
+// step M7 requires (see SOUND above). The stripped variant removes one suite.
+const SOUND_WITH_GATES = SOUND;
+{
+  const { errors } = await on(SOUND_WITH_GATES);
+  check('G1 a workflow running its gate suites reports no missing gate',
+    !errors.some((e) => /never runs/i.test(e)), JSON.stringify(errors));
+}
+{
+  const stripped = SOUND_WITH_GATES.replace(' && node scripts/action-gate.test.mjs', '');
+  check('G0 the case actually removes a gate step', stripped !== SOUND_WITH_GATES);
+  const { errors } = await on(stripped);
+  check('G2 a dropped gate suite is reported by name',
+    errors.some((e) => /never runs/i.test(e) && /action-gate/.test(e)), JSON.stringify(errors));
+}
+{
+  // G3 generalizes G2 over every M7 ref: strip each gate suite in turn, expect
+  // its name in the error. A list M7 cannot fail is a list that cannot protect.
+  const refs = [
+    'scripts/eval.mjs', 'scripts/action-gate.test.mjs', 'scripts/tna-gate.test.mjs',
+    'scripts/tna-gate-v2.test.mjs', 'scripts/tna-store.test.mjs', 'scripts/tna-portable.test.mjs',
+    'scripts/gate-hook.test.mjs', 'scripts/ledger-audit.test.mjs',
+    'scripts/plugin.test.mjs', 'scripts/eval-adapter.test.mjs',
+  ];
+  for (const ref of refs) {
+    const cut = SOUND_WITH_GATES.split(`node ${ref}`).join('');
+    if (cut === SOUND_WITH_GATES) { check(`G3 strip case actually removes ${ref}`, false, 'pattern absent'); continue; }
+    const { errors } = await on(cut);
+    const base = ref.split('/').pop();
+    check(`G3 dropping ${base} is reported by name`,
+      errors.some((e) => /never runs/i.test(e) && e.includes(base)), JSON.stringify(errors).slice(0, 200));
+  }
 }
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failing expectation(s)`);

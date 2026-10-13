@@ -178,6 +178,23 @@ const skills = canonicalSkills();
   }
 }
 
+// ---- G3. The opencode plugin vendors its core — no escapes, no drift ----
+// Ticket 01 (AC1): the adopter path copies .opencode/plugins/tna-gate/ into
+// any project, so every .mjs beside index.js must equal scripts/<same>.
+// Otherwise the shipped veto rots while tna-portable.test.mjs (which drives
+// the vendored copy) stays green against a stale twin.
+{
+  const dir = join(ROOT, '.opencode', 'plugins', 'tna-gate');
+  const vendored = readdirSync(dir).filter((f) => f.endsWith('.mjs'));
+  check('G3 the plugin vendors its core modules', vendored.length > 0, vendored.join(','));
+  for (const f of vendored) {
+    const src = join(ROOT, 'scripts', f);
+    if (!existsSync(src)) { check(`G3 vendored ${f} has a canonical source in scripts/`, false, 'no canonical source'); continue; }
+    check(`G3 vendored ${f} is byte-identical to scripts/${f}`,
+      readFileSync(src).equals(readFileSync(join(dir, f))));
+  }
+}
+
 // ---- H. One version, one writer — the marketplace and plugin agree with the CHANGELOG ----
 // Origin: the audit's §6 class, one layer up. `.trust/tna-version` and the
 // installed plugin.json drifted to different versions and nothing read the

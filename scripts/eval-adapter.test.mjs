@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Regression pin for eval checks 35/36 (hardening-general 05/AC9).
+ * Regression pin for eval checks 35-38 (hardening-general 05/AC9,
  *
  * What it pins: (a) the adapter-matrix markers exist in the three live
  * files, (b) the check code exists in eval.mjs. The FAIL direction — eval
  * exits 1 when the matrix is removed — was proven live in-session
  * (2026-10-12: 8 errors, exit 1, recorded in .trust/progress.txt) before the
  * prose landed, and re-proven for THIS file by the strip-and-restore dance
- * (matrix paragraph removed → this suite FAILs; restored → PASS). Check 37
- * (newcomer onboarding) pinned the same way: markers stripped → FAIL.
+ * (matrix paragraph removed → this suite FAILs; restored → PASS). Checks 37
+ * (newcomer onboarding) and 38 (remaining-harness verdicts) pinned the same
+ * way: markers stripped → FAIL.
  *
  * Zero dependencies. Run: node scripts/eval-adapter.test.mjs
  */
@@ -46,6 +47,8 @@ const evalSrc = readFileSync(join(HERE, 'eval.mjs'), 'utf8');
 check('eval.mjs carries check 35 (adapter matrix)', /---- 35\. /.test(evalSrc));
 check('eval.mjs carries check 36 (veto guarantee docs)', /---- 36\. /.test(evalSrc));
 check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
+check('eval.mjs carries check 38 (remaining-harness verdicts)', /---- 38\. /.test(evalSrc));
+check('eval.mjs carries the AC8 row-discipline rule (veto rows name proof status)', /Row discipline/.test(evalSrc));
 for (const [label, re] of [
   ['per-step Verify: line', /Verify:/],
   ['dual-router refusal named', /dual-router/i],
@@ -56,18 +59,16 @@ for (const [label, re] of [
   check(`37 ${label} in installation.md`, re.test(install), String(re));
 }
 
-// Check 37 pins (newcomer-escalation ticket 03 pinning ticket 01's AC1/AC3/AC4/AC5): every onboarding rule has a
-// marker, and the check code exists. FAIL direction proven by the
-// strip-and-restore dance (markers removed → this suite FAILs).
+// Check 38 pins (full-enforcement ticket 03, AC4/AC5): OMO verdict + dated
+// live-proof plans exist in compatibility.md. FAIL direction proven the same
+// way (verdicts removed → FAIL).
 for (const [label, re] of [
-  ['per-step Verify: line', /Verify:/],
-  ['dual-router refusal named', /dual-router/i],
-  ['purge documented', /purge/i],
-  ['doctor-output-first support flow', /doctor output first/i],
+  ['OMO verdict written', /OMO verdict/i],
+  ['omp/Devin live-proof plan', /live-proof plan/i],
+  ['review-by date set', /review-by 2026-11-13/i],
 ]) {
-  check(`37 ${label} in installation.md`, re.test(install), String(re));
+  check(`38 ${label} in compatibility.md`, re.test(compat), String(re));
 }
-check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

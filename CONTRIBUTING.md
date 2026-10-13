@@ -83,7 +83,7 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — the twenty-one self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
+- **Run the gates before pushing** — the twenty-two self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
   CI runs the same set on every push and PR; a red CI blocks merge. The
   pre-commit hook runs a superset (it adds `reinject.test.mjs`,
   `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
@@ -98,29 +98,30 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the twenty-one gates:
+**`validate`** — the twenty-two gates:
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
 3. `node scripts/eval-adapter.test.mjs` — eval adapter-pins regression test.
-4. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
-5. `node scripts/doctor.test.mjs` — doctor decision-logic self-test.
-6. `node scripts/mandatory-gate.test.mjs` — MANDATORY-classifier self-test.
-7. `node scripts/action-gate.test.mjs` — action-gate (words never gate) self-test.
-8. `node scripts/tna-gate.test.mjs` — veto core + state self-test.
-9. `node scripts/tna-gate-v2.test.mjs` — opencode V2 adapter self-test.
-10. `node scripts/tna-store.test.mjs` — evidence store self-test.
-11. `node scripts/gate-meter.test.mjs` — gate-effectiveness meter self-test.
-12. `node scripts/first-run.test.mjs` — first-run gate self-test.
-13. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
-14. `node scripts/tickets.mjs` — ticket-graph smoke run.
-15. `node scripts/site.test.mjs` — site acceptance contract.
-16. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
-17. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
-18. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
-19. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
-20. `node scripts/ci-guard.mjs` — workflow file guard.
-21. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
+4. `node scripts/tna-portable.test.mjs` — veto portability self-test.
+5. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
+6. `node scripts/doctor.test.mjs` — doctor decision-logic self-test.
+7. `node scripts/mandatory-gate.test.mjs` — MANDATORY-classifier self-test.
+8. `node scripts/action-gate.test.mjs` — action-gate (words never gate) self-test.
+9. `node scripts/tna-gate.test.mjs` — veto core + state self-test.
+10. `node scripts/tna-gate-v2.test.mjs` — opencode V2 adapter self-test.
+11. `node scripts/tna-store.test.mjs` — evidence store self-test.
+12. `node scripts/gate-meter.test.mjs` — gate-effectiveness meter self-test.
+13. `node scripts/first-run.test.mjs` — first-run gate self-test.
+14. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
+15. `node scripts/tickets.mjs` — ticket-graph smoke run.
+16. `node scripts/site.test.mjs` — site acceptance contract.
+17. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
+18. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
+19. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
+20. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
+21. `node scripts/ci-guard.mjs` — workflow file guard.
+22. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message

@@ -19,8 +19,8 @@
  * the V2 event shape + storage seam onto it — no discipline logic here.
  * Fail-closed is irreversible-only.
  */
-import { decideBeforeWith, logVetoWith, observeAfterWith } from '../../../scripts/tna-gate.mjs';
-import { makeStore } from '../../../scripts/tna-store.mjs';
+import { decideBeforeWith, logVetoWith, observeAfterWith } from './tna-gate.mjs';
+import { makeStore } from './tna-store.mjs';
 
 export default {
   id: 'tna-gate',

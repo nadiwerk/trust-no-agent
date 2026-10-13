@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   support starts from the doctor output. Pinned by eval check 37.
 - **First-run gate** (`scripts/first-run.mjs`): one verdict from doctor green
   plus the full floor emitted — either side missing fails closed.
+- **Full enforcement.** Doubt-deny veto under any tool name, CI red when a
+  boundary gate is dropped from the workflow (ci-guard M7), per-harness veto
+  rows bound to live proof, and remaining-harness verdicts (OMO audit-only
+  with reason, omp/Devin dated live-proof plans).
 
 ## [0.1.26] - 2026-09-30
 

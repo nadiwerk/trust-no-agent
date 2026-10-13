@@ -129,6 +129,15 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 ```
 Delegation uses `task(category, load_skills, run_in_background)` — the framework prompts already match this shape.
 
+### opencode V2 — veto plugin install
+```bash
+# Copy the self-contained plugin dir (it imports nothing outside itself —
+# scripts/tna-portable.test.mjs proves a relocated copy loads and denies):
+cp -r <trust-no-agent>/.opencode/plugins/tna-gate/ .opencode/plugins/tna-gate/
+# Autoloaded at startup; no config edit needed.
+```
+Verify: `node <trust-no-agent>/scripts/tna-portable.test.mjs` exits 0 (proves the installed copy denies without evidence).
+
 ### [Claude Code] CLI
 
 **Recommended — install as a plugin (ships the router and the hooks together).**

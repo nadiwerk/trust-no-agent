@@ -744,6 +744,22 @@ for (const [file, text] of [
     if (!marker.test(text))
       err(`${file}: missing veto-guarantee marker ${marker} — ${why}`);
   }
+  // Row discipline (full-enforcement 04/AC8): a table ROW claiming veto-level
+  // must name its proof status in the same row — `proven live` with its
+  // receipt, or `live check open` as an honest IOU. A bare `veto` with
+  // neither is how the table inflates itself one adjective at a time.
+  // Rows whose level is audit-only/doc-first are out of this rule's scope
+  // (their honesty marker is the level itself); rows merely mentioning the
+  // word `veto` in passing are not claims.
+  const compatRows = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8')
+    .split('\n')
+    .filter((l) => l.trim().startsWith('|'));
+  for (const row of compatRows) {
+    const cells = row.split('|').map((c) => c.trim());
+    const level = cells[3] ?? '';
+    if (/^veto\b/i.test(level) && !/proven live|live check open/i.test(row))
+      err(`docs/compatibility.md: veto-level row names no proof status — ${row.slice(0, 90)}… (AC8: proven live, or live check open)`);
+  }
 }
 
 // ---- 37. Onboarding hardening markers (HARD) ----
@@ -780,6 +796,26 @@ for (const [file, text] of [
   for (const [label, region] of [['adoption', adoptRegion], ['de-adoption', deadoptRegion]]) {
     if (!/Verify:/.test(region))
       err(`docs/installation.md: ${label} region carries no Verify: line — verification must sit on the changed steps (AC1), not only on veto rows`);
+  }
+}
+
+// ---- 38. Remaining-harness verdicts (HARD) ----
+// Origin: full-enforcement ticket 03 (AC4/AC5). Every harness without a veto
+// carries a written verdict — OMO names why audit-only is its ceiling, and
+// omp/Devin carry dated live-proof plans with a review-by date. A silent gap
+// reads as an oversight; a dated verdict reads as an owned decision.
+{
+  const compatText = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
+  for (const [marker, why] of [
+    [/OMO verdict/i,
+      'OMO must carry a written verdict: veto adapter or why audit-only is the ceiling (AC4)'],
+    [/live-proof plan/i,
+      'omp/Devin must carry dated live-proof plans, not an open-ended doc-first (AC5)'],
+    [/review-by 2026-11-13/i,
+      'the live-proof plans need a review-by date, or doc-first has no expiry (AC5)'],
+  ]) {
+    if (!marker.test(compatText))
+      err(`docs/compatibility.md: missing verdict marker ${marker} — ${why}`);
   }
 }
 

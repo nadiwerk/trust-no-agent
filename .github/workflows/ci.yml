@@ -48,6 +48,9 @@ jobs:
       - name: TNA evidence store self-test
         run: node scripts/tna-store.test.mjs
 
+      - name: TNA veto portability self-test
+        run: node scripts/tna-portable.test.mjs
+
       - name: Gate meter self-test
         run: node scripts/gate-meter.test.mjs
 

@@ -283,6 +283,29 @@ export async function checkWorkflow(text, opts = {}) {
     }
   }
 
+  // ---- M7: boundary-gate suites must run in CI (full-enforcement 04/AC6) ----
+  // A CI that silently drops a gate suite stays green while the boundary it
+  // enforced goes unwatched — the v0.1.25/26 darkness in a new shape (there
+  // the job never built; here the job builds but checks nothing). Each ref
+  // below is a suite whose absence must fail the file, by name.
+  for (const ref of [
+    'scripts/eval.mjs',
+    'scripts/action-gate.test.mjs',
+    'scripts/tna-gate.test.mjs',
+    'scripts/tna-gate-v2.test.mjs',
+    'scripts/tna-store.test.mjs',
+    'scripts/tna-portable.test.mjs',
+    'scripts/gate-hook.test.mjs',
+    'scripts/ledger-audit.test.mjs',
+    'scripts/plugin.test.mjs',
+    'scripts/eval-adapter.test.mjs',
+  ]) {
+    if (!scriptRefs.includes(ref))
+      errors.push(
+        `workflow never runs \`${ref}\` — a boundary gate missing from CI stays green while its boundary goes unwatched (same class as the 2026-09-30 darkness: the check that cannot fail is not a check)`,
+      );
+  }
+
   // The parser's verdict was absent; the structural walk is the verdict. Any
   // shape a YAML reader would reject (a duplicated key, a step that runs
   // nothing, a job-less workflow) is reported as `valid: false` — never left at

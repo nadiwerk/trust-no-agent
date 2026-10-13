@@ -39,9 +39,10 @@ export const IRREVERSIBLE_PATTERNS = [
  * Shell-execution tool names, matched case-insensitively. `bash` is the
  * documented name; `shell` is the LIVE name opencode V2 sends (proven
  * 2026-10-12 by the tna-probe: keys=["tool","sessionID","agent","messageID",
- * "id","input"], tool="shell"). A gate that names one misses the other —
- * the exact hole the live veto probe fell through (commit executed, log
- * empty). Both names gate the same command patterns.
+ * "id","input"], tool="shell"). Since full-enforcement 04/AC7 the set is
+ * advisory only: a `command` string matching the irreversible patterns gates
+ * under ANY tool name (doubt blocks with its reason shown) — a future
+ * harness renaming `shell` must not reopen the hole ticket 08 closed live.
  */
 export const SHELL_TOOLS = new Set(['bash', 'shell']);
 
@@ -67,13 +68,12 @@ function matchesAnyCommand(command) {
 export function classifyAction({ tool = '', args = {}, evidence = {} } = {}) {
   const name = String(tool ?? '').toLowerCase();
   const command = typeof args?.command === 'string' ? args.command : '';
-  if (SHELL_TOOLS.has(name) && command) {
-    const hit = matchesAnyCommand(command);
-    if (hit) {
-      if (evidence?.testPassFresh === true)
-        return { gated: false, reason: `irreversible action (${hit}) with fresh test evidence — gate open` };
-      return { gated: true, reason: `irreversible action (${hit}) without fresh test evidence — sign-off plus a fresh test pass required (docs/specs/hardening-general.md AC1)` };
-    }
+  const hit = command ? matchesAnyCommand(command) : null;
+  if (hit) {
+    const via = SHELL_TOOLS.has(name) ? name : `${name || '(unnamed tool)'} (unknown shell name)`;
+    if (evidence?.testPassFresh === true)
+      return { gated: false, reason: `irreversible action (${hit}) via ${via} with fresh test evidence — gate open` };
+    return { gated: true, reason: `irreversible action (${hit}) via ${via} without fresh test evidence — sign-off plus a fresh test pass required (docs/specs/hardening-general.md AC1)` };
   }
   return { gated: false, reason: 'no irreversible action in this tool call — gate open (words alone never gate)' };
 }

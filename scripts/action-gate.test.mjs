@@ -68,6 +68,20 @@ const check = (label, cond, detail = '') => {
   check('D3 a humble message does not open the gate', gatedA.gated === true, JSON.stringify(gatedA));
 }
 
+// ---- G. Unknown shape with irreversible command → deny (full-enforcement 04/AC7) ----
+// Doubt blocks with its reason shown: a `command` string matching the
+// irreversible patterns gates under ANY tool name — a future harness renaming
+// `shell` must not reopen the hole ticket 08 closed live. Tools without a
+// `command` field are unaffected (D/E suites above still hold).
+{
+  const v = classifyAction({ tool: 'shiny-new-executor', args: { command: 'git push origin master' }, evidence: {} });
+  check('G1 unknown tool carrying an irreversible command is gated', v.gated === true, JSON.stringify(v));
+  check('G2 the denial names the unknown tool (reason shown, not silent)',
+    v.reason.includes('shiny-new-executor'), v.reason);
+  const open = classifyAction({ tool: 'shiny-new-executor', args: { command: 'git push origin master' }, evidence: { testPassFresh: true } });
+  check('G3 fresh evidence still opens the gate under an unknown tool', open.gated === false, JSON.stringify(open));
+}
+
 // ---- E. Ordinary writes stay fail-open (Constraints: irreversible only) ----
 {
   const cases = [
