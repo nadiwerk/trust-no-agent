@@ -125,6 +125,9 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 23. `node scripts/autonomy-ladder.test.mjs` — autonomy-ladder decay self-test.
 24. `node scripts/stale-probe.test.mjs` — stale-memory probe self-test (dead lessons cannot gate).
 25. `node scripts/local-judge.test.mjs` — bounded-judgment self-test (deterministic-first, judge-last, no API key).
+26. `node scripts/overlay-registry.test.mjs` — overlay registry parser self-test (add-only roles, injection-hardened frontmatter, derived anchors).
+27. `node scripts/spec-scrub.test.mjs` — spec-scrub check (the decision-composition spec names no external products).
+28. `node scripts/floor-composer.test.mjs` — floor composer self-test (canonical-first, `user:` marking, bounded budget, determinism).
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message
@@ -163,7 +166,10 @@ trust-no-agent/
 │   ├── tna-store.mjs    # storage-backed evidence store (+ .test.mjs)
 │   ├── gate-meter.mjs   # gate-effectiveness meter (+ .test.mjs)
 │   ├── first-run.mjs    # newcomer first-run gate: doctor + floor (+ .test.mjs)
-│   ├── eval-adapter.test.mjs # regression pins for eval checks 35-42
+│   ├── eval-adapter.test.mjs # regression pins for eval checks 35-43
+│   ├── overlay-registry.mjs # overlay skill registry: frontmatter parse, derived anchors, add-only roles (+ .test.mjs)
+│   ├── floor-composer.mjs  # bounded floor composition: canonical-first, user:-marked entries (+ .test.mjs)
+│   ├── spec-scrub.test.mjs # the decision-composition spec names no external products
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
 └── .github/workflows/   # CI runs all four gates on every push and PR
 ```

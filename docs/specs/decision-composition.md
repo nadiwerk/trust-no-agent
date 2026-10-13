@@ -183,9 +183,12 @@ permukaan API yang dikirim di fitur ini.
 4. Canonical floor first and complete — overlays fill only the budget remainder.
 5. The floor stays bounded (the existing <4000-char guarantee holds; an E1-equivalent test
    pins it).
-6. Overlays live in `.trust/skills-overlay/` — outside the plugin payload; mirror
-   byte-identity and marketplace cleanliness are untouched (plugin.test stays green with
-   zero plugin-file changes).
+6. Overlays live in `.trust/skills-overlay/` — outside the plugin payload;
+   mirror byte-identity and marketplace cleanliness are untouched: the
+   plugin SKILLS payload and its four mirror directories carry no overlay
+   content. The mechanism modules ARE vendored into `plugin/scripts/`
+   byte-identical (the vendored hook imports them), guarded by plugin.test
+   — the AC12 wording and this constraint say the same thing.
 7. Session fail-open: a broken overlay never blocks the session; the doctor reports it.
 8. No silent truncation: budget-omitted overlays are counted and reported by the doctor.
 9. Trigger priority: canonical MANDATORY routing keeps priority; overlays add domains only.

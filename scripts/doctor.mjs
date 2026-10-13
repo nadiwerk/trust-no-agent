@@ -31,9 +31,7 @@ import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
 import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict } from './doctor-checks.mjs';
-import { parseSkillOverlays } from './overlay-registry.mjs';
-import { composeFloor } from './floor-composer.mjs';
-import { canonicalSessionFloor } from './gate-hook.mjs';
+import { scanSessionOverlays } from './gate-hook.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -273,23 +271,6 @@ if (ledgerPath) {
   else if (res.level === 'warn') warn(res.message);
   else pass('corrective tier healthy (lessons.md exists)');
 
-  // ---- O. Overlay registry (decision composition 04; spec AC9/AC10/AC16) ----
-  // Trust COMPUTED at read time: every doctor run re-scans the registry — a
-  // mutated file changes the verdict with no cache in between (the
-  // computed-verdict culture, never a cached table claim). Defects fail by
-  // name; the budget-omission count is computed against the SAME canonical
-  // floor the session receives (canonicalSessionFloor), so the number the
-  // doctor prints is the number the session would omit.
-  {
-    const overlayDir = join(cwd, '.trust', 'skills-overlay');
-    const { entries, errors } = parseSkillOverlays(overlayDir);
-    let omittedCount = 0;
-    const canonical = canonicalSessionFloor();
-    if (canonical) omittedCount = composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).omitted.length;
-    const ov = overlayVerdict({ errors, entryCount: entries.length, omittedCount, tierPresent: existsSync(overlayDir) });
-    for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
-  }
-
   // ---- C7. ledger audit (Loaded:-gap / visual-gate / context-gap) ----
   // The audit is WARN, not FAIL: the ledger is private working memory and its
   // format is agent-written, so findings are leads for the next session to fix
@@ -383,6 +364,26 @@ if (ledgerPath) {
     const { stats } = auditLedger({ ledgerText, today: new Date() });
     for (const msg of blindSpotWarning(stats)) warn(msg);
   } catch { /* the audit's own error above already reported; do not double-warn */ }
+}
+
+// ---- O. Overlay registry (decision composition 04; spec AC9/AC10/AC16) ----
+// Trust COMPUTED at read time: every doctor run re-scans the registry — a
+// mutated file changes the verdict with no cache in between (the
+// computed-verdict culture, never a cached table claim). Deliberately OUTSIDE
+// the ledgerPath block: the overlay tier is independent of the ledger, and
+// the first version nested it inside — a checkout with no ledger saw no
+// overlay verdict at all (the live P-tests caught it). The scan and the
+// budget-omission count run through the SAME seam the session hook uses
+// (scanSessionOverlays), so the number the doctor prints is the number the
+// session would omit. Defects fail by name.
+{
+  const r = scanSessionOverlays(cwd);
+  if (!r) {
+    pass('overlay tier not present (optional — .trust/skills-overlay/)');
+  } else {
+    const ov = overlayVerdict({ errors: r.errors, entryCount: r.entries.length, omittedCount: r.omitted.length, tierPresent: existsSync(join(cwd, '.trust', 'skills-overlay')) });
+    for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
+  }
 }
 
 // ---- summary ----

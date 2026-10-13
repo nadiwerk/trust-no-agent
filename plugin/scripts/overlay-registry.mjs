@@ -25,6 +25,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROLES = new Set(['insert-before', 'insert-after', 'wrap']);
 const REQUIRED = ['name', 'extends', 'role'];
+// Injection hardening (roast security Required): the name is an identifier,
+// each trigger a bounded keyword — both reach the session floor verbatim.
+const NAME_RE = /^[a-z0-9][a-z0-9-]{0,59}$/;
+const TRIGGER_RE = /^[a-z0-9][a-z0-9 _-]{0,39}$/;
 
 /**
  * Parse an overlay SKILL.md's frontmatter into an entry plus named errors.
@@ -46,9 +50,17 @@ export function parseOverlayFrontmatter(text) {
     if (!fields[k]) errors.push(`missing required field "${k}"`);
   if (fields.role && !ROLES.has(fields.role))
     errors.push(`illegal role "${fields.role}" — only insert-before/insert-after/wrap (an overlay may add steps, never subtract gates)`);
+  // Injection hardening (roast security Required): name and triggers reach the
+  // session floor verbatim, so the name is an identifier and each trigger a
+  // bounded keyword. Agent-authored prose cannot become floor content.
+  if (fields.name && !NAME_RE.test(fields.name))
+    errors.push(`illegal name "${fields.name.slice(0, 40)}" — a lowercase identifier (letters, digits, hyphens) of at most 60 chars (the name reaches the session floor verbatim)`);
   const triggers = fields.triggers
     ? fields.triggers.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
+  for (const t of triggers)
+    if (!TRIGGER_RE.test(t))
+      errors.push(`illegal trigger "${t.slice(0, 40)}" — a lowercase keyword (letters, digits, spaces, underscores, hyphens) of at most 40 chars`);
   return {
     entry: { name: fields.name || '', extends: fields.extends || '', role: fields.role || '', triggers },
     errors,

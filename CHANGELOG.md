@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Decision composition.** User skills join the framework's workflow without
+  forking it: a skill in `.trust/skills-overlay/<name>/` declares frontmatter
+  (`name`/`extends`/`role`, optional `triggers`) and attaches to a canonical
+  phase — roles are `insert-before`/`insert-after`/`wrap` only, so an overlay
+  may add steps and never subtract gates. The session floor emits the
+  canonical floor first and complete, appending `user:`-marked overlay
+  entries within the bounded budget; the doctor reports defects by name and
+  budget-omitted overlays by count; sessions fail open. Keyless,
+  zero-dependency, no runtime engine — the composition is text the agent
+  executes. Pinned by eval check 43; the adopter doc is
+  `docs/installation.md` §Overlay composition.
+
 ## [0.1.27] - 2026-10-13
 
 ### Added

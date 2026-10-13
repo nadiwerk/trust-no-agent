@@ -257,8 +257,10 @@ const ledgerWithDate = (dateStr) =>
   check('untouched domain is not a blind spot', msgs.length === 0, JSON.stringify(msgs));
 }
 
-if (failures) { console.error(`\nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
-console.log('\nOK: doctor C5/C5b behaves as specified.');
+// ---- O/P groups (overlay registry) follow; the terminal exit lives at the
+// file end so appended groups cannot run past it (the first version of the
+// O/P append did exactly that — failures with exit 0, a suite that could not
+// go red). ----
 
 // ---- C6 update-check (checkStale) ----
 // 8. No version stamp installed, upstream has one → UNSTAMPED (not "stale":
@@ -453,7 +455,11 @@ console.log('\nOK: doctor decision logic behaves as specified.');
   const { join: joinM, dirname: dirnameM } = await import('node:path');
   const { fileURLToPath: fptM } = await import('node:url');
   const srcM = readM(joinM(dirnameM(fptM(import.meta.url)), 'doctor.mjs'), 'utf8');
-  const region = srcM.slice(srcM.indexOf('C10. gate meter'), srcM.indexOf('// ---- summary'));
+  // The meter region ends at the NEXT section marker, not at the summary —
+  // slicing to the summary worked while C10 was the last section; the
+  // overlay section added after it belongs outside the meter's region.
+  const c10Start = srcM.indexOf('C10. gate meter');
+  const region = srcM.slice(c10Start, srcM.indexOf('// ----', c10Start + 1));
   check('M1 the meter region never calls fail (WARN-only by decision)',
     !/[^a-zA-Z]fail\s*\(/.test(region), region.slice(0, 200));
   check('M2 the meter region never exits the process (exit code stays with health checks)',
@@ -487,6 +493,58 @@ console.log('\nOK: doctor decision logic behaves as specified.');
   const { join: joinO2, dirname: dO } = await import('node:path');
   const { fileURLToPath: fO } = await import('node:url');
   const src = readFileSync(joinO2(dO(fO(import.meta.url)), 'doctor.mjs'), 'utf8');
-  check('O6 doctor.mjs CALLS overlayVerdict + parseSkillOverlays (computed-but-unread = dead)',
-    /overlayVerdict\s*\(/.test(src) && /parseSkillOverlays\s*\(/.test(src), 'no overlayVerdict(/parseSkillOverlays( call in doctor.mjs');
+  check('O6 doctor.mjs CALLS the shared overlay seam (computed-but-unread = dead)',
+    /scanSessionOverlays\s*\(/.test(src) && /overlayVerdict\s*\(/.test(src), 'no scanSessionOverlays(/overlayVerdict( call in doctor.mjs');
 }
+// ---- P. Live doctor overlay verdicts (roast spec Required: AC9/AC16) ----
+// The O-group tests the pure verdict; this proves the LIVE doctor surfaces
+// each defect kind by name and recomputes at read time (AC16: mutating a
+// registry file between runs changes the verdict, no cache). Fixtures live
+// in temp cwds; the doctor is spawned with cwd = the fixture dir — no
+// scripts/ there, so the gate self-tests do not run and the spawn is fast.
+{
+  const { spawnSync } = await import('node:child_process');
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join: jP, dirname: dP } = await import('node:path');
+  const { fileURLToPath: fP } = await import('node:url');
+  const DOCTOR = jP(dP(fP(import.meta.url)), 'doctor.mjs');
+  const runDoctor = (dir) => String(spawnSync(process.execPath, [DOCTOR], { cwd: dir, encoding: 'utf8', timeout: 60000 }).stdout ?? '');
+  const put = (dir, name, body) => {
+    const d = jP(dir, '.trust', 'skills-overlay', name);
+    mkdirSync(d, { recursive: true });
+    if (body !== null) writeFileSync(jP(d, 'SKILL.md'), body);
+    return d;
+  };
+
+  // P1: every defect kind surfaces in the live doctor output, named.
+  {
+    const dir = mkdtempSync(jP(tmpdir(), 'doctor-overlay-'));
+    put(dir, 'missing-file', null);
+    put(dir, 'bad-role', '---\nname: bad-role\nextends: root-cause/Phase-1\nrole: skip\n---\nbody');
+    put(dir, 'malformed', 'no frontmatter at all');
+    put(dir, 'bad-anchor', '---\nname: bad-anchor\nextends: root-cause/Phase-99\nrole: insert-after\n---\nbody');
+    const out = runDoctor(dir);
+    check('P1 the live doctor names every defect kind by skill',
+      /missing-file.*missing skill file/is.test(out) && /bad-role.*illegal role/is.test(out)
+      && /malformed.*frontmatter/is.test(out) && /bad-anchor.*anchor/is.test(out),
+      out.split('\n').filter((l) => /overlay/.test(l)).join(' | ').slice(0, 400));
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  // P2: trust computed at read time — the fix changes the verdict (AC16).
+  {
+    const dir = mkdtempSync(jP(tmpdir(), 'doctor-nocache-'));
+    const d = put(dir, 'mutant', '---\nname: mutant\nextends: root-cause/Phase-99\nrole: insert-after\n---\nbody');
+    const before = runDoctor(dir);
+    check('P2a the first run reports the defect', /mutant.*anchor/is.test(before), before.slice(0, 200));
+    writeFileSync(jP(d, 'SKILL.md'), '---\nname: mutant\nextends: root-cause/Phase-1\nrole: insert-after\n---\nbody');
+    const after = runDoctor(dir);
+    check('P2b re-running after the fix shows no defect (computed at read time, no cache)',
+      !/mutant.*anchor/is.test(after) && /1 overlay\(s\) validated/.test(after),
+      after.split('\n').filter((l) => /overlay/.test(l)).join(' | ').slice(0, 300));
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
+console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P).');

@@ -131,21 +131,30 @@ function resolveSkillRoots() {
 }
 
 function buildSessionStartContext() {
+  const r = scanSessionOverlays(process.cwd());
+  return r ? r.text : null;
+}
+
+/**
+ * Scan the session's overlay registry and compose the floor in ONE place —
+ * the session hook and the doctor share this seam, so the doctor's
+ * budget-omission count is provably the number the session would omit (a
+ * count computed against a different string would be a lie with a number).
+ * Fail-open: an absent or unreadable registry leaves the canonical floor
+ * standing with a named error for the doctor.
+ */
+export function scanSessionOverlays(cwd) {
   const canonical = canonicalSessionFloor();
   if (!canonical) return null;
-  // Decision composition (ticket 03): user overlays join the session floor.
-  // The overlay directory belongs to the project the session runs in
-  // (cwd/.trust/skills-overlay). Fail-open by construction: an absent
-  // directory yields no entries and composeFloor emits the canonical floor
-  // verbatim; a broken overlay is not a valid entry, so it never enters the
-  // floor (the doctor reports it) and the canonical portion stays
-  // byte-identical. Any read error leaves the canonical floor standing.
+  let entries = [];
+  let errors = [];
   try {
-    const { entries } = parseSkillOverlays(join(process.cwd(), '.trust', 'skills-overlay'));
-    return composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).text;
-  } catch {
-    return canonical;
+    ({ entries, errors } = parseSkillOverlays(join(cwd, '.trust', 'skills-overlay')));
+  } catch (e) {
+    errors = [`registry unreadable — ${e && e.message ? e.message : 'unknown error'}`];
   }
+  const { text, omitted } = composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 });
+  return { canonical, entries, errors, omitted, text };
 }
 
 /**

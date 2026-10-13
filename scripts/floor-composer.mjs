@@ -14,41 +14,34 @@
  * gate-hook.test E1); canonical-first means a broken or oversized registry can
  * never degrade the core discipline.
  *
- * Run:  node scripts/floor-composer.mjs   (prints a demo composition)
+ * Pure: no CLI (the roast's scope-creep finding — inspection happens through
+ * the registry CLI, `node scripts/overlay-registry.mjs`).
  */
 const HEADER = '## USER OVERLAYS (second-class: may add steps, never relax a gate)';
 
 export function composeFloor({ canonicalFloor, overlays = [], budget = 4000 }) {
-  const lines = [...overlays]
+  // Carry {name, line} pairs: the omitted list reads the entry's own name,
+  // never a regex round-trip over the line the composer itself built.
+  const rows = [...overlays]
     .sort((a, b) => a.extends.localeCompare(b.extends) || a.name.localeCompare(b.name))
-    .map((o) => `- user:${o.name} — extends ${o.extends} (${o.role}) — ${o.triggers && o.triggers.length ? `load when: ${o.triggers.join(', ')}` : 'explicit invocation only'}`);
+    .map((o) => ({
+      name: o.name,
+      line: `- user:${o.name} — extends ${o.extends} (${o.role}) — ${o.triggers && o.triggers.length ? `load when: ${o.triggers.join(', ')}` : 'explicit invocation only'}`,
+    }));
 
   let text = canonicalFloor;
   const omitted = [];
-  if (lines.length) {
+  if (rows.length) {
     let composed = `${canonicalFloor}\n\n${HEADER}\n`;
-    for (const line of lines) {
-      const candidate = `${composed}${line}\n`;
-      if (candidate.length > budget) omitted.push(line.match(/^- user:([^ ]+)/)[1]);
+    for (const row of rows) {
+      const candidate = `${composed}${row.line}\n`;
+      if (candidate.length > budget) omitted.push(row.name);
       else composed = candidate;
     }
     // If even the header did not fit, the floor stays canonical — the core
     // discipline is never truncated to make room for an overlay.
     if (composed.length <= budget) text = composed;
-    else omitted.push(...lines.map((l) => l.match(/^- user:([^ ]+)/)[1]));
+    else omitted.push(...rows.map((r) => r.name));
   }
   return { text, omitted };
-}
-
-// ---- CLI ----
-if (process.argv[1] && process.argv[1].endsWith('floor-composer.mjs')) {
-  const demo = composeFloor({
-    canonicalFloor: 'RE-INJECTED ROUTER CORE: (demo canonical floor)',
-    overlays: [
-      { name: 'error-forensics', extends: 'root-cause/Phase-1', role: 'insert-after', triggers: ['error', 'crash'], dir: 'error-forensics' },
-      { name: 'manual-only', extends: 'root-cause/Phase-1', role: 'wrap', triggers: [], dir: 'manual-only' },
-    ],
-  });
-  console.log(demo.text);
-  if (demo.omitted.length) console.log(`\nomitted by budget: ${demo.omitted.join(', ')}`);
 }
