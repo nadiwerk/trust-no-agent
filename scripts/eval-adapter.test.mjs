@@ -50,7 +50,7 @@ check('eval.mjs carries check 36 (veto guarantee docs)', /---- 36\. /.test(evalS
 check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
 check('eval.mjs carries check 38 (remaining-harness verdicts)', /---- 38\. /.test(evalSrc));
 check('eval.mjs carries the AC8 row-discipline rule (veto rows name proof status)', /Row discipline/.test(evalSrc));
-// Check 39 pins (coworker-adapt ticket 02, AC4): the brief contract readers —
+// Check 39 pins (findings-adaptation ticket 02, AC4): the brief contract readers —
 // eval.mjs §39 itself, the template + filled example in AGENTS.md §5, and the
 // executor-side fields in make-it-so. FAIL direction: markers stripped from
 // AGENTS.md → these red (proven by check 39's own RED run before §5 gained
@@ -72,7 +72,7 @@ for (const [label, re] of [
   check(`39 ${label} in make-it-so delegation section`, re.test(makeItSo), String(re));
 }
 
-// Check 40 pins (coworker-adapt ticket 03, AC5): the autonomy ladder's
+// Check 40 pins (findings-adaptation ticket 03, AC5): the autonomy ladder's
 // adopter-facing contract. FAIL direction: strip the ladder paragraph from
 // compatibility.md → these red (proven by check 40's own RED run).
 check('eval.mjs carries check 40 (autonomy ladder decay)', /---- 40\. /.test(evalSrc));
@@ -105,7 +105,7 @@ for (const [label, re] of [
   check(`38 ${label} in compatibility.md`, re.test(compat), String(re));
 }
 
-// Check 41 pins (coworker-adapt ticket 04, AC6): the staleness doctrine at
+// Check 41 pins (findings-adaptation ticket 04, AC6): the staleness doctrine at
 // the recall site. FAIL direction: strip the stale-probe bullet from
 // make-it-so → these red (proven by check 41's own RED run — 4 errors before
 // the bullet landed; the --allow-exec pin reddens without the sign-off,
@@ -122,7 +122,7 @@ for (const [label, re] of [
   check(`41 ${label} in make-it-so lessons section`, re.test(makeItSo), String(re));
 }
 
-// Check 42 pins (coworker-adapt ticket 05, AC7): the bounded-judgment
+// Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED
 // run — 5 errors before the section landed).

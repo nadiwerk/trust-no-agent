@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Local judgment — bounded decisions over a CLOSED answer set, deterministic
- * graders first, model judge last resort (coworker-adapt ticket 05, AC7;
+ * graders first, model judge last resort (findings-adaptation ticket 05, AC7;
  * spec US7; corpus K6–K9). Zero dependencies, no API key, no network: a
  * bounded decision stays fast and free, and the expensive judge is consulted
  * only when free code cannot answer.

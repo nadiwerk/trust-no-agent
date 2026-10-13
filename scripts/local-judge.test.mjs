@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Fail-first test for scripts/local-judge.mjs — bounded judgment over closed
- * answer sets (coworker-adapt ticket 05, AC7; spec US7; corpus K6–K9:
+ * answer sets (findings-adaptation ticket 05, AC7; spec US7; corpus K6–K9:
  * "code for form, model judge ONLY for meaning", "groundedness pre-check
  * BEFORE the LLM judge", J4 "non-running check = inconclusive, never pass").
  * Zero deps. Run: node scripts/local-judge.test.mjs

@@ -77,7 +77,9 @@ Repo rules: (1) every file change is verified (typecheck/test/error output) befo
 
 …plus the 6 sections: **TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT**.
 
-Every brief also binds its execution window (the J2 brief fields this repo adopts — `.trust/coworker-research/harness.md`):
+Every brief also binds its execution window — VERIFY (the exact command
+line, not "run the tests"), TIMEBOX (wall-clock minutes), PARTIAL (what to
+return if the box expires — evidence so far, no new work):
 
 ```
 VERIFY: <exact command — not "run the tests", the literal command line>

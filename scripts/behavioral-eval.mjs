@@ -57,7 +57,7 @@ export function validateBehavioralEval({ devCasesText, testCasesText, rubricText
   const dev = parseSide(devCasesText, 'dev');
   const test = parseSide(testCasesText, 'test');
 
-  // Physical split (coworker-adapt 01/AC1; spec "menolak tuning di angka
+  // Physical split (findings-adaptation 01/AC1; spec "menolak tuning di angka
   // lapor"): an id present in BOTH sides is a case that was tuned on and
   // then reported — the report no longer measures untuned behavior. The
   // old flag design could not see this; two directories can.
@@ -66,7 +66,7 @@ export function validateBehavioralEval({ devCasesText, testCasesText, rubricText
     if (devIds.has(c.id))
       errors.push(`case id "${c.id}" appears in BOTH dev and test — tuning leaks into the report`);
 
-  // Must-not-fire negatives (coworker-adapt 01/AC3): prompts where restraint
+  // Must-not-fire negatives (findings-adaptation 01/AC3): prompts where restraint
   // is correct. Floor 40 percent PER SIDE — a suite of pure discipline
   // probes cannot catch a gate that fires everywhere, on either side, and
   // tuning against a silence-blind suite builds a gate that has never been

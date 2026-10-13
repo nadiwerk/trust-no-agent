@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Stale-memory probe — re-verify old lessons against CURRENT behavior
- * (coworker-adapt ticket 04, AC6; spec US6; corpus D11 "stale-memory test:
+ * (findings-adaptation ticket 04, AC6; spec US6; corpus D11 "stale-memory test:
  * read 3-week note → same answer").
  *
  * Run:  node scripts/stale-probe.mjs [--file <lessons.md>] [--now YYYY-MM-DD] [--allow-exec]

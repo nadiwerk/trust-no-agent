@@ -61,7 +61,7 @@ export function scoreResponse(scores, weights) {
   return wsum ? sum / wsum : 0;
 }
 
-// Fault tag (coworker-adapt 01/AC2): a missing measurement is infrastructure,
+// Fault tag (findings-adaptation 01/AC2): a missing measurement is infrastructure,
 // never the agent. Judge-failed rows and API-level aborts are infra; only a
 // graded row attributes to the agent.
 export function classifyFault({ judged = null, apiError = null } = {}) {
@@ -70,7 +70,7 @@ export function classifyFault({ judged = null, apiError = null } = {}) {
   return 'agent';
 }
 
-// Row seam (coworker-adapt 01/AC2; roast fix 2026-10-13): every trial becomes
+// Row seam (findings-adaptation 01/AC2; roast fix 2026-10-13): every trial becomes
 // a row THROUGH THIS FUNCTION — graded rows carry fault: agent, ungraded
 // (api error / judge failure) rows carry fault: infra and skipped: true.
 // Main must never build rows inline; the wiring check (run.test G1-G2) pins
@@ -86,7 +86,7 @@ export function makeTrialRow({ id, trial, labels, judged = null, apiError = null
   };
 }
 
-// Trial summary per case (coworker-adapt 01/AC8): pass = candidate strictly
+// Trial summary per case (findings-adaptation 01/AC8): pass = candidate strictly
 // above baseline on the weighted mean; flakiness = population variance of
 // per-trial deltas. Scoreless (infra-skipped) trials count separately and
 // never enter the rate — an unmeasured trial is not a failed trial.
@@ -210,7 +210,7 @@ const DRY = args.includes('--dry');
 const SPLIT = (args[args.indexOf('--split') + 1] || 'test').toLowerCase();
 if (SPLIT !== 'dev' && SPLIT !== 'test') { console.error('FAIL: --split must be dev or test'); process.exit(1); }
 const DIR = join(dirname(fileURLToPath(import.meta.url)));
-// The split is the DIRECTORY, not a field (coworker-adapt 01/AC1; spec
+// The split is the DIRECTORY, not a field (findings-adaptation 01/AC1; spec
 // "direktori dev/ vs test/ berbeda, bukan flag"): --split selects which
 // side to run. A missing side fails loudly — never silently runs the other.
 const splitFile = join(DIR, SPLIT, 'cases.jsonl');

@@ -62,14 +62,14 @@ const check = (label, cond, detail = '') => {
   check('D2 case-insensitive keys, sum intact', Math.abs(sum - 1) < 1e-9);
 }
 
-// ---- E. Fault tags (coworker-adapt 01/AC2) ----
+// ---- E. Fault tags (findings-adaptation 01/AC2) ----
 {
   check('E1 API-level abort tags infra', classifyFault({ apiError: new Error('boom') }) === 'infra');
   check('E2 missing measurement tags infra, never the agent', classifyFault({ judged: null }) === 'infra');
   check('E3 a graded row attributes to the agent', classifyFault({ judged: { A: {}, B: {} } }) === 'agent');
 }
 
-// ---- E2. Row seam (coworker-adapt 01/AC2; roast fix 2026-10-13) ----
+// ---- E2. Row seam (findings-adaptation 01/AC2; roast fix 2026-10-13) ----
 // makeTrialRow is the single seam every row passes through: a graded row is
 // charged to the agent, an api-abort or missing judgment becomes a skipped
 // infra row (kept, counted separately) — never dropped, never agent's fault.
@@ -89,7 +89,7 @@ const check = (label, cond, detail = '') => {
     apiErr.skipped === true && apiErr.fault === 'infra', JSON.stringify(apiErr));
 }
 
-// ---- F. Trial summary (coworker-adapt 01/AC8) ----
+// ---- F. Trial summary (findings-adaptation 01/AC8) ----
 {
   const w = { correctness: 1 };
   const rows = [
@@ -123,7 +123,7 @@ const check = (label, cond, detail = '') => {
     /const fault = classifyFault\(/.test(src));
 }
 
-// ---- I. pass@k / pass^k (coworker-adapt 01/AC8) ----
+// ---- I. pass@k / pass^k (findings-adaptation 01/AC8) ----
 // Hand-computed from the estimator, never from the code:
 // c1: n=2 scored, c=1 pass → pass@1 = 1 − C(1,1)/C(2,1) = 0.5;
 // pass@2 = 1 − C(1,2)/C(2,2) = 1 − 0 = 1; pass@3 undefined (k > scored) → null.

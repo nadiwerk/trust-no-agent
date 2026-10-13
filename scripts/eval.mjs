@@ -820,7 +820,7 @@ for (const [file, text] of [
 }
 
 // ---- 39. Every delegation brief binds VERIFY + TIMEBOX + PARTIAL (HARD) ----
-// Origin: coworker-adapt ticket 02 (AC4; J2 9-field brief, adapted). Two
+// Origin: findings-adaptation ticket 02 (AC4; J2 9-field brief, adapted). Two
 // failure modes the J2 corpus found: a brief with no exact verification
 // command leaves "verified" to the delegate's judgement (fabricated done),
 // and a brief with no timebox has no partial-return trigger (silent overrun
@@ -862,7 +862,7 @@ for (const [file, text] of [
 }
 
 // ---- 40. The autonomy ladder decays read-time, per harness (HARD) ----
-// Origin: coworker-adapt ticket 03 (AC5, spec US5). Trust must never be
+// Origin: findings-adaptation ticket 03 (AC5, spec US5). Trust must never be
 // grant-and-forget: the adopter-facing doc must state the rungs, the decay
 // window, and that the level is COMPUTED at read time (no stored level to
 // rot — the auto-downgrade state machine the spec rejected). Guarded where
@@ -887,7 +887,7 @@ for (const [file, text] of [
 }
 
 // ---- 41. Stale lessons are re-verified before they may gate (HARD) ----
-// Origin: coworker-adapt ticket 04 (AC6, spec US6; corpus D11 stale-memory
+// Origin: findings-adaptation ticket 04 (AC6, spec US6; corpus D11 stale-memory
 // test). Memory that is never re-asserted against CURRENT behavior rots into
 // either a stale prompt or a gate on a world that no longer exists. Guarded
 // where the lesson is recalled (make-it-so §Lessons): the doctrine must
@@ -922,7 +922,7 @@ for (const [file, text] of [
 }
 
 // ---- 42. Bounded judgment is deterministic-first, judge-last, keyless (HARD) ----
-// Origin: coworker-adapt ticket 05 (AC7, spec US7; corpus K6–K9). Guarded
+// Origin: findings-adaptation ticket 05 (AC7, spec US7; corpus K6–K9). Guarded
 // where judgment is described (the behavioral-eval tier — the repo's only
 // judge-facing doc): bounded decisions must run free code first, consult the
 // model judge once and last, carry no API key, and fail closed to

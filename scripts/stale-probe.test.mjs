@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Fail-first test for scripts/stale-probe.mjs — the stale-memory
- * re-verification probe (coworker-adapt ticket 04, AC6; spec US6; corpus
+ * re-verification probe (findings-adaptation ticket 04, AC6; spec US6; corpus
  * D11 "stale-memory test — read 3-week note → same answer"). Zero deps.
  * Run: node scripts/stale-probe.test.mjs
  * Exit 0 = all expectations hold. Exit 1 = probe behavior drift.

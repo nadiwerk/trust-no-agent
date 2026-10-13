@@ -21,16 +21,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boundary gate is dropped from the workflow (ci-guard M7), per-harness veto
   rows bound to live proof, and remaining-harness verdicts (OMO audit-only
   with reason, omp/Devin dated live-proof plans).
-- **Coworker adaptation.** Delegation briefs carry VERIFY-exact-command +
-  TIMEBOX + PARTIAL (eval check 39), the autonomy ladder decays stale
-  per-harness claims (check 40), stale lessons re-verify through
-  `scripts/stale-probe.mjs` — probes execute only with the explicit
-  `--allow-exec` sign-off, no shell, interpreter allowlist (check 41) — and
-  bounded judgment runs deterministic-first, keyless, judge-last
-  (check 42). The behavioral-eval harness gained per-row fault tagging
-  (infra vs agent, through one row seam), physically split `dev/` and `test/`
-  fixtures (tuning cannot leak into reported numbers), a per-side negatives
-  floor, and pass@k/pass^k in the trial summary.
+- **Findings adaptation.** An external agent-discipline research corpus,
+  adapted into mechanical gates — each adaptation named by what it now
+  enforces:
+  - **Delegation briefs carry their execution window.** VERIFY (the exact
+    command line, not "run the tests"), TIMEBOX (wall-clock minutes), and
+    PARTIAL (what to return if the box expires) are required fields — a
+    subagent cannot report "tests pass" without the literal command
+    (eval check 39).
+  - **Per-harness autonomy ladder with decay.** Trust claims are re-read at
+    read time; a claim older than its window drops a rung by computation,
+    never by memory (check 40).
+  - **Stale lessons must be re-verified before they may gate.** Probes
+    execute only with the explicit `--allow-exec` sign-off — no shell, an
+    interpreter allowlist — so agent-authored command lines in memory
+    files can no longer execute by default (check 41).
+  - **Bounded judgment, deterministic-first and keyless.** Free-form code
+    graders decide before any model call; the model judge is last resort
+    and fails closed to `inconclusive`, never a fabricated pass
+    (check 42).
+  - **The behavioral-eval harness gained an honest measurement seam.**
+    Per-row fault tagging (infra vs agent, through one row seam),
+    physically split `dev/` and `test/` fixtures (tuning cannot leak into
+    reported numbers), a per-side negatives floor, and pass@k/pass^k in
+    the trial summary.
 
 ## [0.1.26] - 2026-09-30
 

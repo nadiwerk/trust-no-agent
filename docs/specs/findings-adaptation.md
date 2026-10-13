@@ -1,19 +1,20 @@
-# Spec: coworker adaptation — eval contract, J2 brief, ladder, stale-probe, local judgment
+# Spec: findings adaptation — eval contract, brief execution window, autonomy decay, stale-probe, local judgment
 
 Status: published (approved Master 2026-10-13) — awaiting fork-it
 Date: 2026-10-13
-Origin: coworker corpus research (6 synthesis files in
+Origin: external agent-discipline corpus research (6 synthesis files in
 `.trust/coworker-research/`, 4 parallel digests) + breakpoint 2026-10-13
 (adopted: eval-contract, J2, ladder, stale-probe, K6/K9; no-Jev-API article
 not found, K6/K9 pattern approved instead).
 
 ## Problem Statement
 
-Sebagai pemilik trust-no-agent, saya mau pelajaran teruji dari korpus coworker
-(344 temuan, evals, memory, Jev, harness) masuk ke framework — bukan sebagai
-kutipan, melainkan sebagai mekanisme dengan gigi: kontrak eval yang memisahkan
-tuning dari pelaporan, brief delegasi yang membawa perintah verifikasi eksak,
-tangga otonomi yang meluruh, probe memori basi, dan judgment murah-tanpa-API.
+Sebagai pemilik trust-no-agent, saya mau pelajaran teruji dari korpus riset
+eksternal (344 temuan, evals, memory, Jev, harness) masuk ke framework —
+bukan sebagai kutipan, melainkan sebagai mekanisme dengan gigi: kontrak eval
+yang memisahkan tuning dari pelaporan, brief delegasi yang membawa perintah
+verifikasi eksak, tangga otonomi yang meluruh, probe memori basi, dan
+judgment murah-tanpa-API.
 
 ## Solution
 

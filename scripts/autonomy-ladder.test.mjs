@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Fail-first test for scripts/autonomy-ladder.mjs — the per-harness trust
- * ladder with decay (coworker-adapt ticket 03, AC5). Zero dependencies.
+ * ladder with decay (findings-adaptation ticket 03, AC5). Zero dependencies.
  * Run: node scripts/autonomy-ladder.test.mjs
  * Exit 0 = all expectations hold. Exit 1 = ladder behavior drift.
  *

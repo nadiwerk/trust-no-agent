@@ -107,7 +107,7 @@ const GOOD_JUDGE = 'Blind judge: you receive RESPONSE_A and RESPONSE_B. Do not a
     res.errors.some((e) => /error-causal-honesty|anti-fabrication|cause/i.test(e)), JSON.stringify(res.errors));
 }
 
-// ---- H. Physical dev/test split (coworker-adapt 01/AC1; spec: "direktori
+// ---- H. Physical dev/test split (findings-adaptation 01/AC1; spec: "direktori
 // dev/ vs test/ berbeda, bukan flag") ----
 // The split is the DIRECTORY. A case may not declare its side by field —
 // that was the old flag design, and a flag can lie while lying in the same
@@ -137,7 +137,7 @@ const GOOD_JUDGE = 'Blind judge: you receive RESPONSE_A and RESPONSE_B. Do not a
     res.errors.some((e) => /split/i.test(e) && /field|directory/i.test(e)), JSON.stringify(res.errors));
 }
 
-// ---- I. Must-not-fire negatives, per side (coworker-adapt 01/AC3) ----
+// ---- I. Must-not-fire negatives, per side (findings-adaptation 01/AC3) ----
 // A suite that only probes discipline-positive prompts cannot catch a gate
 // that fires everywhere — on EITHER side: tuning against a silence-blind
 // suite builds a gate that has never been asked to stay quiet.

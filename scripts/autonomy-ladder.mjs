@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Autonomy ladder — per-harness trust rungs WITH decay (coworker-adapt
+ * Autonomy ladder — per-harness trust rungs WITH decay (findings-adaptation
  * ticket 03, AC5; spec US5; corpus M1/M2 + loop.md "readiness DECAYS —
  * 30-day-old STATE ≠ L3").
  *
