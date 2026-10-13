@@ -67,14 +67,41 @@ const check = (label, cond, detail = '') => {
     (() => { const seen = []; try { runGate((n) => { seen.push(n); throw new Error('x'); }); } catch {} return seen.join(',') === 'doctor,floor'; })());
 }
 {
-  // Live derivation (K7 precedent): the real CLI against this checkout.
-  let out = '';
-  let code = -1;
-  try {
-    out = execFileSync(process.execPath, [join(HERE, 'first-run.mjs')], { encoding: 'utf8' });
-    code = 0;
-  } catch (e) { out = String(e?.stdout ?? e?.message ?? e); code = e?.status ?? 1; }
-  check('W6 live CLI exits 0 with PASS in this checkout', code === 0 && /PASS/.test(out), `exit=${code} out=${out.slice(0, 160)}`);
+  // Live derivation (K7 precedent): the real CLI. Its outcome depends on ONE
+  // environment fact the repo cannot ship — `core.hooksPath` is LOCAL git
+  // config, never cloned, so a fresh checkout (CI runner, new adopter) has
+  // enforcement inactive and the doctor correctly fails on it. The old W6
+  // asserted "this checkout is green" — a maintainer-machine assumption that
+  // went red the first time CI ran it (2026-10-13, run 38360759027). The
+  // test now derives BOTH directions through git's config env override: no
+  // ambient state, no repo mutation, both verdicts proven live.
+  const live = (hooksPath) => {
+    try {
+      const out = execFileSync(process.execPath, [join(HERE, 'first-run.mjs')], {
+        encoding: 'utf8',
+        timeout: 300000,
+        env: {
+          ...process.env,
+          GIT_CONFIG_COUNT: '1',
+          GIT_CONFIG_KEY_0: 'core.hooksPath',
+          GIT_CONFIG_VALUE_0: hooksPath,
+        },
+      });
+      return { code: 0, out };
+    } catch (e) {
+      return { code: e?.status ?? 1, out: String(e?.stdout ?? e?.message ?? e) };
+    }
+  };
+  // Enforcement wired — the state an installed machine has: PASS.
+  const wired = live('scripts/hooks');
+  check('W6 live CLI exits 0 with PASS when enforcement is wired (env-derived, machine-independent)',
+    wired.code === 0 && /PASS/.test(wired.out), `exit=${wired.code} out=${wired.out.slice(0, 160)}`);
+  // Enforcement inactive — the fresh-checkout condition that broke CI: the
+  // live wiring must still SEE it. Without this direction, a doctor that
+  // stops checking hooksPath would sail through W6's siblings.
+  const unwired = live('scripts/does-not-exist');
+  check('W7 live CLI exits 1 naming doctor NOT green when enforcement is inactive (fresh-checkout condition)',
+    unwired.code === 1 && /NOT green/.test(unwired.out), `exit=${unwired.code} out=${unwired.out.slice(0, 160)}`);
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
