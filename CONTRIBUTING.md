@@ -83,7 +83,7 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — the twenty-two self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
+- **Run the gates before pushing** — the twenty-five self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
   CI runs the same set on every push and PR; a red CI blocks merge. The
   pre-commit hook runs a superset (it adds `reinject.test.mjs`,
   `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
@@ -98,7 +98,7 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the twenty-two gates:
+**`validate`** — the twenty-five gates:
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
@@ -122,6 +122,9 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 20. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
 21. `node scripts/ci-guard.mjs` — workflow file guard.
 22. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
+23. `node scripts/autonomy-ladder.test.mjs` — autonomy-ladder decay self-test.
+24. `node scripts/stale-probe.test.mjs` — stale-memory probe self-test (dead lessons cannot gate).
+25. `node scripts/local-judge.test.mjs` — bounded-judgment self-test (deterministic-first, judge-last, no API key).
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message
@@ -160,7 +163,7 @@ trust-no-agent/
 │   ├── tna-store.mjs    # storage-backed evidence store (+ .test.mjs)
 │   ├── gate-meter.mjs   # gate-effectiveness meter (+ .test.mjs)
 │   ├── first-run.mjs    # newcomer first-run gate: doctor + floor (+ .test.mjs)
-│   ├── eval-adapter.test.mjs # regression pins for eval checks 35-37
+│   ├── eval-adapter.test.mjs # regression pins for eval checks 35-42
 │   └── hooks/           # pre-commit + commit-msg (Conventional Commits)
 └── .github/workflows/   # CI runs all four gates on every push and PR
 ```

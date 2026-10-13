@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boundary gate is dropped from the workflow (ci-guard M7), per-harness veto
   rows bound to live proof, and remaining-harness verdicts (OMO audit-only
   with reason, omp/Devin dated live-proof plans).
+- **Coworker adaptation.** Delegation briefs carry VERIFY-exact-command +
+  TIMEBOX + PARTIAL (eval check 39), the autonomy ladder decays stale
+  per-harness claims (check 40), stale lessons re-verify through
+  `scripts/stale-probe.mjs` — probes execute only with the explicit
+  `--allow-exec` sign-off, no shell, interpreter allowlist (check 41) — and
+  bounded judgment runs deterministic-first, keyless, judge-last
+  (check 42). The behavioral-eval harness gained per-row fault tagging
+  (infra vs agent, through one row seam), physically split `dev/` and `test/`
+  fixtures (tuning cannot leak into reported numbers), a per-side negatives
+  floor, and pass@k/pass^k in the trial summary.
 
 ## [0.1.26] - 2026-09-30
 

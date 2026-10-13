@@ -299,6 +299,9 @@ export async function checkWorkflow(text, opts = {}) {
     'scripts/ledger-audit.test.mjs',
     'scripts/plugin.test.mjs',
     'scripts/eval-adapter.test.mjs',
+    'scripts/autonomy-ladder.test.mjs',
+    'scripts/stale-probe.test.mjs',
+    'scripts/local-judge.test.mjs',
   ]) {
     if (!scriptRefs.includes(ref))
       errors.push(

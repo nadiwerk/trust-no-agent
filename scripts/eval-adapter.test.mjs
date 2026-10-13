@@ -27,6 +27,7 @@ const check = (label, cond, detail = '') => {
 };
 
 const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+const makeItSo = readFileSync(join(ROOT, 'skills', 'engineering', 'make-it-so', 'SKILL.md'), 'utf8');
 for (const [label, re] of [
   ['adapter matrix named', /adapter matrix/i],
   ['opencode veto adapter named', /tool\.execute\.before/],
@@ -49,6 +50,40 @@ check('eval.mjs carries check 36 (veto guarantee docs)', /---- 36\. /.test(evalS
 check('eval.mjs carries check 37 (onboarding markers)', /---- 37\. /.test(evalSrc));
 check('eval.mjs carries check 38 (remaining-harness verdicts)', /---- 38\. /.test(evalSrc));
 check('eval.mjs carries the AC8 row-discipline rule (veto rows name proof status)', /Row discipline/.test(evalSrc));
+// Check 39 pins (coworker-adapt ticket 02, AC4): the brief contract readers —
+// eval.mjs §39 itself, the template + filled example in AGENTS.md §5, and the
+// executor-side fields in make-it-so. FAIL direction: markers stripped from
+// AGENTS.md → these red (proven by check 39's own RED run before §5 gained
+// the template).
+check('eval.mjs carries check 39 (brief VERIFY/TIMEBOX/PARTIAL)', /---- 39\. /.test(evalSrc));
+for (const [label, re] of [
+  ['VERIFY placeholder', /VERIFY: </],
+  ['TIMEBOX placeholder', /TIMEBOX: </],
+  ['PARTIAL placeholder', /PARTIAL: </],
+  ['filled example', /VERIFY: node /],
+]) {
+  check(`39 ${label} in AGENTS.md §5`, re.test(agents), String(re));
+}
+for (const [label, re] of [
+  ['VERIFY named', /VERIFY:/],
+  ['TIMEBOX named', /TIMEBOX/],
+  ['PARTIAL named', /PARTIAL/],
+]) {
+  check(`39 ${label} in make-it-so delegation section`, re.test(makeItSo), String(re));
+}
+
+// Check 40 pins (coworker-adapt ticket 03, AC5): the autonomy ladder's
+// adopter-facing contract. FAIL direction: strip the ladder paragraph from
+// compatibility.md → these red (proven by check 40's own RED run).
+check('eval.mjs carries check 40 (autonomy ladder decay)', /---- 40\. /.test(evalSrc));
+for (const [label, re] of [
+  ['rungs in order', /audit-only\s*→\s*veto-proven\s*→\s*trusted/],
+  ['decay window stated', /30-day|30 days|DECAY_DAYS/],
+  ['read-time decay stated', /read[- ]time/i],
+  ['CLI named', /autonomy-ladder\.mjs/],
+]) {
+  check(`40 ${label} in compatibility.md`, re.test(compat), String(re));
+}
 for (const [label, re] of [
   ['per-step Verify: line', /Verify:/],
   ['dual-router refusal named', /dual-router/i],
@@ -68,6 +103,39 @@ for (const [label, re] of [
   ['review-by date set', /review-by 2026-11-13/i],
 ]) {
   check(`38 ${label} in compatibility.md`, re.test(compat), String(re));
+}
+
+// Check 41 pins (coworker-adapt ticket 04, AC6): the staleness doctrine at
+// the recall site. FAIL direction: strip the stale-probe bullet from
+// make-it-so → these red (proven by check 41's own RED run — 4 errors before
+// the bullet landed; the --allow-exec pin reddens without the sign-off,
+// proven by the 2026-10-13 strip-dance).
+check('eval.mjs carries check 41 (stale lessons cannot gate)', /---- 41\. /.test(evalSrc));
+for (const [label, re] of [
+  ['probe CLI named', /stale-probe\.mjs/],
+  ['staleness window stated', /21[- ]day|21 days/],
+  ['execution opt-in stated', /--allow-exec/],
+  ['dead verdict named', /dead/i],
+  ['dead cannot gate stated', /cannot gate|can.?t gate|never gates|not be able to gate/],
+  ['re-verification mechanism stated', /Probe:/],
+]) {
+  check(`41 ${label} in make-it-so lessons section`, re.test(makeItSo), String(re));
+}
+
+// Check 42 pins (coworker-adapt ticket 05, AC7): the bounded-judgment
+// contract at the judgment site. FAIL direction: strip the judgment section
+// from behavioral-eval/README.md → these red (proven by check 42's own RED
+// run — 5 errors before the section landed).
+check('eval.mjs carries check 42 (deterministic-first bounded judgment)', /---- 42\. /.test(evalSrc));
+const bevalReadme = readFileSync(join(HERE, '..', 'scripts', 'behavioral-eval', 'README.md'), 'utf8');
+for (const [label, re] of [
+  ['seam named', /local-judge\.mjs/],
+  ['deterministic-first stated', /deterministic graders first/i],
+  ['judge-last stated', /last resort/i],
+  ['no-API-key stated', /no API key|keyless/i],
+  ['inconclusive fail-closed stated', /inconclusive/],
+]) {
+  check(`42 ${label} in behavioral-eval README`, re.test(bevalReadme), String(re));
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

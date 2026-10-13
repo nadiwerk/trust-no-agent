@@ -50,7 +50,7 @@ const SOUND = [
   '    steps:',
   '      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5',
   '      - name: Gate',
-  '        run: node scripts/eval.mjs && node scripts/action-gate.test.mjs && node scripts/tna-gate.test.mjs && node scripts/tna-gate-v2.test.mjs && node scripts/tna-store.test.mjs && node scripts/tna-portable.test.mjs && node scripts/gate-hook.test.mjs && node scripts/ledger-audit.test.mjs && node scripts/plugin.test.mjs && node scripts/eval-adapter.test.mjs',
+  '        run: node scripts/eval.mjs && node scripts/action-gate.test.mjs && node scripts/tna-gate.test.mjs && node scripts/tna-gate-v2.test.mjs && node scripts/tna-store.test.mjs && node scripts/tna-portable.test.mjs && node scripts/gate-hook.test.mjs && node scripts/ledger-audit.test.mjs && node scripts/plugin.test.mjs && node scripts/eval-adapter.test.mjs && node scripts/autonomy-ladder.test.mjs && node scripts/stale-probe.test.mjs && node scripts/local-judge.test.mjs',
   '      - name: Validate structure',
   '        run: node scripts/validate.mjs',
   '  windows:',
@@ -232,6 +232,9 @@ const SOUND_WITH_GATES = SOUND;
     'scripts/tna-gate-v2.test.mjs', 'scripts/tna-store.test.mjs', 'scripts/tna-portable.test.mjs',
     'scripts/gate-hook.test.mjs', 'scripts/ledger-audit.test.mjs',
     'scripts/plugin.test.mjs', 'scripts/eval-adapter.test.mjs',
+    'scripts/autonomy-ladder.test.mjs',
+    'scripts/stale-probe.test.mjs',
+    'scripts/local-judge.test.mjs',
   ];
   for (const ref of refs) {
     const cut = SOUND_WITH_GATES.split(`node ${ref}`).join('');

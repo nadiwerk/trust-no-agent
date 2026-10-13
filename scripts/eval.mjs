@@ -819,6 +819,136 @@ for (const [file, text] of [
   }
 }
 
+// ---- 39. Every delegation brief binds VERIFY + TIMEBOX + PARTIAL (HARD) ----
+// Origin: coworker-adapt ticket 02 (AC4; J2 9-field brief, adapted). Two
+// failure modes the J2 corpus found: a brief with no exact verification
+// command leaves "verified" to the delegate's judgement (fabricated done),
+// and a brief with no timebox has no partial-return trigger (silent overrun
+// or a stalled delegate nobody collects). Scoped to §5 AND to make-it-so's
+// delegation section — the two surfaces that WRITE briefs — so a mention
+// elsewhere cannot pass; the template-scoped doctrine of check 33. The
+// filled-example marker is separate from the placeholders on purpose: AC4
+// asks for a template AND satu contoh terisi, and a template alone teaches
+// the shape without ever showing the substance.
+{
+  const briefStart = agentsText2.indexOf('## 5. Delegation discipline');
+  const briefEnd = agentsText2.indexOf('## 6.');
+  const briefRegion = briefStart >= 0 && briefEnd > briefStart
+    ? agentsText2.slice(briefStart, briefEnd) : '';
+  if (!briefRegion)
+    err('AGENTS.md §5 delegation discipline section missing — the brief contract must live where briefs are written');
+  else
+    for (const [marker, why] of [
+      [/VERIFY: </,
+        'the brief template must carry the VERIFY field with an exact-command placeholder — "run the tests" is not a command'],
+      [/TIMEBOX: </,
+        'the brief template must carry the TIMEBOX field — an unbounded brief has no partial-return trigger'],
+      [/PARTIAL: </,
+        'the brief template must carry the PARTIAL field — the shape of what returns when the box expires'],
+      [/VERIFY: node /,
+        'the brief contract must ship one FILLED example (a concrete command), not only placeholders — AC4 asks for template + satu contoh terisi'],
+    ]) {
+      if (!marker.test(briefRegion))
+        err(`AGENTS.md §5 brief contract: missing ${marker} — ${why}`);
+    }
+  for (const [marker, why] of [
+    [/VERIFY:/, 'make-it-so writes briefs — its delegation section must name the VERIFY field'],
+    [/TIMEBOX/, 'make-it-so must name TIMEBOX — the executor-side half of the contract'],
+    [/PARTIAL/, 'make-it-so must name PARTIAL — the expiry-return shape'],
+  ]) {
+    if (!marker.test(makeItSoText))
+      err(`make-it-so delegation section: missing ${marker} — ${why}`);
+  }
+}
+
+// ---- 40. The autonomy ladder decays read-time, per harness (HARD) ----
+// Origin: coworker-adapt ticket 03 (AC5, spec US5). Trust must never be
+// grant-and-forget: the adopter-facing doc must state the rungs, the decay
+// window, and that the level is COMPUTED at read time (no stored level to
+// rot — the auto-downgrade state machine the spec rejected). Guarded where
+// the adopter reads it, next to the very table the ladder parses.
+{
+  const compatText40 = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
+  for (const [marker, why] of [
+    [/audit-only\s*→\s*veto-proven\s*→\s*trusted/,
+      'the doc must name the three rungs in ladder order (spec US5)'],
+    [/30-day|30 days|DECAY_DAYS/,
+      'the doc must state the decay window — a ladder without a window is a grant-and-forget with nicer words'],
+    [/read[- ]time/i,
+      'the doc must state decay is computed at read time (nothing mutates the table; promotion needs fresh human proof)'],
+    [/autonomy-ladder\.mjs/,
+      'the doc must point at the CLI that computes the ladder, or the rule stays prose-only'],
+  ]) {
+    if (!marker.test(compatText40))
+      err(`docs/compatibility.md autonomy ladder: missing ${marker} — ${why}`);
+  }
+  if (!existsSync(join(ROOT, 'scripts', 'autonomy-ladder.mjs')))
+    err('scripts/autonomy-ladder.mjs missing — the ladder must be a computed verdict, not a table claim');
+}
+
+// ---- 41. Stale lessons are re-verified before they may gate (HARD) ----
+// Origin: coworker-adapt ticket 04 (AC6, spec US6; corpus D11 stale-memory
+// test). Memory that is never re-asserted against CURRENT behavior rots into
+// either a stale prompt or a gate on a world that no longer exists. Guarded
+// where the lesson is recalled (make-it-so §Lessons): the doctrine must
+// name the probe CLI, the staleness window, the explicit execution sign-off,
+// and the fail-closed rule — dead (probe contradicts today's tree) and
+// unverifiable (no probe / undated / probes not run) lessons cannot gate
+// live work. Markers are tested against the Lessons SECTION, not the whole
+// file (roast 2026-10-13: a stray "deadline" elsewhere could satisfy the
+// loose dead-verdict marker).
+{
+  const makeItSo41 = readFileSync(join(ROOT, 'skills', 'engineering', 'make-it-so', 'SKILL.md'), 'utf8');
+  const lStart = makeItSo41.indexOf('## Lessons');
+  const lEnd = makeItSo41.indexOf('\n## ', lStart + 1);
+  const lessons41 = lStart === -1 ? '' : makeItSo41.slice(lStart, lEnd === -1 ? undefined : lEnd);
+  for (const [marker, why] of [
+    [/stale-probe\.mjs/,
+      'the doctrine must point at the probe CLI, or staleness re-verification stays prose someone has to remember'],
+    [/21[- ]day|21 days/,
+      'the doctrine must state the staleness window — a probe with no window is run-at-will, not a rule'],
+    [/--allow-exec/,
+      'the doctrine must show the explicit execution sign-off — Probe lines are agent-authored text and must never run by default'],
+    [/dead/i,
+      'the doctrine must name the dead verdict (probe contradicts current behavior)'],
+    [/cannot gate|can.?t gate|never gates|not be able to gate/,
+      'the doctrine must say dead memory cannot gate live work (spec US6: dead memory cannot gate)'],
+  ]) {
+    if (!marker.test(lessons41))
+      err(`make-it-so lessons section: missing ${marker} — ${why}`);
+  }
+  if (!existsSync(join(ROOT, 'scripts', 'stale-probe.mjs')))
+    err('scripts/stale-probe.mjs missing — the staleness rule must be a computed verdict, not a memory');
+}
+
+// ---- 42. Bounded judgment is deterministic-first, judge-last, keyless (HARD) ----
+// Origin: coworker-adapt ticket 05 (AC7, spec US7; corpus K6–K9). Guarded
+// where judgment is described (the behavioral-eval tier — the repo's only
+// judge-facing doc): bounded decisions must run free code first, consult the
+// model judge once and last, carry no API key, and fail closed to
+// `inconclusive` rather than pass. The seam itself must exist, so the rule
+// cannot be prose about code nobody runs.
+{
+  const bevalReadme = readFileSync(join(ROOT, 'scripts', 'behavioral-eval', 'README.md'), 'utf8');
+  for (const [marker, why] of [
+    [/local-judge\.mjs/,
+      'the doc must point at the judgment seam, or deterministic-first stays a suggestion'],
+    [/deterministic[- ]first|deterministic graders first/i,
+      'the doc must state graders run BEFORE the judge (K9: pre-check before the LLM judge)'],
+    [/model judge (is )?(the )?last|last resort/i,
+      'the doc must state the model judge is last resort, never the first opinion (K6)'],
+    [/no API key|without an API key|API-key-free|keyless/i,
+      'the doc must state judgment carries no API key (spec constraint: no model-judgment API keys)'],
+    [/inconclusive/,
+      'the doc must name the fail-closed verdict — a check that cannot run must say so, never pass (J4)'],
+  ]) {
+    if (!marker.test(bevalReadme))
+      err(`scripts/behavioral-eval/README.md judgment section: missing ${marker} — ${why}`);
+  }
+  if (!existsSync(join(ROOT, 'scripts', 'local-judge.mjs')))
+    err('scripts/local-judge.mjs missing — deterministic-first must be a computed ordering, not a slogan');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

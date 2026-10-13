@@ -51,6 +51,7 @@ When executing through subagents, every delegated prompt MUST include:
 
 - **The 3-line repo rules**: (1) every file change is verified (typecheck/test/error output) before being called done; (2) no refactoring outside the requested scope; (3) no touching files outside the allowed path list.
 - **The 6 sections**: TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT.
+- **The 3 timing fields**: `VERIFY:` (the exact command, not "run the tests"), `TIMEBOX:` (wall-clock minutes), `PARTIAL:` (what the delegate returns if the TIMEBOX expires — evidence so far, no new work). A brief with no TIMEBOX has no partial-return trigger, and one with no exact VERIFY hands the definition of done to the delegate. The template lives in AGENTS.md §5.
 
 A vague prompt means the subagent improvises. Subagent results are verified by the orchestrator — never trusted from the report alone.
 
@@ -85,6 +86,7 @@ Lesson: root_cause = <the specific broken feature, one sentence> | correction = 
 
 - Write it in the same message as the repair, appended under `## Lessons` in the project's private `.trust/lessons.md` (create the file on first entry). Root cause names the *feature*, not the symptom; correction is imperative, not descriptive.
 - Before starting a structurally-similar task, read `.trust/lessons.md` and recall the matching lessons as priors — a recalled lesson is a prompt, not a gate; it never blocks work.
+- Lessons rot: a lesson older than 21 days is stale until re-verified against *current* behavior with `node scripts/stale-probe.mjs --allow-exec` (each lesson may carry a `Probe: <exact command>` line; exit 0 = re-verified; probes execute only with the explicit `--allow-exec` sign-off — the default run is read-only and fail-closed). Only a lesson whose verdict is fresh or re-verified may gate a decision — a dead lesson (its probe now fails) or an unverifiable one (no probe, undated, or probes not run) cannot gate live work; report it for correction or deletion instead of obeying it.
 - Lessons are NOT rules: rules are gated, scoped, reversible (rule-inheritance); a lesson becomes a rule only when the same failure recurs — that recurrence is the trigger, and the rule lands via the gate, not here.
 
 ## Rationalization table

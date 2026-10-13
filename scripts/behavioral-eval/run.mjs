@@ -70,6 +70,22 @@ export function classifyFault({ judged = null, apiError = null } = {}) {
   return 'agent';
 }
 
+// Row seam (coworker-adapt 01/AC2; roast fix 2026-10-13): every trial becomes
+// a row THROUGH THIS FUNCTION — graded rows carry fault: agent, ungraded
+// (api error / judge failure) rows carry fault: infra and skipped: true.
+// Main must never build rows inline; the wiring check (run.test G1-G2) pins
+// the call sites. A dropped trial is an invisible one; an infra row is counted.
+export function makeTrialRow({ id, trial, labels, judged = null, apiError = null }) {
+  const fault = classifyFault({ judged, apiError });
+  if (!judged) return { id, trial, labels, skipped: true, fault };
+  return {
+    id, trial, labels, fault,
+    A: Object.fromEntries(Object.entries(judged.A || {}).map(([k, v]) => [k, v.score])),
+    B: Object.fromEntries(Object.entries(judged.B || {}).map(([k, v]) => [k, v.score])),
+    evidence: { A: judged.A, B: judged.B },
+  };
+}
+
 // Trial summary per case (coworker-adapt 01/AC8): pass = candidate strictly
 // above baseline on the weighted mean; flakiness = population variance of
 // per-trial deltas. Scoreless (infra-skipped) trials count separately and
@@ -89,17 +105,44 @@ export function summarizeTrials(rows, weights) {
     const variance = deltas.length
       ? deltas.reduce((a, b) => a + (b - mean) * (b - mean), 0) / deltas.length
       : 0;
+    // pass@k (capability) and pass^k (reliability) — corpus K12-K14.
+    // pass@k = 1 − C(n−c, k)/C(n, k): the unbiased estimator of "at least
+    // one of k tries passes". pass^k = (c/n)^k: the i.i.d. reliability of
+    // "all k tries pass". The gap between them IS the flakiness story — a
+    // case with high pass@k but low pass^k passes sometimes and is not
+    // something to ship on. Ladder k = 1..3 (the default trial budget);
+    // pass@k is null when k exceeds the scored count — a k beyond the
+    // evidence would fabricate a number, so it stays absent (fail-closed).
+    const passAtK = {}, passPowK = {};
+    for (let k = 1; k <= 3; k++) {
+      passAtK[k] = k <= scored.length
+        ? Math.round((1 - comb(scored.length - pass, k) / comb(scored.length, k)) * 1000) / 1000
+        : null;
+      passPowK[k] = scored.length
+        ? Math.round(Math.pow(pass / scored.length, k) * 1000) / 1000
+        : null;
+    }
     out[id] = {
       trials: list.length,
       scored: scored.length,
       infraSkips: list.length - scored.length,
       pass: pass,
       passRate: scored.length ? pass / scored.length : 0,
+      passAtK,
+      passPowK,
       meanDelta: Math.round(mean * 1000) / 1000,
       flakiness: Math.round(variance * 1000) / 1000,
     };
   }
   return out;
+}
+
+// Integer binomial C(n,k) for the pass@k estimator; 0 when k > n.
+function comb(n, k) {
+  if (k < 0 || k > n) return 0;
+  let r = 1;
+  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
+  return r;
 }
 
 export function parseWeights(rubricText) {
@@ -167,9 +210,14 @@ const DRY = args.includes('--dry');
 const SPLIT = (args[args.indexOf('--split') + 1] || 'test').toLowerCase();
 if (SPLIT !== 'dev' && SPLIT !== 'test') { console.error('FAIL: --split must be dev or test'); process.exit(1); }
 const DIR = join(dirname(fileURLToPath(import.meta.url)));
+// The split is the DIRECTORY, not a field (coworker-adapt 01/AC1; spec
+// "direktori dev/ vs test/ berbeda, bukan flag"): --split selects which
+// side to run. A missing side fails loudly — never silently runs the other.
+const splitFile = join(DIR, SPLIT, 'cases.jsonl');
+if (!existsSync(splitFile)) { console.error(`FAIL: ${SPLIT}/cases.jsonl missing — the split is the directory, not a field`); process.exit(1); }
 const OUT = process.env.BEHAVIORAL_EVAL_OUT || join(ROOT, '.tmp', 'behavioral-eval');
 
-const cases = readFileSync(join(DIR, 'cases.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l)).filter((c) => String(c.split || '').toLowerCase() === SPLIT);
+const cases = readFileSync(splitFile, 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
 console.log('split=' + SPLIT + ' cases=' + cases.length);
 const rubric = readFileSync(join(DIR, 'rubric.md'), 'utf8');
 const judgeTemplate = readFileSync(join(DIR, 'judge.md'), 'utf8');
@@ -194,9 +242,21 @@ mkdirSync(OUT, { recursive: true });
 const rows = [];
 for (const [ci, c] of cases.entries()) {
   for (let t = 0; t < TRIALS; t++) {
-    const baseline = await callApi(c.prompt, 16000);
-    const candidate = await callApi(candidatePrefix + '\n\n---\n\n' + c.prompt, 16000);
     const labels = assignLabels(ci, t);
+    let baseline = null, candidate = null, apiError = null;
+    try {
+      baseline = await callApi(c.prompt, 16000);
+      candidate = await callApi(candidatePrefix + '\n\n---\n\n' + c.prompt, 16000);
+    } catch (e) {
+      apiError = e;
+      console.error(`api fail ${c.id} trial ${t}: ${e.message}`);
+    }
+    if (apiError) {
+      // API-level abort: infra row, kept and counted — never charged to the agent.
+      rows.push(makeTrialRow({ id: c.id, trial: t, labels, apiError }));
+      writeFileSync(join(OUT, 'rows.json'), JSON.stringify(rows, null, 1));
+      continue;
+    }
     const textA = labels.A === 'baseline' ? baseline : candidate;
     const textB = labels.B === 'baseline' ? baseline : candidate;
     // Archive responder transcripts BEFORE judging — a judge failure must not
@@ -210,13 +270,14 @@ for (const [ci, c] of cases.entries()) {
         if (attempt === 1) writeFileSync(join(OUT, `${c.id}-t${t}.md`), transcript + '\n(JUDGE FAILED)\n');
       }
     }
-    if (!judged) continue;
-    const row = {
-      id: c.id, trial: t, labels,
-      A: Object.fromEntries(Object.entries(judged.A || {}).map(([k, v]) => [k, v.score])),
-      B: Object.fromEntries(Object.entries(judged.B || {}).map(([k, v]) => [k, v.score])),
-      evidence: { A: judged.A, B: judged.B },
-    };
+    if (!judged) {
+      // Judge failure: infra row, kept and counted — never dropped, never the agent.
+      rows.push(makeTrialRow({ id: c.id, trial: t, labels, judged: null }));
+      writeFileSync(join(OUT, 'rows.json'), JSON.stringify(rows, null, 1));
+      console.log(`${c.id} t${t}: judge failed -> infra skip`);
+      continue;
+    }
+    const row = makeTrialRow({ id: c.id, trial: t, labels, judged });
     rows.push(row);
     writeFileSync(join(OUT, 'rows.json'), JSON.stringify(rows, null, 1));
     const sA = scoreResponse(row.A, weights), sB = scoreResponse(row.B, weights);
@@ -225,10 +286,12 @@ for (const [ci, c] of cases.entries()) {
     writeFileSync(join(OUT, `${c.id}-t${t}.md`), transcript + `\n## judge\n\n\`\`\`json\n${JSON.stringify(judged, null, 1)}\n\`\`\`\n`);
   }
 }
-console.log(`\n${rows.length} judged rows written to ${OUT}/rows.json`);
+const infraRows = rows.filter((r) => r.skipped).length;
+console.log(`\n${rows.length} rows written to ${OUT}/rows.json (${infraRows} infra-skipped)`);
 const summary = summarizeTrials(rows, weights);
 const infraTotal = rows.filter((r) => r.fault === 'infra').length;
+const fmt = (v) => (v === null || v === undefined ? 'n/a' : v.toFixed(2));
 for (const [id, s] of Object.entries(summary))
-  console.log(`  ${id}: trials=${s.trials} scored=${s.scored} passRate=${s.passRate.toFixed(2)} meanDelta=${s.meanDelta} flakiness=${s.flakiness} infraSkips=${s.infraSkips}`);
+  console.log(`  ${id}: trials=${s.trials} scored=${s.scored} passRate=${s.passRate.toFixed(2)} pass@3=${fmt(s.passAtK[3])} rel^3=${fmt(s.passPowK[3])} meanDelta=${s.meanDelta} flakiness=${s.flakiness} infraSkips=${s.infraSkips}`);
 console.log(`faults: infra=${infraTotal} agent=${rows.length - infraTotal}`);
 }

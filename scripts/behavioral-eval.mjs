@@ -25,44 +25,60 @@ import { fileURLToPath } from 'node:url';
 
 // ---- core validator (exported; the test imports this seam) ----
 
-export function validateBehavioralEval({ casesText, rubricText, judgeText }) {
+export function validateBehavioralEval({ devCasesText, testCasesText, rubricText, judgeText }) {
   const errors = [];
-
-  // Cases: JSONL, unique ids, each with prompt + dimensions.
-  const seen = new Set();
   const dims = new Set();
-  let caseCount = 0;
-  // Dev/test split (coworker-adapt 01/AC1): tuning fixtures must never be
-  // reported as eval numbers, so every case declares its side and both sides
-  // must be non-empty — an empty test side means nothing is reportable.
-  const splits = { dev: 0, test: 0 };
-  for (const [i, line] of (casesText || '').split('\n').entries()) {
-    const ln = line.trim();
-    if (!ln) continue;
-    let obj;
-    try { obj = JSON.parse(ln); } catch { errors.push(`cases line ${i + 1}: not valid JSON`); continue; }
-    caseCount++;
-    if (!obj.id || typeof obj.id !== 'string') errors.push(`cases line ${i + 1}: missing string "id"`);
-    else if (seen.has(obj.id)) errors.push(`cases: duplicate case id "${obj.id}"`);
-    else seen.add(obj.id);
-    if (!obj.prompt || typeof obj.prompt !== 'string') errors.push(`cases line ${i + 1}: missing string "prompt"`);
-    if (!Array.isArray(obj.dimensions) || !obj.dimensions.length)
-      errors.push(`cases line ${i + 1}: "dimensions" must be a non-empty array`);
-    if (obj.split !== 'dev' && obj.split !== 'test')
-      errors.push(`cases line ${i + 1}: "split" must be "dev" (tuning) or "test" (reporting)`);
-    else splits[obj.split]++;
-  }
-  if (caseCount && !splits.dev) errors.push('cases: no "dev" split present — nothing to tune against without polluting the report');
-  if (caseCount && !splits.test) errors.push('cases: no "test" split present — nothing reportable');
+
+  // Cases: JSONL, unique ids, each with prompt + dimensions. Parsed ONCE per
+  // side — the parsed objects are reused for the floor and the cross-wiring
+  // check (the old validator re-parsed the same lines three times).
+  const parseSide = (text, side) => {
+    const cases = [];
+    const seen = new Set();
+    for (const [i, line] of (text || '').split('\n').entries()) {
+      const ln = line.trim();
+      if (!ln) continue;
+      let obj;
+      try { obj = JSON.parse(ln); } catch { errors.push(`${side} cases line ${i + 1}: not valid JSON`); continue; }
+      if (typeof obj.split !== 'undefined')
+        errors.push(`${side} cases line ${i + 1} (${obj.id || '?'}): carries a "split" field — the split is the directory (${side}/), not a flag`);
+      if (!obj.id || typeof obj.id !== 'string') errors.push(`${side} cases line ${i + 1}: missing string "id"`);
+      else if (seen.has(obj.id)) errors.push(`${side} cases: duplicate case id "${obj.id}"`);
+      else seen.add(obj.id);
+      if (!obj.prompt || typeof obj.prompt !== 'string') errors.push(`${side} cases line ${i + 1}: missing string "prompt"`);
+      if (!Array.isArray(obj.dimensions) || !obj.dimensions.length)
+        errors.push(`${side} cases line ${i + 1}: "dimensions" must be a non-empty array`);
+      cases.push(obj);
+    }
+    if (!cases.length) errors.push(`${side} cases: empty — every side must carry cases`);
+    return cases;
+  };
+
+  const dev = parseSide(devCasesText, 'dev');
+  const test = parseSide(testCasesText, 'test');
+
+  // Physical split (coworker-adapt 01/AC1; spec "menolak tuning di angka
+  // lapor"): an id present in BOTH sides is a case that was tuned on and
+  // then reported — the report no longer measures untuned behavior. The
+  // old flag design could not see this; two directories can.
+  const devIds = new Set(dev.map((c) => c.id));
+  for (const c of test)
+    if (devIds.has(c.id))
+      errors.push(`case id "${c.id}" appears in BOTH dev and test — tuning leaks into the report`);
+
   // Must-not-fire negatives (coworker-adapt 01/AC3): prompts where restraint
-  // is correct. Floor 40 percent - a suite of pure discipline probes cannot
-  // catch a gate that fires everywhere.
-  const negCount = (casesText || "").split("\n").reduce((n, line) => {
-    if (!line.trim()) return n;
-    try { return JSON.parse(line).negative === true ? n + 1 : n; } catch { return n; }
-  }, 0);
-  if (caseCount && negCount / caseCount < 0.4)
-    errors.push(`cases: only ${negCount}/${caseCount} negative cases - floor is 40 percent; a gate that cannot stay silent is otherwise untestable`);
+  // is correct. Floor 40 percent PER SIDE — a suite of pure discipline
+  // probes cannot catch a gate that fires everywhere, on either side, and
+  // tuning against a silence-blind suite builds a gate that has never been
+  // asked to stay quiet.
+  const floor = (cases, side) => {
+    const total = cases.length;
+    const neg = cases.filter((c) => c.negative === true).length;
+    if (total && neg / total < 0.4)
+      errors.push(`${side} cases: only ${neg}/${total} negative cases - floor is 40 percent; a gate that cannot stay silent is otherwise untestable`);
+  };
+  floor(dev, 'dev');
+  floor(test, 'test');
 
   // Rubric: weighted dimension table summing to 1, plus the anti-fabrication
   // dimension. Evidence (2026-09-10): a "cause, then fix" reporting rule
@@ -92,15 +108,14 @@ export function validateBehavioralEval({ casesText, rubricText, judgeText }) {
       errors.push('judge: not blind — the prompt must never tie RESPONSE_A/B to a condition (baseline/candidate); scoring must be condition-blind');
   }
 
-  // Cross-wiring: every case dimension must exist in the rubric.
-  for (const [i, line] of (casesText || '').split('\n').entries()) {
-    let obj; try { obj = JSON.parse(line); } catch { continue; }
-    for (const d of obj.dimensions || [])
-      if (!dims.has(String(d).toLowerCase()))
-        errors.push(`cases line ${i + 1}: dimension "${d}" is not defined in the rubric`);
-  }
+  // Cross-wiring: every case dimension (both sides) must exist in the rubric.
+  for (const [side, cases] of [['dev', dev], ['test', test]])
+    for (const c of cases)
+      for (const d of c.dimensions || [])
+        if (!dims.has(String(d).toLowerCase()))
+          errors.push(`${side} cases (${c.id || '?'}): dimension "${d}" is not defined in the rubric`);
 
-  return { errors, caseCount, dimensionCount: dims.size };
+  return { errors, devCount: dev.length, testCount: test.length, caseCount: dev.length + test.length, dimensionCount: dims.size };
 }
 
 // ---- CLI wrapper ----
@@ -110,13 +125,14 @@ const dir = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), 'be
 const read = (name) => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : '');
 
 const res = validateBehavioralEval({
-  casesText: read('cases.jsonl'),
+  devCasesText: read(join('dev', 'cases.jsonl')),
+  testCasesText: read(join('test', 'cases.jsonl')),
   rubricText: read('rubric.md'),
   judgeText: read('judge.md'),
 });
 
 for (const e of res.errors) console.log('ERROR ' + e);
-console.log(`cases: ${res.caseCount}, dimensions: ${res.dimensionCount}`);
+console.log(`cases: dev=${res.devCount} test=${res.testCount}, dimensions: ${res.dimensionCount}`);
 if (res.errors.length) {
   console.error(`\nFAIL: ${res.errors.length} harness error(s).`);
   process.exit(1);

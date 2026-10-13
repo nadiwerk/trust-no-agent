@@ -9,7 +9,7 @@
  * whose correctness is observable only against a live endpoint (honest limits,
  * scripts/behavioral-eval/README.md).
  */
-import { buildCandidatePrefix, assignLabels, scoreResponse, parseWeights, classifyFault, summarizeTrials } from './run.mjs';
+import { buildCandidatePrefix, assignLabels, scoreResponse, parseWeights, classifyFault, makeTrialRow, summarizeTrials } from './run.mjs';
 import { readFileSync } from 'node:fs';
 
 let failures = 0;
@@ -69,6 +69,26 @@ const check = (label, cond, detail = '') => {
   check('E3 a graded row attributes to the agent', classifyFault({ judged: { A: {}, B: {} } }) === 'agent');
 }
 
+// ---- E2. Row seam (coworker-adapt 01/AC2; roast fix 2026-10-13) ----
+// makeTrialRow is the single seam every row passes through: a graded row is
+// charged to the agent, an api-abort or missing judgment becomes a skipped
+// infra row (kept, counted separately) — never dropped, never agent's fault.
+// This is the behavioral half of the G wiring proof.
+{
+  const labels = { A: 'baseline', B: 'candidate' };
+  const graded = makeTrialRow({ id: 'x', trial: 0, labels,
+    judged: { A: { correctness: { score: 3 } }, B: { correctness: { score: 5 } } } });
+  check('E4 graded row is tagged agent and carries scores',
+    graded.fault === 'agent' && !graded.skipped && graded.A.correctness === 3 && graded.B.correctness === 5,
+    JSON.stringify(graded));
+  const judged0 = makeTrialRow({ id: 'x', trial: 1, labels, judged: null });
+  check('E5 judge-failed trial becomes a skipped infra row, not dropped',
+    judged0.skipped === true && judged0.fault === 'infra', JSON.stringify(judged0));
+  const apiErr = makeTrialRow({ id: 'x', trial: 2, labels, apiError: new Error('boom') });
+  check('E6 API abort becomes a skipped infra row',
+    apiErr.skipped === true && apiErr.fault === 'infra', JSON.stringify(apiErr));
+}
+
 // ---- F. Trial summary (coworker-adapt 01/AC8) ----
 {
   const w = { correctness: 1 };
@@ -89,11 +109,44 @@ const check = (label, cond, detail = '') => {
     s.c1.flakiness === 1, JSON.stringify(s.c1));
 }
 
-// ---- G. Wiring proof: main() consults classifyFault (K8 doctrine: the call) ----
+// ---- G. Wiring proof: every row goes through the fault seam (call site) ----
+// The old G1 regex matched classifyFault's OWN definition line — a tautology
+// (the dead-code finding it was meant to catch still passed: zero call sites).
+// A call-site assertion names the actual calls: main pushes rows built by
+// makeTrialRow, and makeTrialRow consults classifyFault. Neither pattern can
+// match a function declaration. Behavioral half: E4-E6 above.
 {
-  const src = readFileSync(new URL('./run.mjs', import.meta.url));
-  check('G1 main wires fault tagging through classifyFault',
-    /classifyFault\s*\(/.test(src));
+  const src = readFileSync(new URL('./run.mjs', import.meta.url), 'utf8');
+  check('G1 main pushes rows built by makeTrialRow (call site, not definition)',
+    /rows\.push\(makeTrialRow\(/.test(src));
+  check('G2 makeTrialRow consults classifyFault (call site, not definition)',
+    /const fault = classifyFault\(/.test(src));
+}
+
+// ---- I. pass@k / pass^k (coworker-adapt 01/AC8) ----
+// Hand-computed from the estimator, never from the code:
+// c1: n=2 scored, c=1 pass → pass@1 = 1 − C(1,1)/C(2,1) = 0.5;
+// pass@2 = 1 − C(1,2)/C(2,2) = 1 − 0 = 1; pass@3 undefined (k > scored) → null.
+// pass^1 = (1/2)^1 = 0.5; pass^2 = 0.25; pass^3 = 0.125 (i.i.d. extrapolation).
+// c2: n=1 scored, c=0 pass → pass@1 = 0; pass^k = 0; pass@2 null (k > scored).
+{
+  const w = { correctness: 1 };
+  const rows = [
+    { id: 'c1', trial: 0, A: { correctness: 3 }, B: { correctness: 4 } },
+    { id: 'c1', trial: 1, A: { correctness: 3 }, B: { correctness: 2 } },
+    { id: 'c1', trial: 2, skipped: true, fault: 'infra' },
+    { id: 'c2', trial: 0, A: { correctness: 5 }, B: { correctness: 5 } },
+  ];
+  const s = summarizeTrials(rows, w);
+  check('I1 pass@k ladder (c1): 1 − C(n−c,k)/C(n,k), null beyond scored',
+    s.c1.passAtK[1] === 0.5 && s.c1.passAtK[2] === 1 && s.c1.passAtK[3] === null,
+    JSON.stringify(s.c1.passAtK));
+  check('I2 pass^k reliability (c1): (c/n)^k',
+    Math.abs(s.c1.passPowK[1] - 0.5) < 1e-9 && Math.abs(s.c1.passPowK[2] - 0.25) < 1e-9 && Math.abs(s.c1.passPowK[3] - 0.125) < 1e-9,
+    JSON.stringify(s.c1.passPowK));
+  check('I3 zero-pass case: pass@k = 0, never a null-fabricated number',
+    s.c2.passAtK[1] === 0 && s.c2.passAtK[2] === null && s.c2.passPowK[1] === 0,
+    JSON.stringify(s.c2));
 }
 
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll runner offline expectations hold.');

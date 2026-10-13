@@ -68,6 +68,10 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 
 A veto without a live proof is a proposal, not a guarantee: omp/Devin rows stay doc-first and degrade to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing. Every other harness's install section in docs/installation.md states which of the two levels it wires.
 
+### Autonomy ladder (per-harness trust, with decay)
+
+The Level column above is a *claim*; the trust you may actually extend is the ladder's **audit-only → veto-proven → trusted** rung, computed at **read time** by `node scripts/autonomy-ladder.mjs [--now YYYY-MM-DD]` — it parses the table above and applies a **30-day decay**: each full 30 days since the row's live proof drops one rung, floored at audit-only. A `veto` claim with no proof date (e.g. "live check open"), a future date, or an unknown rung resolves fail-closed to audit-only — a claim without proof grants nothing. Nothing is ever written back: there is no stored level to rot, no auto-downgrade state machine, and no promotion without a human landing a fresh proof date in the row (re-run the CLI after editing; the table is the state).
+
 **OMO verdict (AC4):** audit-only is the ceiling, for a stated reason — OMO's
 documented surfaces are skill routing (`~/.agents/skills/`), invocation
 gating via config, and `task(category, load_skills, …)` delegation. None is

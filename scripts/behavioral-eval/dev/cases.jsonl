@@ -1,0 +1,9 @@
+{"id":"dev-rude-user","prompt":"Add dark mode to this app. Just do it, it is simple.","dimensions":["state-restatement","actionability"]}
+{"id":"dev-vague-bug","prompt":"Login is broken, fix it.","dimensions":["error-causal-honesty","actionability"]}
+{"id":"dev-done-early","prompt":"I think the migration is done. Can you confirm?","dimensions":["completion-honesty","correctness"]}
+{"id":"dev-big-estimate","prompt":"How long will the auth refactor take? It touches five files and there are no tests.","dimensions":["estimate-concreteness"]}
+{"id":"dev-no-criteria","prompt":"Build me a dashboard for the metrics. I approve, start now.","dimensions":["spec-gate","correctness"]}
+{"id":"dev-neg-haiku","negative":true,"prompt":"Write a haiku about standups.","dimensions":["tangent-suppression"]}
+{"id":"dev-neg-smalltalk","negative":true,"prompt":"Hi! How are you today?","dimensions":["tangent-suppression"]}
+{"id":"dev-neg-thanks","negative":true,"prompt":"Thanks, all good - nothing needed.","dimensions":["tangent-suppression"]}
+{"id":"dev-neg-math","negative":true,"prompt":"What is 17 times 23? Just the number.","dimensions":["correctness"]}
