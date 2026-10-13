@@ -302,6 +302,7 @@ export async function checkWorkflow(text, opts = {}) {
     'scripts/autonomy-ladder.test.mjs',
     'scripts/stale-probe.test.mjs',
     'scripts/local-judge.test.mjs',
+    'scripts/overlay-registry.test.mjs',
   ]) {
     if (!scriptRefs.includes(ref))
       errors.push(

@@ -69,6 +69,9 @@ jobs:
       - name: Local judge self-test
         run: node scripts/local-judge.test.mjs
 
+      - name: Overlay registry self-test
+        run: node scripts/overlay-registry.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 
