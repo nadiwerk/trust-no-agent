@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-10-13
+
 ### Added
 
 - **Decision composition.** User skills join the framework's workflow without
@@ -570,7 +572,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.27...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.24...v0.1.25
