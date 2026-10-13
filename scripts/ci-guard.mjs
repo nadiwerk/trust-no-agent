@@ -303,6 +303,7 @@ export async function checkWorkflow(text, opts = {}) {
     'scripts/stale-probe.test.mjs',
     'scripts/local-judge.test.mjs',
     'scripts/overlay-registry.test.mjs',
+    'scripts/spec-scrub.test.mjs',
   ]) {
     if (!scriptRefs.includes(ref))
       errors.push(

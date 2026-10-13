@@ -72,6 +72,9 @@ jobs:
       - name: Overlay registry self-test
         run: node scripts/overlay-registry.test.mjs
 
+      - name: Spec scrub self-test
+        run: node scripts/spec-scrub.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 
