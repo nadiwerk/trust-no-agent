@@ -75,6 +75,9 @@ jobs:
       - name: Spec scrub self-test
         run: node scripts/spec-scrub.test.mjs
 
+      - name: Floor composer self-test
+        run: node scripts/floor-composer.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 

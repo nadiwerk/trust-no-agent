@@ -83,7 +83,7 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — the twenty-seven self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
+- **Run the gates before pushing** — the twenty-eight self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
   CI runs the same set on every push and PR; a red CI blocks merge. The
   pre-commit hook runs a superset (it adds `reinject.test.mjs`,
   `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
@@ -98,7 +98,7 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the twenty-seven gates:
+**`validate`** — the twenty-eight gates:
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.

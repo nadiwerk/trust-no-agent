@@ -304,6 +304,7 @@ export async function checkWorkflow(text, opts = {}) {
     'scripts/local-judge.test.mjs',
     'scripts/overlay-registry.test.mjs',
     'scripts/spec-scrub.test.mjs',
+    'scripts/floor-composer.test.mjs',
   ]) {
     if (!scriptRefs.includes(ref))
       errors.push(
