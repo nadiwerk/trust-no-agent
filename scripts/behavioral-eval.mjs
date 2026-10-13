@@ -32,6 +32,10 @@ export function validateBehavioralEval({ casesText, rubricText, judgeText }) {
   const seen = new Set();
   const dims = new Set();
   let caseCount = 0;
+  // Dev/test split (coworker-adapt 01/AC1): tuning fixtures must never be
+  // reported as eval numbers, so every case declares its side and both sides
+  // must be non-empty — an empty test side means nothing is reportable.
+  const splits = { dev: 0, test: 0 };
   for (const [i, line] of (casesText || '').split('\n').entries()) {
     const ln = line.trim();
     if (!ln) continue;
@@ -44,7 +48,21 @@ export function validateBehavioralEval({ casesText, rubricText, judgeText }) {
     if (!obj.prompt || typeof obj.prompt !== 'string') errors.push(`cases line ${i + 1}: missing string "prompt"`);
     if (!Array.isArray(obj.dimensions) || !obj.dimensions.length)
       errors.push(`cases line ${i + 1}: "dimensions" must be a non-empty array`);
+    if (obj.split !== 'dev' && obj.split !== 'test')
+      errors.push(`cases line ${i + 1}: "split" must be "dev" (tuning) or "test" (reporting)`);
+    else splits[obj.split]++;
   }
+  if (caseCount && !splits.dev) errors.push('cases: no "dev" split present — nothing to tune against without polluting the report');
+  if (caseCount && !splits.test) errors.push('cases: no "test" split present — nothing reportable');
+  // Must-not-fire negatives (coworker-adapt 01/AC3): prompts where restraint
+  // is correct. Floor 40 percent - a suite of pure discipline probes cannot
+  // catch a gate that fires everywhere.
+  const negCount = (casesText || "").split("\n").reduce((n, line) => {
+    if (!line.trim()) return n;
+    try { return JSON.parse(line).negative === true ? n + 1 : n; } catch { return n; }
+  }, 0);
+  if (caseCount && negCount / caseCount < 0.4)
+    errors.push(`cases: only ${negCount}/${caseCount} negative cases - floor is 40 percent; a gate that cannot stay silent is otherwise untestable`);
 
   // Rubric: weighted dimension table summing to 1, plus the anti-fabrication
   // dimension. Evidence (2026-09-10): a "cause, then fix" reporting rule

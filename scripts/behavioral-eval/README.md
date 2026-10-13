@@ -32,6 +32,12 @@ works:
 4. Report deltas per dimension and **per-case blocking findings**, and report
    the numbers even when they fail the framework's expectations — a harness
    that only ever confirms the framework is theater.
+5. Select the split explicitly: `--split test` (default, the reporting set)
+   or `--split dev` (tuning probes — never reported as eval numbers).
+   Historical `RESULTS.md` runs predate the split and ran the whole file.
+6. Tag every row: graded rows are `agent` fault; judge-failed or API-aborted
+   trials are `infra` fault and never enter pass rates. The run prints per-case
+   pass rate, mean delta, flakiness (delta variance), and fault counts.
 
 ## Honest limits
 

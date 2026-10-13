@@ -61,6 +61,47 @@ export function scoreResponse(scores, weights) {
   return wsum ? sum / wsum : 0;
 }
 
+// Fault tag (coworker-adapt 01/AC2): a missing measurement is infrastructure,
+// never the agent. Judge-failed rows and API-level aborts are infra; only a
+// graded row attributes to the agent.
+export function classifyFault({ judged = null, apiError = null } = {}) {
+  if (apiError) return 'infra';
+  if (!judged) return 'infra';
+  return 'agent';
+}
+
+// Trial summary per case (coworker-adapt 01/AC8): pass = candidate strictly
+// above baseline on the weighted mean; flakiness = population variance of
+// per-trial deltas. Scoreless (infra-skipped) trials count separately and
+// never enter the rate — an unmeasured trial is not a failed trial.
+export function summarizeTrials(rows, weights) {
+  const byId = new Map();
+  for (const r of rows) {
+    if (!byId.has(r.id)) byId.set(r.id, []);
+    byId.get(r.id).push(r);
+  }
+  const out = {};
+  for (const [id, list] of byId) {
+    const scored = list.filter((r) => !r.skipped);
+    const deltas = scored.map((r) => scoreResponse(r.B, weights) - scoreResponse(r.A, weights));
+    const pass = deltas.filter((d) => d > 0).length;
+    const mean = deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0;
+    const variance = deltas.length
+      ? deltas.reduce((a, b) => a + (b - mean) * (b - mean), 0) / deltas.length
+      : 0;
+    out[id] = {
+      trials: list.length,
+      scored: scored.length,
+      infraSkips: list.length - scored.length,
+      pass: pass,
+      passRate: scored.length ? pass / scored.length : 0,
+      meanDelta: Math.round(mean * 1000) / 1000,
+      flakiness: Math.round(variance * 1000) / 1000,
+    };
+  }
+  return out;
+}
+
 export function parseWeights(rubricText) {
   const weights = {};
   for (const m of rubricText.matchAll(/^\|\s*([a-z0-9-]+)\s*\|\s*(\d(?:\.\d+)?)\s*\|/gim))
@@ -123,10 +164,13 @@ if (process.argv[1] && process.argv[1].endsWith('run.mjs')) {
 const args = process.argv.slice(2);
 const TRIALS = parseInt(args[args.indexOf('--trials') + 1] || '3', 10) || 3;
 const DRY = args.includes('--dry');
+const SPLIT = (args[args.indexOf('--split') + 1] || 'test').toLowerCase();
+if (SPLIT !== 'dev' && SPLIT !== 'test') { console.error('FAIL: --split must be dev or test'); process.exit(1); }
 const DIR = join(dirname(fileURLToPath(import.meta.url)));
 const OUT = process.env.BEHAVIORAL_EVAL_OUT || join(ROOT, '.tmp', 'behavioral-eval');
 
-const cases = readFileSync(join(DIR, 'cases.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+const cases = readFileSync(join(DIR, 'cases.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l)).filter((c) => String(c.split || '').toLowerCase() === SPLIT);
+console.log('split=' + SPLIT + ' cases=' + cases.length);
 const rubric = readFileSync(join(DIR, 'rubric.md'), 'utf8');
 const judgeTemplate = readFileSync(join(DIR, 'judge.md'), 'utf8');
 const weights = parseWeights(rubric);
@@ -182,4 +226,9 @@ for (const [ci, c] of cases.entries()) {
   }
 }
 console.log(`\n${rows.length} judged rows written to ${OUT}/rows.json`);
+const summary = summarizeTrials(rows, weights);
+const infraTotal = rows.filter((r) => r.fault === 'infra').length;
+for (const [id, s] of Object.entries(summary))
+  console.log(`  ${id}: trials=${s.trials} scored=${s.scored} passRate=${s.passRate.toFixed(2)} meanDelta=${s.meanDelta} flakiness=${s.flakiness} infraSkips=${s.infraSkips}`);
+console.log(`faults: infra=${infraTotal} agent=${rows.length - infraTotal}`);
 }

@@ -9,7 +9,8 @@
  * whose correctness is observable only against a live endpoint (honest limits,
  * scripts/behavioral-eval/README.md).
  */
-import { buildCandidatePrefix, assignLabels, scoreResponse, parseWeights } from './run.mjs';
+import { buildCandidatePrefix, assignLabels, scoreResponse, parseWeights, classifyFault, summarizeTrials } from './run.mjs';
+import { readFileSync } from 'node:fs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -59,6 +60,40 @@ const check = (label, cond, detail = '') => {
   check('D1 parses lowercase keys', w.correctness === 0.15 && w.actionability === 0.3, JSON.stringify(w));
   const sum = Object.values(parseWeights('| a | 0.6 |\n| B | 0.4 |\n')).reduce((x, y) => x + y, 0);
   check('D2 case-insensitive keys, sum intact', Math.abs(sum - 1) < 1e-9);
+}
+
+// ---- E. Fault tags (coworker-adapt 01/AC2) ----
+{
+  check('E1 API-level abort tags infra', classifyFault({ apiError: new Error('boom') }) === 'infra');
+  check('E2 missing measurement tags infra, never the agent', classifyFault({ judged: null }) === 'infra');
+  check('E3 a graded row attributes to the agent', classifyFault({ judged: { A: {}, B: {} } }) === 'agent');
+}
+
+// ---- F. Trial summary (coworker-adapt 01/AC8) ----
+{
+  const w = { correctness: 1 };
+  const rows = [
+    { id: 'c1', trial: 0, A: { correctness: 3 }, B: { correctness: 4 } },
+    { id: 'c1', trial: 1, A: { correctness: 3 }, B: { correctness: 2 } },
+    { id: 'c1', trial: 2, skipped: true, fault: 'infra' },
+    { id: 'c2', trial: 0, A: { correctness: 5 }, B: { correctness: 5 } },
+  ];
+  const s = summarizeTrials(rows, w);
+  check('F1 pass rate counts scored trials only (2 scored, 1 pass)',
+    s.c1.passRate === 0.5 && s.c1.scored === 2 && s.c1.trials === 3, JSON.stringify(s.c1));
+  check('F2 mean delta is signed (regression shows negative)',
+    s.c1.meanDelta === 0, JSON.stringify(s.c1));
+  check('F3 infra skips counted apart, never in the rate',
+    s.c1.infraSkips === 1 && s.c2.infraSkips === 0, JSON.stringify(s));
+  check('F4 flakiness is the variance of deltas (1, -1 -> variance 1)',
+    s.c1.flakiness === 1, JSON.stringify(s.c1));
+}
+
+// ---- G. Wiring proof: main() consults classifyFault (K8 doctrine: the call) ----
+{
+  const src = readFileSync(new URL('./run.mjs', import.meta.url));
+  check('G1 main wires fault tagging through classifyFault',
+    /classifyFault\s*\(/.test(src));
 }
 
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll runner offline expectations hold.');
