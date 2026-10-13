@@ -459,3 +459,34 @@ console.log('\nOK: doctor decision logic behaves as specified.');
   check('M2 the meter region never exits the process (exit code stays with health checks)',
     !/process\.exit/.test(region), region.slice(0, 200));
 }
+
+// ---- O. Overlay registry verdict (decision-composition 04; spec AC9/AC10/AC16) ----
+{
+  const { overlayVerdict } = await import('./doctor-checks.mjs');
+  const absent = overlayVerdict({ tierPresent: false });
+  check('O1 an absent overlay tier is optional (pass, named)',
+    absent.level === 'pass' && /optional/.test(absent.lines.join(' ')), JSON.stringify(absent));
+  const defect = overlayVerdict({ tierPresent: true, errors: ['bad-anchor: anchor "root-cause/Phase-99" is not in the derived canonical catalog'], entryCount: 0, omittedCount: 0 });
+  check('O2 a defect is fail-level and names the skill + kind',
+    defect.level === 'fail' && /bad-anchor/.test(defect.lines.join(' ')) && /catalog/.test(defect.lines.join(' ')), JSON.stringify(defect));
+  const omission = overlayVerdict({ tierPresent: true, errors: [], entryCount: 3, omittedCount: 2 });
+  check('O3 budget omission is warn-level and carries the count',
+    omission.level === 'warn' && /2 overlay/.test(omission.lines.join(' ')), JSON.stringify(omission));
+  const clean = overlayVerdict({ tierPresent: true, errors: [], entryCount: 2, omittedCount: 0 });
+  check('O4 a clean registry is pass with the entry count',
+    clean.level === 'pass' && /2 overlay/.test(clean.lines.join(' ')), JSON.stringify(clean));
+  const both = overlayVerdict({ tierPresent: true, errors: ['x: y'], entryCount: 1, omittedCount: 1 });
+  check('O5 defects dominate the level (fail even alongside an omission warning)',
+    both.level === 'fail' && both.lines.some((l) => /omitted/.test(l)), JSON.stringify(both));
+}
+{
+  // Wiring (K8 precedent): doctor.mjs must CALL the overlay seams, or the
+  // verdict ships while doctor never prints it — a computed-but-unread
+  // verdict is a dead component.
+  const { readFileSync } = await import('node:fs');
+  const { join: joinO2, dirname: dO } = await import('node:path');
+  const { fileURLToPath: fO } = await import('node:url');
+  const src = readFileSync(joinO2(dO(fO(import.meta.url)), 'doctor.mjs'), 'utf8');
+  check('O6 doctor.mjs CALLS overlayVerdict + parseSkillOverlays (computed-but-unread = dead)',
+    /overlayVerdict\s*\(/.test(src) && /parseSkillOverlays\s*\(/.test(src), 'no overlayVerdict(/parseSkillOverlays( call in doctor.mjs');
+}

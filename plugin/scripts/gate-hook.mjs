@@ -131,6 +131,30 @@ function resolveSkillRoots() {
 }
 
 function buildSessionStartContext() {
+  const canonical = canonicalSessionFloor();
+  if (!canonical) return null;
+  // Decision composition (ticket 03): user overlays join the session floor.
+  // The overlay directory belongs to the project the session runs in
+  // (cwd/.trust/skills-overlay). Fail-open by construction: an absent
+  // directory yields no entries and composeFloor emits the canonical floor
+  // verbatim; a broken overlay is not a valid entry, so it never enters the
+  // floor (the doctor reports it) and the canonical portion stays
+  // byte-identical. Any read error leaves the canonical floor standing.
+  try {
+    const { entries } = parseSkillOverlays(join(process.cwd(), '.trust', 'skills-overlay'));
+    return composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).text;
+  } catch {
+    return canonical;
+  }
+}
+
+/**
+ * The canonical session floor — the pre-composition string the SessionStart
+ * floor is built from. Exported so the doctor computes the overlay budget
+ * omission against the SAME canonical floor the session receives; a count
+ * computed against a different string would be a lie with a number.
+ */
+export function canonicalSessionFloor() {
   for (const root of ROUTER_ROOTS) {
     if (!root) continue;
     const texts = ROUTER_SOURCE_FILES.map((f) => join(root, f))
@@ -139,26 +163,13 @@ function buildSessionStartContext() {
     if (!texts.length) continue;
     const floor = extractFloor(texts.join('\n\n'));
     if (!floor) continue;
-    const canonical = (
+    return (
       'trust-no-agent — the router is installed. These rules are active in this session, ' +
       'quoted verbatim from the router (WORKFLOW.md + AGENTS.md):\n\n' +
       floor +
       '\n\n' +
       resolveSkillRoots().text
     );
-    // Decision composition (ticket 03): user overlays join the session floor.
-    // The overlay directory belongs to the project the session runs in
-    // (cwd/.trust/skills-overlay). Fail-open by construction: an absent
-    // directory yields no entries and composeFloor emits the canonical floor
-    // verbatim; a broken overlay is not a valid entry, so it never enters the
-    // floor (the doctor reports it) and the canonical portion stays
-    // byte-identical. Any read error leaves the canonical floor standing.
-    try {
-      const { entries } = parseSkillOverlays(join(process.cwd(), '.trust', 'skills-overlay'));
-      return composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).text;
-    } catch {
-      return canonical;
-    }
   }
   return null;
 }
@@ -309,4 +320,7 @@ function main() {
   process.exit(0);
 }
 
-main();
+// Self-execute only when run directly (the repo-wide guard pattern: every
+// other script in scripts/ carries it — importing this module must not run
+// the hook, so the doctor can reuse canonicalSessionFloor).
+if (process.argv[1] && process.argv[1].endsWith('gate-hook.mjs')) main();

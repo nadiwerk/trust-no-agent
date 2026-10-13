@@ -30,7 +30,10 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict } from './doctor-checks.mjs';
+import { parseSkillOverlays } from './overlay-registry.mjs';
+import { composeFloor } from './floor-composer.mjs';
+import { canonicalSessionFloor } from './gate-hook.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -269,6 +272,23 @@ if (ledgerPath) {
   if (res.level === 'fail') fail(res.message);
   else if (res.level === 'warn') warn(res.message);
   else pass('corrective tier healthy (lessons.md exists)');
+
+  // ---- O. Overlay registry (decision composition 04; spec AC9/AC10/AC16) ----
+  // Trust COMPUTED at read time: every doctor run re-scans the registry — a
+  // mutated file changes the verdict with no cache in between (the
+  // computed-verdict culture, never a cached table claim). Defects fail by
+  // name; the budget-omission count is computed against the SAME canonical
+  // floor the session receives (canonicalSessionFloor), so the number the
+  // doctor prints is the number the session would omit.
+  {
+    const overlayDir = join(cwd, '.trust', 'skills-overlay');
+    const { entries, errors } = parseSkillOverlays(overlayDir);
+    let omittedCount = 0;
+    const canonical = canonicalSessionFloor();
+    if (canonical) omittedCount = composeFloor({ canonicalFloor: canonical, overlays: entries, budget: 4000 }).omitted.length;
+    const ov = overlayVerdict({ errors, entryCount: entries.length, omittedCount, tierPresent: existsSync(overlayDir) });
+    for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
+  }
 
   // ---- C7. ledger audit (Loaded:-gap / visual-gate / context-gap) ----
   // The audit is WARN, not FAIL: the ledger is private working memory and its

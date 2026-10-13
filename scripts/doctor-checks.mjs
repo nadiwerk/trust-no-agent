@@ -189,3 +189,23 @@ export function gateFindingVerdict({ gateFindings = 0, literalFindings = 0 } = {
       : `${gateFindings} gate finding(s), all on entries the literal audit already flags`;
   return { reported: gateFindings, overlapping, unique, message };
 }
+
+/**
+ * Overlay registry verdict (decision-composition ticket 04; spec AC9/AC10/AC16).
+ * Pure: takes the registry scan result plus the budget-omission count computed
+ * against the same canonical floor the session receives. Defects are FAIL (the
+ * adopter must fix them); budget omission is WARN carrying a number (never
+ * silent); an absent tier is optional (pass).
+ */
+export function overlayVerdict({ errors = [], entryCount = 0, omittedCount = 0, tierPresent = false }) {
+  if (!tierPresent) return { level: 'pass', lines: ['overlay tier not present (optional — .trust/skills-overlay/)'] };
+  const lines = [];
+  let level = 'pass';
+  for (const e of errors) { lines.push(`overlay defect: ${e}`); level = 'fail'; }
+  if (omittedCount > 0) {
+    lines.push(`overlay budget: ${omittedCount} overlay(s) omitted by the session floor budget (canonical-first — the core floor is unaffected)`);
+    if (level !== 'fail') level = 'warn';
+  }
+  if (!errors.length) lines.push(`${entryCount} overlay(s) validated (add-only; user:-marked in the floor)`);
+  return { level, lines };
+}
