@@ -350,6 +350,26 @@ node <trust-no-agent>/scripts/update-check-cli.mjs install
 
 If the harness has no skill system, nothing is installed: the AGENTS.md trigger matrix states *when* to load each skill, and the agent opens `skills/<name>/SKILL.md` on demand from the checkout. Cost is zero until a trigger fires.
 
+## Overlay composition (your skills join the floor)
+
+Your own skills can join the framework's workflow without forking it. Drop a skill directory into `.trust/skills-overlay/<name>/` holding one `SKILL.md` whose head carries YAML frontmatter:
+
+```
+---
+name: error-forensics
+extends: root-cause/Phase-1
+role: insert-after
+triggers: error, crash, stack trace
+---
+```
+
+- **`extends`** names the canonical phase the skill attaches to. The anchor catalog is *derived* from the canonical skills' phase headings — a single source of truth that cannot drift.
+- **`role`** is `insert-before`, `insert-after`, or `wrap` only — an overlay may add steps, never subtract gates; `replace`, `remove`, and `skip` are rejected by the validator (`scripts/overlay-registry.mjs`).
+- **`triggers`** is optional (comma-separated): declared triggers load the skill automatically on matching prompts; absent triggers mean explicit invocation only.
+- Every session floor emits the **canonical** floor (Iron Laws + MANDATORY section) first and complete; overlay entries are appended after it, each marked **`user:`** — second-class: they add steps and can never relax a gate.
+- The mechanism is **keyless** and zero-dependency: no API key, no network, no runtime engine — the floor is text the agent executes, like the canonical skills. A broken overlay never breaks the session (**fail-open**); the doctor reports every defect by name, and overlays that do not fit the floor budget are counted, never silently dropped.
+- Validate any time: `node scripts/overlay-registry.mjs [dir]` (exit 0 = registry consistent).
+
 ## Post-install verification
 
 On any harness, confirm the framework is active:

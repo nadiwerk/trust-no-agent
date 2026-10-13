@@ -949,6 +949,42 @@ for (const [file, text] of [
     err('scripts/local-judge.mjs missing — deterministic-first must be a computed ordering, not a slogan');
 }
 
+// ---- 43. Overlay composition: add-only, user:-marked, canonical-first (HARD) ----
+// Origin: decision-composition ticket 05 (AC17; spec US7/US18/US25). Guarded
+// where the mechanism is described for adopters (docs/installation.md): an
+// overlay may add steps and never subtract gates (the add-only role set is
+// named), the floor marks overlays `user:` (second-class), the canonical
+// floor is emitted first and complete, and the mechanism is keyless with
+// zero-dependency fail-open sessions. The seams must exist, so the rule
+// cannot be prose about code nobody runs.
+{
+  const installDoc = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+  for (const [marker, why] of [
+    [/overlay-registry\.mjs/,
+      'the doc must point at the overlay registry seam, or composition stays a suggestion'],
+    [/insert-before/,
+      'the doc must name insert-before — the add-only role set is the mechanical floor on what an overlay may do'],
+    [/insert-after/,
+      'the doc must name insert-after — the add-only role set is the mechanical floor on what an overlay may do'],
+    [/\bwrap\b/,
+      'the doc must name wrap — the add-only role set is the mechanical floor on what an overlay may do'],
+    [/user:/,
+      'the doc must show the user: prefix — the floor marks overlays second-class, never shadowing canonical'],
+    [/canonical.{0,40}(first|complete)|first and complete/i,
+      'the doc must state the canonical floor is emitted first and complete — a broken overlay never degrades the core discipline'],
+    [/keyless|no API key/i,
+      'the doc must state the mechanism is keyless — no new API surface ships with the composition feature'],
+    [/fail-open/,
+      'the doc must state sessions fail open — a broken overlay never blocks the session'],
+  ]) {
+    if (!marker.test(installDoc))
+      err(`docs/installation.md overlay section: missing ${marker} — ${why}`);
+  }
+  for (const seam of ['overlay-registry.mjs', 'floor-composer.mjs'])
+    if (!existsSync(join(ROOT, 'scripts', seam)))
+      err(`scripts/${seam} missing — composition must be a computed mechanism, not prose`);
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

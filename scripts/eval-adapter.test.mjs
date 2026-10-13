@@ -138,5 +138,22 @@ for (const [label, re] of [
   check(`42 ${label} in behavioral-eval README`, re.test(bevalReadme), String(re));
 }
 
+// Check 43 pins (decision-composition ticket 05, AC17): the composition
+// contract at the adopter doc. FAIL direction: strip the overlay section
+// from docs/installation.md -> these red.
+check('eval.mjs carries check 43 (overlay composition contract)', /---- 43\. /.test(evalSrc));
+for (const [label, re] of [
+  ['registry seam named', /overlay-registry\.mjs/],
+  ['insert-before named', /insert-before/],
+  ['insert-after named', /insert-after/],
+  ['wrap named', /\bwrap\b/],
+  ['user: prefix shown', /user:/],
+  ['canonical-first stated', /canonical.{0,40}(first|complete)|first and complete/i],
+  ['keyless stated', /keyless|no API key/i],
+  ['fail-open stated', /fail-open/],
+]) {
+  check(`43 ${label} in installation.md overlay section`, re.test(install), String(re));
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
