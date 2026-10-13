@@ -222,8 +222,11 @@ permukaan API yang dikirim di fitur ini.
 11. (US14) The feature introduces no new runtime dependency (static scan: no `import` of
     anything outside `node:` in the new modules; the local-judge A-section precedent). —
     automated test.
-12. (US15) The plugin payload and all four mirrors are unchanged by this feature (zero
-    plugin-file diffs; plugin.test green). — existing test suite + diff check in review.
+12. (US15) The plugin SKILLS payload (`plugin/skills/` and its four mirror
+    directories) is unchanged by this feature — no overlay content ever
+    enters the payload; the mechanism modules ARE vendored into
+    `plugin/scripts/` byte-identical (the vendored hook imports them),
+    guarded by plugin.test. — existing test suite + diff check in review.
 13. (US16) The composed floor is deterministic: identical registry + identical canonical
     floor produce byte-identical output. — automated test.
 14. (US22) An overlay with absent/empty `triggers` parses as explicit-only and does not

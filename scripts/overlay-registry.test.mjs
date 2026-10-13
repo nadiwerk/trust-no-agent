@@ -128,5 +128,19 @@ const tmp = (prefix) => mkdtempSync(join(tmpdir(), prefix));
     imports.length > 0 && imports.every((s) => s.startsWith('node:')), JSON.stringify(imports));
 }
 
+// ---- J. Closure scan: every new feature module imports node: only (spec AC11) ----
+// Ticket 08's automated half: the zero-dependency constraint is checked
+// across ALL modules the feature added (not just this one). A module with
+// zero imports is trivially compliant (floor-composer is pure). RED observed
+// against a deliberately dirtied module before this section landed.
+{
+  for (const mod of ['./overlay-registry.mjs', './floor-composer.mjs']) {
+    const src = readFileSync(new URL(mod, import.meta.url), 'utf8');
+    const imports = [...src.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
+    check(`J1 ${mod} imports nothing outside node: builtins (closure scan)`,
+      imports.every((s) => s.startsWith('node:')), JSON.stringify(imports));
+  }
+}
+
 console.log(failures === 0 ? '\nAll overlay-registry expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);
 process.exit(failures === 0 ? 0 : 1);
