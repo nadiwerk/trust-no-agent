@@ -200,8 +200,11 @@ permukaan API yang dikirim di fitur ini.
 
 ## Acceptance Criteria
 
-1. (US1) A well-formed overlay (valid frontmatter `name`/`extends`/`role`, parseable
-   SKILL.md) yields zero registry errors. — automated test (registry parser seam).
+1. (US1) A well-formed overlay yields zero registry errors: `name` is
+   required; `extends` and `role` are optional — an explicit-only overlay
+   (no anchor) is a first-class shape since the onboarding proposals land
+   anchorless by default — and are validated when present. — automated
+   test (registry parser seam).
 2. (US4) An overlay whose `extends` names a phase that does not exist in the derived anchor
    catalog is rejected with a named error identifying the bad anchor. — automated test.
 3. (US5/US6) An overlay declaring role `replace`, `remove`, or `skip` is rejected with a

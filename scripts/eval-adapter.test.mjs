@@ -122,6 +122,22 @@ for (const [label, re] of [
   check(`41 ${label} in make-it-so lessons section`, re.test(makeItSo), String(re));
 }
 
+// Check 44 pins (onboarding ticket 10, AC15): the onboarding contract at
+// the adopter doc. FAIL direction: strip the onboarding section from
+// docs/installation.md -> these red.
+check('eval.mjs carries check 44 (onboarding contract)', /---- 44\. /.test(evalSrc));
+for (const [label, re] of [
+  ['CLI named', /onboarding\.mjs/],
+  ['per-component consent stated', /consent per component|per component/],
+  ['declined-is-OFF stated', /mechanically OFF|declin\w+ (is )?OFF/],
+  ['mapping scope stated', /maps your\s+installed skills/],
+  ['grandfather stated', /grandfather/],
+  ['map-only stated', /--map-only/],
+  ['undo stated', /--undo/],
+]) {
+  check(`44 ${label} in installation.md onboarding section`, re.test(install), String(re));
+}
+
 // Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED

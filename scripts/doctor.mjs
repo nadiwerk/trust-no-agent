@@ -30,7 +30,8 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict } from './doctor-checks.mjs';
+import { parseStamp } from './onboarding.mjs';
 import { scanSessionOverlays } from './gate-hook.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,6 +80,9 @@ for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
 // other project adopted the skills and is held to the adopter contract, which
 // never FAILs here (see doctor-checks.mjs hookVerdict for why).
 const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md')) || cwd === ROOT;
+// Working-install signals for the onboarding grandfather verdict (08).
+let hooksWired = false;
+let skillsFound = false;
 let hooksPath = '';
 try {
   hooksPath = execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd, encoding: 'utf8' }).trim();
@@ -97,6 +101,7 @@ try {
   } catch { /* not a git repo */ }
 
   const res = hookVerdict({ mode: repoMode ? 'repo' : 'adopter', hooksPath, hasPre, hasMsg, customHookExists });
+  hooksWired = res.level === 'pass';
   if (res.level === 'fail') fail(res.message);
   else if (res.level === 'warn') warn(res.message);
   else pass(res.message);
@@ -166,6 +171,7 @@ pushIfExists(join(cwd, '.claude', 'skills'));
 pushIfExists(join(cwd, '.cursor', 'skills'));
 pushIfExists(join(homedir(), '.agents', 'skills')); // agentskills.io shared path
 const missing = skillNames.filter((name) => !candidates.some((d) => skillPresent(d, name)));
+skillsFound = missing.length === 0;
 if (missing.length)
   fail(`skills missing from every discovery location: ${missing.join(', ')}`);
 else
@@ -383,6 +389,28 @@ if (ledgerPath) {
   } else {
     const ov = overlayVerdict({ errors: r.errors, entryCount: r.entries.length, omittedCount: r.omitted.length, tierPresent: existsSync(join(cwd, '.trust', 'skills-overlay')) });
     for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
+  }
+}
+
+// ---- ON. Onboarding consent (onboarding spec; AC12/AC13) ----
+// The stamp is read fresh every run (computed at read time). A working
+// install with no stamp is GRANDFATHERED — warn naming the CLI, never
+// fail, so the update never reddens a machine that already works. A stamp
+// that declines a component is recorded by name, loudly: a lighter install
+// is a visible decision, never a silent one.
+{
+  let stamp = null;
+  try { stamp = parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8')); } catch { /* no stamp */ }
+  if (!stamp) {
+    const gv = grandfatherVerdict({ hooksWired, skillsFound });
+    if (gv.level === 'warn') warn(gv.message);
+    else pass(gv.message);
+  } else {
+    const declined = ['floor', 'hooks', 'overlays', 'evidenceGate'].filter((c) => stamp.components[c] === false);
+    if (declined.length)
+      warn(`onboarding consent: declined at onboarding (mechanically OFF): ${declined.join(', ')} — a lighter install is a visible decision`);
+    else
+      pass('onboarding consent: all components consented');
   }
 }
 

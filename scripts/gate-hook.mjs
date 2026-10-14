@@ -50,6 +50,7 @@ import { buildReinject } from './reinject.mjs';
 import { decideBefore, logVeto } from './tna-gate.mjs';
 import { parseSkillOverlays } from './overlay-registry.mjs';
 import { composeFloor } from './floor-composer.mjs';
+import { parseStamp } from './onboarding.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -302,18 +303,28 @@ function main() {
     payload = {};
   }
 
+  // Onboarding consent (onboarding ticket 07): the stamp from the project
+  // cwd gates this hook. Declined hooks -> nothing runs; declined floor ->
+  // the floor is not emitted; declined evidence gate -> the veto does not
+  // fire. No stamp keeps the fail-closed default (the pre-onboarding
+  // behavior). Consent is real by construction — the menu is not decoration.
+  const consent = readConsent(typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd());
+  if (consent && !consent.components.hooks) process.exit(0);
+
   const event = String(payload.hook_event_name || '');
   try {
     if (event === 'UserPromptSubmit') {
       emit(event, buildPromptContext(String(payload.prompt || '')));
     } else if (event === 'SessionStart' || event === 'PostCompact') {
-      emit(event, buildSessionStartContext());
+      if (!consent || consent.components.floor !== false) emit(event, buildSessionStartContext());
     } else if (event === 'PreToolUse') {
       let verdict = null;
-      try {
-        verdict = buildPreToolVerdict(payload);
-      } catch {
-        verdict = null; // unjudgeable → fail-open, same as every other error here
+      if (!consent || consent.components.evidenceGate !== false) {
+        try {
+          verdict = buildPreToolVerdict(payload);
+        } catch {
+          verdict = null; // unjudgeable → fail-open, same as every other error here
+        }
       }
       if (verdict && !verdict.allow) {
         logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
@@ -327,6 +338,11 @@ function main() {
     /* fail-open */
   }
   process.exit(0);
+}
+
+/** The onboarding consent stamp from the project cwd, or null (no consent). */
+function readConsent(cwd) {
+  try { return parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8')); } catch { return null; }
 }
 
 // Self-execute only when run directly (the repo-wide guard pattern: every

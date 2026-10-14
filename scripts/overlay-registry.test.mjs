@@ -55,12 +55,16 @@ const tmp = (prefix) => mkdtempSync(join(tmpdir(), prefix));
     res.errors.length === 0 && Array.isArray(res.entry.triggers) && res.entry.triggers.length === 0, JSON.stringify(res));
 }
 
-// ---- C. Missing required fields rejected ----
+// ---- C. Required fields (amended by onboarding 04: name only) ----
+// The onboarding proposals land anchorless by default, so `extends` and
+// `role` are optional; `name` is the one required field. Validated-when-
+// present still applies to both.
 {
-  const noExtends = parseOverlayFrontmatter(['---', 'name: incomplete', 'role: insert-after', '---', 'body'].join('\n'));
-  check('C1 missing extends is a named error', noExtends.errors.some((e) => /extends/.test(e)), JSON.stringify(noExtends.errors));
-  const noRole = parseOverlayFrontmatter(['---', 'name: x', 'extends: root-cause/Phase-1', '---', 'b'].join('\n'));
-  check('C2 missing role is a named error', noRole.errors.some((e) => /role/.test(e)), JSON.stringify(noRole.errors));
+  const noName = parseOverlayFrontmatter(['---', 'extends: root-cause/Phase-1', 'role: insert-after', '---', 'body'].join('\n'));
+  check('C1 missing name is a named error', noName.errors.some((e) => /name/.test(e)), JSON.stringify(noName.errors));
+  const explicitOnly = parseOverlayFrontmatter(['---', 'name: explicit-only', '---', 'body'].join('\n'));
+  check('C2 an explicit-only overlay (no extends/role) is valid — anchors attach later',
+    explicitOnly.errors.length === 0, JSON.stringify(explicitOnly.errors));
   const noBlock = parseOverlayFrontmatter('# no frontmatter at all');
   check('C3 a file without a frontmatter block is a named error', noBlock.errors.length > 0, JSON.stringify(noBlock.errors));
 }

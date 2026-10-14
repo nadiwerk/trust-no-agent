@@ -78,6 +78,9 @@ jobs:
       - name: Floor composer self-test
         run: node scripts/floor-composer.test.mjs
 
+      - name: Onboarding seam self-test
+        run: node scripts/onboarding.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 

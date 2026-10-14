@@ -370,6 +370,33 @@ triggers: error, crash, stack trace
 - The mechanism is **keyless** and zero-dependency: no API key, no network, no runtime engine — the floor is text the agent executes, like the canonical skills. A broken overlay never breaks the session (**fail-open**); the doctor reports every defect by name, and overlays that do not fit the floor budget are counted, never silently dropped.
 - Validate any time: `node scripts/overlay-registry.mjs [dir]` (exit 0 = registry consistent).
 
+## Onboarding (first run)
+
+After the install, run the front door once:
+
+```
+node scripts/onboarding.mjs
+```
+
+It does four things: (1) **briefs** you on what changes in your sessions (the
+discipline floor, the commit veto, the receipt shape, the three MANDATORY
+skills) plus your harness's row from the compatibility table — and, on Codex,
+the one-time hook-trust step, which only you can take; (2) asks for **consent
+per component** — the session floor, the mechanical hooks, skill mapping, the
+evidence gate — and a component you decline is **mechanically OFF**, recorded
+by the doctor (consent that isn't real is decoration); (3) **maps your
+installed skills** (project + personal directories) and proposes each one as
+an overlay into the workflow — you confirm or skip per skill; names that
+collide with the canonical skills are skipped with a note; (4) writes the
+stamp `.trust/onboarding.json` (private, per-machine) and prints a 4-block
+receipt.
+
+Modes: `--yes` accepts the default menu for scripted installs; `--map-only`
+re-scans when new skills appear without re-asking consent; `--undo` reverses
+everything onboarding did. Installations that predate this command keep
+working: the doctor shows a **grandfather** warning naming it, never a
+failure.
+
 ## Post-install verification
 
 On any harness, confirm the framework is active:

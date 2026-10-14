@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **First-run onboarding** (`scripts/onboarding.mjs`): a human CLI front door
+  that briefs what changes in your sessions, asks consent per component
+  (floor / hooks / skill mapping / evidence gate — a declined component is
+  mechanically OFF and the doctor records it), maps your installed skills
+  (project + personal directories) into the workflow as overlays you confirm
+  per skill, and writes the private stamp `.trust/onboarding.json` with a
+  4-block receipt. `--yes` for scripted installs, `--map-only` to re-scan
+  new skills, `--undo` to reverse everything. Existing installs keep
+  working (grandfather warning, never a failure). Pinned by eval check 44.
+
 ## [0.1.28] - 2026-10-13
 
 ### Added

@@ -24,7 +24,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROLES = new Set(['insert-before', 'insert-after', 'wrap']);
-const REQUIRED = ['name', 'extends', 'role'];
+// `name` is required; `extends` and `role` are validated WHEN PRESENT —
+// an explicit-only overlay (no anchor) is a first-class shape since the
+// onboarding proposals land anchorless by default (onboarding spec).
+const REQUIRED = ['name'];
 // Injection hardening (roast security Required): the name is an identifier,
 // each trigger a bounded keyword — both reach the session floor verbatim.
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,59}$/;

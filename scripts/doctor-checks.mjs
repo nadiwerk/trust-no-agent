@@ -176,6 +176,18 @@ export function manifestVerdict({ stampVersion = '', manifestVersion = '', manif
  * @param {{gateFindings?: number, literalFindings?: number}} input
  * @returns {{reported: number, overlapping: number, unique: number, message: string}}
  */
+/**
+ * Grandfather verdict (onboarding ticket 08; spec AC12). A working install
+ * with no consent stamp gets a WARN naming the onboarding CLI — never a
+ * fail, so the update never reddens a machine that already works. A fresh
+ * tree (no stamp, no working signal) is silent.
+ */
+export function grandfatherVerdict({ hooksWired = false, skillsFound = false } = {}) {
+  if (hooksWired || skillsFound)
+    return { level: 'warn', message: 'a working install has no consent stamp — run node scripts/onboarding.mjs for the stamp + the first-run briefing' };
+  return { level: 'pass', message: 'no onboarding stamp and no working-install signal (fresh tree)' };
+}
+
 export function gateFindingVerdict({ gateFindings = 0, literalFindings = 0 } = {}) {
   // The module emits gate findings only for trail-less entries, so the overlap is
   // bounded by the smaller population; the subtraction is an upper bound on

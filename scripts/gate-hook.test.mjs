@@ -266,4 +266,43 @@ const passedDir = () => {
   rmSync(noDir, { recursive: true, force: true });
 }
 
+// ---- J. Consent-is-real: the stamp gates the live hook (spec AC3) ----
+// Spawned children in temp cwds carrying .trust/onboarding.json fixtures:
+// a declined evidence gate means the commit veto stops firing; a declined
+// floor means the session floor stops being emitted; declined hooks means
+// the hook does nothing at all. No stamp keeps the current fail-closed
+// behavior. The hook reads the stamp from the project cwd, exactly like a
+// real session.
+{
+  const { spawnSync } = await import('node:child_process');
+  const tmp = (p) => mkdtempSync(join(tmpdir(), p));
+  const runWithStamp = (components, payload) => {
+    const dir = tmp('gate-hook-consent-');
+    mkdirSync(join(dir, '.trust'), { recursive: true });
+    writeFileSync(join(dir, '.trust', 'onboarding.json'),
+      JSON.stringify({ schema: 1, consentedAt: '2026-10-14T00:00:00.000Z', routerVersion: '0.1.28', harness: 'test', components, did: {} }));
+    const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify({ ...payload, cwd: dir }), encoding: 'utf8', timeout: 30000 });
+    rmSync(dir, { recursive: true, force: true });
+    return { status: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
+  };
+  const ALL = { floor: true, hooks: true, overlays: true, evidenceGate: true };
+  const commitPayload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' } };
+
+  const denied = runWithStamp(ALL, commitPayload);
+  check('J1 with the evidence gate consented, the commit veto still fires',
+    denied.status === 2, `status=${denied.status}`);
+  const allowed = runWithStamp({ ...ALL, evidenceGate: false }, commitPayload);
+  check('J2 with the evidence gate declined, the commit veto stops (consent is real)',
+    allowed.status === 0 && allowed.out.trim() === '', `status=${allowed.status} out=${allowed.out.slice(0, 100)}`);
+
+  const floorOn = runWithStamp(ALL, { hook_event_name: 'SessionStart' });
+  const floorOff = runWithStamp({ ...ALL, floor: false }, { hook_event_name: 'SessionStart' });
+  check('J3 with the floor consented, the session floor is emitted; declined, it is not',
+    /Iron Law/i.test(floorOn.out) && floorOff.out.trim() === '', `on=${/Iron Law/i.test(floorOn.out)} off=${floorOff.out.slice(0, 80)}`);
+
+  const hooksOff = runWithStamp({ ...ALL, hooks: false }, commitPayload);
+  check('J4 with the mechanical hooks declined, the hook does nothing at all',
+    hooksOff.status === 0 && hooksOff.out.trim() === '', `status=${hooksOff.status}`);
+}
+
 process.exit(failures ? 1 : 0);

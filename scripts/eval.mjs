@@ -985,6 +985,38 @@ for (const [file, text] of [
       err(`scripts/${seam} missing — composition must be a computed mechanism, not prose`);
 }
 
+// ---- 44. Onboarding: consent is real, mapping is consented, rollout is safe (HARD) ----
+// Origin: onboarding ticket 10 (AC15; spec US1-US20). Guarded where the front
+// door is described for adopters (docs/installation.md): the CLI named,
+// per-component consent named, the declined-is-OFF rule named (consent that
+// isn't real is decoration), the mapping scope named, the grandfather
+// rollout named, and the undo mode named. The seam must exist, so the rule
+// cannot be prose about code nobody runs.
+{
+  const installDoc = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+  for (const [marker, why] of [
+    [/onboarding\.mjs/,
+      'the doc must point at the onboarding CLI, or the front door stays undocumented'],
+    [/consent per component|per component/,
+      'the doc must state consent is per component (the granularity decision)'],
+    [/mechanically OFF|declin\w+ (is )?OFF/,
+      'the doc must state a declined component is mechanically OFF — consent that is not real is decoration'],
+    [/maps your\s+installed skills/,
+      'the doc must state the skill mapping scope (project + personal)'],
+    [/grandfather/,
+      'the doc must name the grandfather rollout — existing installs never break'],
+    [/--map-only/,
+      'the doc must name the re-scan mode'],
+    [/--undo/,
+      'the doc must name the reversal mode'],
+  ]) {
+    if (!marker.test(installDoc))
+      err(`docs/installation.md onboarding section: missing ${marker} — ${why}`);
+  }
+  if (!existsSync(join(ROOT, 'scripts', 'onboarding.mjs')))
+    err('scripts/onboarding.mjs missing — the front door must be a computed mechanism, not prose');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

@@ -358,7 +358,6 @@ const ledgerWithDate = (dateStr) =>
     v.reported === 0 && v.unique === 0, JSON.stringify(v));
 }
 
-console.log('\nOK: doctor decision logic behaves as specified.');
 
 // ---- K. Gate C-check (mandatory-gate, ticket 03) ----
 // Seam: gateVerdict({ gateExists, gateSelfTestPasses, mode }) — doctor verifies
@@ -546,5 +545,44 @@ console.log('\nOK: doctor decision logic behaves as specified.');
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+// ---- Q. Onboarding consent in the doctor (spec AC12/AC13) ----
+// Unit both directions; live derivation uses the repo itself as the
+// working-install fixture (hooks wired + skills found + no stamp), writing
+// and removing a stamp around the run — .trust/onboarding.json is the only
+// file touched.
+{
+  const { grandfatherVerdict, overlayVerdict: ov } = await import('./doctor-checks.mjs');
+  check('Q1 a working-install signal with no stamp warns, naming the CLI',
+    grandfatherVerdict({ hooksWired: true }).level === 'warn' && /onboarding\.mjs/.test(grandfatherVerdict({ hooksWired: true }).message),
+    JSON.stringify(grandfatherVerdict({ hooksWired: true })));
+  check('Q2 a fresh tree (no signal, no stamp) is silent',
+    grandfatherVerdict({}).level === 'pass', JSON.stringify(grandfatherVerdict({})));
+  const { spawnSync } = await import('node:child_process');
+  const { join: jQ, dirname: dQ } = await import('node:path');
+  const { fileURLToPath: fQ } = await import('node:url');
+  const { mkdirSync: mkQ, writeFileSync: wfQ, rmSync: rmQ, existsSync: exQ } = await import('node:fs');
+  const DOCTOR = jQ(dQ(fQ(import.meta.url)), 'doctor.mjs');
+  const REPO = jQ(dQ(fQ(import.meta.url)), '..');
+  const STAMP = jQ(REPO, '.trust', 'onboarding.json');
+  const runRepoDoctor = () => String(spawnSync(process.execPath, [DOCTOR], { cwd: REPO, encoding: 'utf8', timeout: 120000 }).stdout ?? '');
+  const hadStamp = exQ(STAMP);
+  const saved = hadStamp ? readFileSync(STAMP, 'utf8') : null;
+  try {
+    if (hadStamp) rmQ(STAMP, { force: true });
+    const before = runRepoDoctor();
+    check('Q3 the live doctor warns (not fails) on the working repo without a stamp',
+      /no consent stamp/.test(before) && /PASS|OK:/.test(before), before.split('\n').filter((l) => /consent/.test(l)).join(' | ').slice(0, 200));
+    mkQ(jQ(REPO, '.trust'), { recursive: true });
+    wfQ(STAMP, JSON.stringify({ schema: 1, consentedAt: '2026-10-14T00:00:00.000Z', routerVersion: '0.1.28', harness: 'test', components: { floor: true, hooks: true, overlays: true, evidenceGate: false }, did: {} }));
+    const after = runRepoDoctor();
+    check('Q4 with a stamp, the grandfather warning is gone and the decline is named loudly',
+      !/no consent stamp/.test(after) && /declined at onboarding.*evidenceGate|evidenceGate.*declined/s.test(after),
+      after.split('\n').filter((l) => /consent|declined/.test(l)).join(' | ').slice(0, 200));
+  } finally {
+    if (saved !== null) wfQ(STAMP, saved);
+    else if (exQ(STAMP)) rmQ(STAMP, { force: true });
+  }
+}
 if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
-console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P).');
+console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q).');
