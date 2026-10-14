@@ -584,5 +584,36 @@ const ledgerWithDate = (dateStr) =>
     else if (exQ(STAMP)) rmQ(STAMP, { force: true });
   }
 }
+// ---- R. Ledger-audit display rollup + dev-mode badge (A+C, Master 2026-10-14) ----
+// The 47-findings wall: a developer's dense ledger turns the doctor into a
+// wall of numbered warnings that reads like a broken install (Master: "setiap
+// update selalu menyisahkan 47 findings ... sangat mengganggu para user").
+// The doctor must print ONE rollup line (total + per-kind counts + the
+// warn-only/exit-0 fact), and in repo mode (the framework's own checkout) a
+// single dev-mode badge instead of a wall.
+{
+  const { readFileSync } = await import('node:fs');
+  const { join: jR, dirname: dR } = await import('node:path');
+  const { fileURLToPath: fR } = await import('node:url');
+  const src = readFileSync(jR(dR(fR(import.meta.url)), 'doctor.mjs'), 'utf8');
+  check('R1 the doctor carries a single-line rollup (total + per-kind + warn-only) for bulk findings',
+    /rollupLedgerFindings/.test(src), 'no rollupLedgerFindings in doctor.mjs');
+  check('R2 the doctor carries the dev-mode badge (repo mode collapses the wall into one badge line)',
+    /dev-mode ledger/.test(src), 'no dev-mode badge in doctor.mjs');
+  const { rollupLedgerFindings } = await import('./doctor-checks.mjs');
+  const fixtures = [
+    { kind: 'next-gap', message: 'x' }, { kind: 'next-gap', message: 'y' }, { kind: 'next-gap', message: 'z' },
+    { kind: 'gated-loaded-gap', message: 'a' }, { kind: 'gated-loaded-gap', message: 'b' },
+    { kind: 'lesson-gap', message: 'c' },
+  ];
+  const roll = rollupLedgerFindings({ findings: fixtures, total: 47 });
+  check('R3 the rollup is one line: total + per-kind counts + the warn-only fact',
+    roll.split('\n').length === 1 && /47/.test(roll) && /next-gap \(3\)/.test(roll)
+    && /gated-loaded-gap \(2\)/.test(roll) && /lesson-gap \(1\)/.test(roll) && /warning/i.test(roll),
+    roll);
+  const empty = rollupLedgerFindings({ findings: [], total: 0 });
+  check('R4 zero findings produce no rollup line (nothing to summarize)',
+    empty === null, JSON.stringify(empty));
+}
 if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
 console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q).');

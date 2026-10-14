@@ -287,6 +287,7 @@ if (ledgerPath) {
   // tested by ledger-audit.test.mjs + doctor.test.mjs.
   try {
     const { auditLedger, ledgerVerdict, formatFindingGroup, formatFindingGroupNextDay } = await import('./ledger-audit.mjs');
+    const { rollupLedgerFindings, gateFindingVerdict } = await import('./doctor-checks.mjs');
     // M8 needs the corrective tier's text (the L7 seam: omitted means M8 stays
     // silent). Read next to the ledger, degrade to null when the file is absent
     // — checkStarve above already reports a missing tier, so M8 must not turn
@@ -296,7 +297,13 @@ if (ledgerPath) {
     const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date(), lessonsText });
     const verdict = ledgerVerdict({ findings, gaps });
     if (verdict.level === 'clean') pass(`${verdict.message} — ${ledgerRel}`);
-    else warn(`${verdict.message} — ${ledgerRel}`);
+    // Findings present: the rollup line REPLACES the verdict wall (A+C, Master
+    // 2026-10-14) — dev mode collapses to one badge line; adopters get the
+    // rollup + the per-kind detail under the threshold.
+    else if (repoMode)
+      warn(`dev-mode ledger — ${rollupLedgerFindings({ findings, total: findings.length })} — detail: node scripts/ledger-audit.mjs`);
+    else
+      warn(rollupLedgerFindings({ findings, total: findings.length }) + ` — ${ledgerRel}`);
     // One line per KIND, not per finding: the first live adopter run printed 18
     // warning lines and buried the two real signals in the wall. A check that
     // fires on everything is a check nobody reads — so each kind gets a count,
@@ -312,21 +319,26 @@ if (ledgerPath) {
     // are entries the literal audit cannot see, so suppression would have thrown
     // away real signal). Every gate finding is reported; the count that overlaps
     // the literal audit is a number in the message.
-    const { gateFindingVerdict } = await import('./doctor-checks.mjs');
     // Kinds that arrive in BULK get the per-day rollup; the rest keep the flat
     // listing (a handful of findings reads better as dates than as counts). A
     // threshold rather than a per-kind special case: measured 2026-09-29, the
     // adopter ledger's next-gap ran to 44 findings and read as a wall, while a
     // three-finding kind stays legible as-is — a number the reader cannot scan
     // is the defect, whatever kind produced it.
+    // (A+C, Master 2026-10-14) The rollup line above replaces the wall when
+    // findings are bulk; per-kind lines survive only in ADOPTER mode under the
+    // threshold so a small real signal still shows its dates. Dev mode prints
+    // the rollup only — the framework's own ledger is never an adopter's lead.
     const BULK_THRESHOLD = 8;
-    for (const [kind, list] of byKind) {
-      if (kind === 'gated-loaded-gap') continue; // annotated below
-      warn(list.length > BULK_THRESHOLD ? formatFindingGroupNextDay(kind, list) : formatFindingGroup(kind, list));
+    if (!repoMode && findings.length > BULK_THRESHOLD) {
+      for (const [kind, list] of byKind) {
+        if (kind === 'gated-loaded-gap') continue; // annotated below
+        warn(formatFindingGroupNextDay(kind, list));
+      }
     }
     const gateList = byKind.get('gated-loaded-gap') || [];
-    if (gateList.length) {
-      warn(gateList.length > BULK_THRESHOLD ? formatFindingGroupNextDay('gated-loaded-gap', gateList) : formatFindingGroup('gated-loaded-gap', gateList));
+    if (gateList.length && !repoMode && findings.length <= BULK_THRESHOLD) {
+      warn(formatFindingGroup('gated-loaded-gap', gateList));
       warn(gateFindingVerdict({ gateFindings: gateList.length, literalFindings: (byKind.get('loaded-gap') || []).length }).message);
     }
 

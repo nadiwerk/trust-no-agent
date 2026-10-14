@@ -177,6 +177,23 @@ export function manifestVerdict({ stampVersion = '', manifestVersion = '', manif
  * @returns {{reported: number, overlapping: number, unique: number, message: string}}
  */
 /**
+ * Ledger-audit display rollup (A, Master 2026-10-14): a developer's dense
+ * ledger turns the doctor into a wall of numbered warnings that reads like a
+ * broken install — "47 findings" on a healthy install (exit 0, all warnings).
+ * One line: the total, the per-kind counts, and the warn-only fact, so the
+ * reader sees at a glance that nothing is broken. Returns null when there is
+ * nothing to summarize.
+ */
+export function rollupLedgerFindings({ findings = [], total = null } = {}) {
+  if (!findings.length) return null;
+  const byKind = new Map();
+  for (const f of findings) byKind.set(f.kind, (byKind.get(f.kind) || 0) + 1);
+  const parts = [...byKind.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} (${n})`);
+  const t = total ?? findings.length;
+  return `${t} finding(s) — ${parts.join(', ')} — all warnings, the install is healthy (exit 0)`;
+}
+
+/**
  * Grandfather verdict (onboarding ticket 08; spec AC12). A working install
  * with no consent stamp gets a WARN naming the onboarding CLI — never a
  * fail, so the update never reddens a machine that already works. A fresh
