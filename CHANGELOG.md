@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-10-14
+
 ### Added
 
 - **First-run onboarding** (`scripts/onboarding.mjs`): a human CLI front door
@@ -584,7 +586,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.28...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.25...v0.1.26
