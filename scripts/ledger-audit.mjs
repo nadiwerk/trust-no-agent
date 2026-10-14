@@ -35,6 +35,7 @@
  */
 
 import { classifyTask, MANDATORY_DOMAINS } from './mandatory-gate.mjs';
+import { auditLedgerReceipts } from './receipt-enforcement.mjs';
 
 export const RECENCY_DAYS = 14;
 
@@ -510,7 +511,16 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
     domainTouched: DOMAIN_MARKERS.some((m) => (domainHits[m] || 0) > 0),
   }));
 
-  return { findings, gaps, stats: { loadedCounts, mandatoryMentions } };
+  // Receipt enforcement (receipt-enforcement ticket 04; spec AC4): the hilir
+// hard checks ride the same audit. The grandfather note is informational —
+// it rides the doctor's session-start surface (RS), not the audit findings,
+// so it never pollutes a "no findings" reading of an old fixture.
+{
+  const rr = auditLedgerReceipts({ ledgerText, today });
+  for (const f of rr.findings) findings.push(f);
+}
+
+return { findings, gaps, stats: { loadedCounts, mandatoryMentions } };
 }
 
 // MANDATORY skills per the router — imported from the gate (one list, two

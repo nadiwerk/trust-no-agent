@@ -83,7 +83,7 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — the twenty-nine self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
+- **Run the gates before pushing** — the thirty self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
   CI runs the same set on every push and PR; a red CI blocks merge. The
   pre-commit hook runs a superset (it adds `reinject.test.mjs`,
   `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
@@ -98,7 +98,7 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the twenty-nine gates:
+**`validate`** — the thirty gates:
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
@@ -129,6 +129,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 27. `node scripts/spec-scrub.test.mjs` — spec-scrub check (the decision-composition spec names no external products).
 28. `node scripts/floor-composer.test.mjs` — floor composer self-test (canonical-first, `user:` marking, bounded budget, determinism).
 29. `node scripts/onboarding.test.mjs` — onboarding seam self-test (discovery, proposals, stamp fail-closed).
+30. `node scripts/receipt-enforcement.test.mjs` — receipt-enforcement self-test (per-boolean shape, staleness, veto, hardened re-run).
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message

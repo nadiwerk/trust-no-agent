@@ -81,6 +81,9 @@ jobs:
       - name: Onboarding seam self-test
         run: node scripts/onboarding.test.mjs
 
+      - name: Receipt enforcement self-test
+        run: node scripts/receipt-enforcement.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 

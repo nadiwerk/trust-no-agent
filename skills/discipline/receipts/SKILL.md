@@ -58,6 +58,29 @@ The fifth boolean exists because "dont trust anyone even themselves" means a con
 
 The `fail-first proven` boolean is the mechanical seam: it is what a pre-commit hook or CI gate can check for (see `scripts/eval.mjs`), so the discipline survives even when the model would rather skip it.
 
+## The enforced receipt shape
+
+This repo enforces the receipt's shape, not just its presence (`scripts/receipt-enforcement.mjs`, pinned by eval check 45): the four blocks (Verdict / Evidence / Open / Next) with each of the five booleans carrying its own evidence line — a blanket "all five hold" is not a verdict and is rejected by name. The template:
+
+```
+**Verdict** — <one-line summary>
+constraints satisfied — <the constraint list / acceptance criteria checked>
+evidence fresh — <literal repo-gate command + result, e.g. node scripts/eval.mjs → 37/37 green, this turn>
+scope held — <files in / out of scope>
+subject verified — <the artifact checked, not a proxy>
+fail-first proven — <RED evidence cited, or n/a with the reason>
+**Evidence** — <the outputs cited above>
+**Open** — <what remains>
+**Next** — <one concrete forward arrow>
+```
+
+Rules the validator enforces:
+
+- **The repo-gate allowlist**: a cited verification command must be a repo gate (the `node scripts/*` references in the CI workflow); "tests pass" without a command is not evidence, and a non-allowlisted command is rejected.
+- **The fast one-line receipt**: a `fast` unit still carries a receipt — one line: claim, one allowlisted command, its result. Nothing truly skips.
+- **The staleness window**: a claim older than 14 days (RECEIPT_STALE_DAYS) is stale by computation and must be re-verified — its cited gates re-run through the hardened runner — before it may gate anything. Statuses: fresh / re-verified / stale / unverifiable; only fresh and re-verified may gate.
+- **The veto**: the commit veto denies when the newest ledger entry lacks a valid receipt, or its claim is stale — bypassing the receipt cannot land.
+
 ## Common Failures
 
 | Claim | What counts as proof | What never counts |

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Receipt enforcement** (`scripts/receipt-enforcement.mjs`): the hilir side
+  becomes steel — the receipt shape is validated (the five booleans each
+  carrying their own evidence; a blanket "all five hold" is not a verdict),
+  cited verification commands must be repo gates (allowlist), a done-claim
+  without a valid receipt hard-fails the audit AND the commit veto (the newest
+  ledger entry must carry one), claims older than 14 days are stale by
+  computation and must be re-verified — their cited gates re-run through the
+  hardened runner — before gating, fast units carry a minimal receipt, and
+  pre-feature entries are grandfathered. Pinned by eval check 45.
+
 ## [0.1.29] - 2026-10-14
 
 ### Added

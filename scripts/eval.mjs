@@ -1017,6 +1017,41 @@ for (const [file, text] of [
     err('scripts/onboarding.mjs missing — the front door must be a computed mechanism, not prose');
 }
 
+// ---- 45. Receipt enforcement: per-boolean, allowlist, veto, window (HARD) ----
+// Origin: receipt-enforcement ticket 08 (AC13; spec US1-US15). Guarded where
+// the receipt shape is documented (the receipts skill): the five booleans
+// each carrying their own evidence (a blanket all-yes rejected by name),
+// the repo-gate allowlist, the fast one-line receipt, the 14-day staleness
+// window with re-verification before gating, and the commit veto on a
+// receipt-less newest entry. The seam must exist, so the rule cannot be
+// prose about code nobody runs.
+{
+  const receiptsSkill = readFileSync(join(ROOT, 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');
+  for (const [marker, why] of [
+    [/receipt-enforcement\.mjs/,
+      'the skill must point at the enforcement seam, or the shape stays a suggestion'],
+    [/each of the five booleans carrying its own evidence/,
+      'the skill must state per-boolean evidence — a blanket all-yes is not a verdict'],
+    [/blanket "all five hold" is not a verdict/,
+      'the skill must reject the blanket verdict by name'],
+    [/repo-gate allowlist/,
+      'the skill must name the allowlist — "tests pass" is not evidence'],
+    [/fast one-line receipt/,
+      'the skill must state fast units carry a minimal receipt'],
+    [/14 days|RECEIPT_STALE_DAYS/,
+      'the skill must state the staleness window'],
+    [/re-verif/,
+      'the skill must state stale claims are re-verified before gating'],
+    [/commit veto|veto denies/,
+      'the skill must name the commit veto on a receipt-less newest entry'],
+  ]) {
+    if (!marker.test(receiptsSkill))
+      err(`skills/discipline/receipts/SKILL.md receipt-enforcement section: missing ${marker} — ${why}`);
+  }
+  if (!existsSync(join(ROOT, 'scripts', 'receipt-enforcement.mjs')))
+    err('scripts/receipt-enforcement.mjs missing — the receipt shape must be a computed check, not prose');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

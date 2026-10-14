@@ -305,4 +305,75 @@ const passedDir = () => {
     hooksOff.status === 0 && hooksOff.out.trim() === '', `status=${hooksOff.status}`);
 }
 
+// ---- K. The receipt veto: commits require a valid newest-entry receipt ----
+// (spec AC5/AC15/AC17; ticket 05). Temp cwds carrying a ledger fixture and
+// a fresh evidence state file (so the existing evidence rule passes and
+// the receipt rule is the only variable). The deny direction names the
+// receipt rule in stderr.
+{
+  const { spawnSync } = await import('node:child_process');
+  const tmp = (p) => mkdtempSync(join(tmpdir(), p));
+  const runCommit = (dir) => {
+    const r = spawnSync(process.execPath, [HOOK], {
+      input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: dir }),
+      encoding: 'utf8', timeout: 30000,
+    });
+    return { status: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
+  };
+  const seed = (dir, ledgerBody) => {
+    mkdirSync(join(dir, '.trust'), { recursive: true });
+    writeFileSync(join(dir, '.trust', 'progress.txt'), ledgerBody);
+    writeFileSync(join(dir, '.trust', 'tna-gate-state.json'), JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: new Date().toISOString() }));
+  };
+  const GOOD_NEWEST = [
+    '## 2026-10-20',
+    '',
+    '### Session Summary - proper receipt',
+    '**Verdict** — the receipt holds',
+    'constraints satisfied — the shape checked',
+    'evidence fresh — node scripts/eval.mjs → 37/37 green',
+    'scope held — 1 file in, 0 out',
+    'subject verified — the seam',
+    'fail-first proven — RED observed',
+    '**Evidence** — the validator output',
+    '**Open** — the wiring',
+    '**Next** — commit',
+  ].join('\n');
+
+  {
+    const dir = tmp('veto-blanket-');
+    seed(dir, '## 2026-10-20\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
+    const r = runCommit(dir);
+    check('K1 a commit is denied when the newest entry has a blanket verdict, naming the receipt rule',
+      r.status === 2 && /receipt/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('veto-valid-');
+    seed(dir, GOOD_NEWEST);
+    const r = runCommit(dir);
+    check('K2 a commit is allowed when the newest entry has a valid receipt',
+      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} out=${r.out.slice(0, 80)} err=${r.err.slice(0, 80)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('veto-newest-');
+    // a VALID receipt in an older entry, blanket in the newest: still denied
+    seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-10-13') + '\n\n## 2026-10-20\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
+    const r = runCommit(dir);
+    check('K3 the linkage is the newest entry (an older valid receipt does not satisfy it)',
+      r.status === 2 && /receipt/i.test(r.err), `status=${r.status}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('veto-stale-');
+    // a valid but OLD (stale) claim: denied until re-verified
+    seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-08-01'));
+    const r = runCommit(dir);
+    check('K4 a stale claim is denied (re-verify before gating)',
+      r.status === 2 && /stale|re-verify/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 process.exit(failures ? 1 : 0);

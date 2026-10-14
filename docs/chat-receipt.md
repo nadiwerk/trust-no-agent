@@ -58,3 +58,7 @@ The four-block shape is mandatory; this budget binds its size. A receipt over bu
 | Evidence | `expect-fail` + `make-it-so` repair receipt |
 | Open | `receipts` gate semantics |
 | Next + archive | `ship-log` (ACs quoted from `save-as`) |
+
+## The enforced shape (validator-backed)
+
+The four blocks above are the chat shape; the ledger's receipts carry the enforced shape — the five booleans each with their own evidence line (`scripts/receipt-enforcement.mjs`, eval check 45): a blanket "all five hold" is not a verdict. The template and the rules the validator enforces (the repo-gate allowlist for cited commands, the fast one-line receipt, the 14-day staleness window with re-verification before gating, and the commit veto on a receipt-less newest entry) live in the `receipts` skill — this doc is the chat-side shape, that skill is the enforced ledger-side shape.

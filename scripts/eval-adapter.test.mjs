@@ -138,6 +138,24 @@ for (const [label, re] of [
   check(`44 ${label} in installation.md onboarding section`, re.test(install), String(re));
 }
 
+// Check 45 pins (receipt-enforcement ticket 08, AC13): the enforcement
+// contract at the receipts skill. FAIL direction: strip the enforced-shape
+// section from the skill -> these red.
+check('eval.mjs carries check 45 (receipt enforcement contract)', /---- 45\. /.test(evalSrc));
+const receiptsSkill = readFileSync(join(HERE, '..', 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');
+for (const [label, re] of [
+  ['seam named', /receipt-enforcement\.mjs/],
+  ['per-boolean stated', /each of the five booleans carrying its own evidence/],
+  ['blanket rejected', /blanket "all five hold" is not a verdict/],
+  ['allowlist named', /repo-gate allowlist/],
+  ['fast receipt named', /fast one-line receipt/],
+  ['window stated', /14 days|RECEIPT_STALE_DAYS/],
+  ['re-verification stated', /re-verif/],
+  ['veto named', /commit veto|veto denies/],
+]) {
+  check(`45 ${label} in the receipts skill`, re.test(receiptsSkill), String(re));
+}
+
 // Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED

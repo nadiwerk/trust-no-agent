@@ -51,6 +51,7 @@ import { decideBefore, logVeto } from './tna-gate.mjs';
 import { parseSkillOverlays } from './overlay-registry.mjs';
 import { composeFloor } from './floor-composer.mjs';
 import { parseStamp } from './onboarding.mjs';
+import { vetoVerdict } from './receipt-enforcement.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -326,6 +327,16 @@ function main() {
           verdict = null; // unjudgeable → fail-open, same as every other error here
         }
       }
+      // The receipt rule (receipt-enforcement ticket 05): a commit's newest
+      // ledger entry must carry a valid receipt (and a gateable claim).
+      // Hooks-level: it runs whenever the hook runs at all. No ledger = the
+      // existing evidence precondition owns the case.
+      const rv = receiptVerdict(payload);
+      if (rv && !rv.allow) {
+        logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
+        process.stderr.write(`[trust-no-agent] ${rv.reason}\n`);
+        process.exit(2);
+      }
       if (verdict && !verdict.allow) {
         logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
         process.stderr.write(`[trust-no-agent] ${verdict.reason}\n`);
@@ -343,6 +354,21 @@ function main() {
 /** The onboarding consent stamp from the project cwd, or null (no consent). */
 function readConsent(cwd) {
   try { return parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8')); } catch { return null; }
+}
+
+/**
+ * The receipt veto for a commit (receipt-enforcement ticket 05): the newest
+ * ledger entry must carry a valid receipt and a gateable claim. Non-commit
+ * actions return null (the rule governs commits); a missing ledger returns
+ * null too (the evidence precondition owns that case).
+ */
+function receiptVerdict(payload) {
+  const cmd = String(payload.tool_input?.command ?? payload.args?.command ?? '');
+  if (!/git\s+commit/.test(cmd)) return null;
+  const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+  let ledgerText = '';
+  try { ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8'); } catch { /* no ledger */ }
+  return vetoVerdict({ ledgerText, today: new Date() });
 }
 
 // Self-execute only when run directly (the repo-wide guard pattern: every

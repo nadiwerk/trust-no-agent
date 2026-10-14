@@ -414,6 +414,21 @@ if (ledgerPath) {
   }
 }
 
+// ---- RS. Receipt staleness + grandfather (receipt-enforcement 06) ----
+// The doctor surfaces the claims awaiting re-verification and the
+// grandfathered pre-feature count as warns at session start (trust decays
+// with time; the audit carries the hard rule).
+{
+  try {
+    const ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8');
+    const { auditLedgerReceipts } = await import('./receipt-enforcement.mjs');
+    const rr = auditLedgerReceipts({ ledgerText, today: new Date() });
+    for (const w of rr.warns) warn(w);
+    if (rr.stale.length)
+      warn(`receipt staleness: ${rr.stale.length} ledger claim(s) older than the window await re-verification (re-run their cited gates before gating)`);
+  } catch { /* no ledger — nothing to surface */ }
+}
+
 // ---- summary ----
 console.log('');
 if (problems.length) {
