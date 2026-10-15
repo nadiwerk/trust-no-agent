@@ -25,6 +25,10 @@ The paranoia is the feature: an agent's claim is not evidence, a subagent's "suc
 npx skills add nadiwerk/trust-no-agent && cp AGENTS.md WORKFLOW.md .
 ```
 
+Then type **`/setup-tna`** in your chat session — the agent guides the whole
+onboarding in chat (briefing, consent, skill mapping, doctor as final proof).
+No terminal round-trip. Full paths: [docs/installation.md](docs/installation.md).
+
 That's it: **11 skills + the router**, working on any harness that reads `AGENTS.md`.
 
 - `npx skills add` drops the 11 skills into your harness's skill-discovery directory; the `cp` adds the **router** (`AGENTS.md` + `WORKFLOW.md`) — no skill installer distributes it, and it's the part that does the real work: it forces the discipline skills to load before relevant work starts. Without the router the skills sit inert — fresh agents self-triggered them **0 out of 3 times** in evals ([docs/design.md](docs/design.md)).

@@ -49,6 +49,15 @@ Both adaptation waves follow the encode-twice discipline (prose where it is
 read, an eval marker where it is enforced, an adapter pin where it is
 regression-guarded) and were proven able to fail via strip-dance.
 
+- **The `/setup-tna` chat front door** (`.opencode/command/setup-tna.md`,
+  mirrored byte-identical into the plugin payload per harness): type
+  `/setup-tna` in your chat session and the agent guides the entire
+  onboarding — briefing, consent, skill mapping, doctor as final proof —
+  without opening a terminal. Installations predating the command keep
+  working; `node scripts/onboarding.mjs` remains the terminal fallback.
+  Also in this release: the doctor's ledger-audit rollup display fix
+  (`3bb991a`).
+
 ## [0.1.30] - 2026-10-14
 
 ### Added
