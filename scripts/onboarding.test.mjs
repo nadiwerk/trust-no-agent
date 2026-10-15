@@ -25,6 +25,12 @@ const check = (label, cond, detail = '') => {
   if (cond) console.log(`ok - ${label}`);
   else { failures++; console.log(`FAIL - ${label}${detail ? ` :: ${detail}` : ''}`); }
 };
+const fixtureSkill = (dir, name = 'team-playbook', text = '# Skill: team-playbook\nhow we ship together') => {
+  const d = join(dir, '.claude', 'skills', name);
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, 'SKILL.md'), text);
+  return d;
+};
 const tmp = (p) => mkdtempSync(join(tmpdir(), p));
 const put = (root, name, text) => {
   const d = join(root, name);
@@ -486,6 +492,86 @@ const put = (root, name, text) => {
   check('H2 the doctor shows the overlay tier active with the mapped skill',
     /1 overlay\(s\) validated/.test(out), out.split('\n').filter((l) => /overlay/.test(l)).join(' | ').slice(0, 160));
   rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- I. hooks consent wires core.hooksPath (setup-tna unification) ----
+// Master: /setup-tna alone must complete a first install. The missing loop:
+// consent hooks=true did NOT wire core.hooksPath (the receipt said "your
+// git config step") — so the doctor still failed on hooks right after a
+// smooth onboarding. Consent-real means the component actually turns ON.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONBOARD2 = join(HERE, 'onboarding.mjs');
+  const mkRepo = (p) => {
+    const dir = tmp(p);
+    fixtureSkill(dir);
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+    return dir;
+  };
+  const hooksPathOf = (dir) => {
+    try { return execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd: dir, encoding: 'utf8' }).trim(); } catch { return ''; }
+  };
+  const runIn = (dir, answersJson) => spawnSync(process.execPath, [ONBOARD2, '--from-chat', answersJson], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000,
+    env: { ...process.env, USERPROFILE: dir, HOME: dir },
+  });
+
+  {
+    const dir = mkRepo('onboard-wire-');
+    // gitignored seed (an adopter's fresh clone carries the framework's
+    // .gitignore) + hooks tracked copies — /setup-tna alone must finish
+    // these or the doctor still fails after onboarding.
+    writeFileSync(join(dir, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dir, 'scripts', 'hooks'), { recursive: true });
+    writeFileSync(join(dir, 'scripts', 'hooks', 'pre-commit'), '#!/usr/bin/env bash\n');
+    writeFileSync(join(dir, 'scripts', 'hooks', 'commit-msg'), '#!/usr/bin/env bash\n');
+    const r = runIn(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    check('I1 hooks consent=true wires core.hooksPath (the component turns ON mechanically)',
+      r.status === 0 && hooksPathOf(dir) === 'scripts/hooks', `status=${r.status} hooksPath=${hooksPathOf(dir)}`);
+    const stamp = parseStamp(readFileSync(join(dir, '.trust', 'onboarding.json'), 'utf8'));
+    check('I2 the stamp records hooksPathSet=true (the --undo feed)',
+      stamp && stamp.did.hooksPathSet === true, JSON.stringify(stamp?.did));
+    // The unified /setup-tna promise: after onboarding, the doctor's hook
+    // and gitignore checks PASS on a properly-cloned adopter repo.
+    const doc = spawnSync(process.execPath, [ONBOARD2.replace('onboarding.mjs', 'doctor.mjs')], { cwd: dir, encoding: 'utf8', timeout: 120000 });
+    const docOut = String(doc.stdout ?? '');
+    check('I3 after /setup-tna the doctor passes the hooks and gitignore checks (one door, zero follow-ups)',
+      !/hooksPath not set/.test(docOut) && !/NOT gitignored/.test(docOut), docOut.split('\n').filter((l) => /FAIL|hooks|gitignored/.test(l)).join(' | ').slice(0, 300));
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    // No .gitignore seed: onboarding APPENDS `.trust/` to the adopter's
+    // .gitignore (never overwrites) — the one-door promise covers a repo
+    // whose gitignore predates the framework.
+    const dir = mkRepo('onboard-gi-');
+    writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+    mkdirSync(join(dir, 'scripts', 'hooks'), { recursive: true });
+    writeFileSync(join(dir, 'scripts', 'hooks', 'pre-commit'), '#!/usr/bin/env bash\n');
+    writeFileSync(join(dir, 'scripts', 'hooks', 'commit-msg'), '#!/usr/bin/env bash\n');
+    runIn(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    const gi = readFileSync(join(dir, '.gitignore'), 'utf8');
+    check('I5 onboarding appends .trust/ to an existing .gitignore without clobbering it',
+      /node_modules\//.test(gi) && /\.trust\/?/.test(gi), JSON.stringify(gi));
+    const doc = spawnSync(process.execPath, [ONBOARD2.replace('onboarding.mjs', 'doctor.mjs')], { cwd: dir, encoding: 'utf8', timeout: 120000 });
+    check('I6 the doctor passes the gitignored check after the append',
+      !/NOT gitignored/.test(String(doc.stdout ?? '')), String(doc.stdout ?? '').split('\n').filter((l) => /gitignored/.test(l)).join(' | ').slice(0, 200));
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = mkRepo('onboard-nowire-');
+    const r = runIn(dir, JSON.stringify({ components: { floor: true, hooks: false, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    check('I3 hooks consent=false does NOT wire hooksPath (declined is off, not broken)',
+      r.status === 0 && hooksPathOf(dir) === '', `status=${r.status} hooksPath=${hooksPathOf(dir)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = mkRepo('onboard-undo-wire-');
+    runIn(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    spawnSync(process.execPath, [ONBOARD2, '--undo'], { cwd: dir, input: '', encoding: 'utf8', timeout: 60000 });
+    check('I4 --undo unsets core.hooksPath after onboarding wired it',
+      hooksPathOf(dir) === '', `hooksPath=${hooksPathOf(dir)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 console.log(failures === 0 ? '\nAll onboarding seam expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);

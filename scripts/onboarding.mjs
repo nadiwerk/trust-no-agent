@@ -315,13 +315,15 @@ async function mapPhase(cwd, { yes, onlySkills } = {}) {
   return { discovered: discovered.length, plan, written };
 }
 
-function printReceipt({ components, routerVersion, harness, stamped, mapResult }) {
+function printReceipt({ components, routerVersion, harness, stamped, mapResult, hooksPathSet }) {
   const yes = (k) => (components[k] ? 'consented' : 'declined (mechanically OFF)');
   console.log('');
   console.log('Receipt');
   console.log(`  Consented: floor=${yes('floor')} hooks=${yes('hooks')} overlays=${yes('overlays')} evidence-gate=${yes('evidenceGate')} (router ${routerVersion || 'unknown'}, harness ${harness})`);
   console.log(`  Mapped: ${stamped ? 'stamp written to .trust/onboarding.json' : 'no stamp written (aborted)'}${mapResult ? ` — ${mapResult.discovered} discovered, ${mapResult.written.length} written (${mapResult.written.join(', ') || 'none'}), ${mapResult.plan.skipped.length} skipped, ${mapResult.plan.noted.length} already registered` : ''}`);
-  console.log('  Pending: hooks wiring is your git config step (core.hooksPath=scripts/hooks).');
+  console.log(hooksPathSet === true
+    ? '  Pending: none — hooks wired (core.hooksPath=scripts/hooks).'
+    : '  Pending: hooks wiring was declined — the mechanical hooks stay OFF (consent is real).');
   console.log('  Next: ask your agent to read AGENTS.md and recite the four Iron Laws; then run /setup-tna in your chat session (or node scripts/onboarding.mjs --map-only) when new skills appear.');
 }
 
@@ -400,11 +402,37 @@ async function main() {
 
     const components = answers.components;
     mkdirSync(join(cwd, '.trust'), { recursive: true });
+    // The stamp is private: make sure `.trust/` is gitignored — appending to
+    // the adopter's existing .gitignore (never clobbering). Without this the
+    // doctor fails right after a "successful" onboarding (the one-door
+    // promise).
+    if (components.floor || components.overlays) {
+      const giPath = join(cwd, '.gitignore');
+      let gi = '';
+      try { gi = readFileSync(giPath, 'utf8'); } catch { /* no .gitignore yet */ }
+      if (!/(^|\n)\s*\.trust\/?\s*(\n|$)/.test(gi)) {
+        const sep = gi.endsWith('\n') || gi === '' ? '' : '\n';
+        writeFileSync(giPath, gi + sep + '.trust/\n');
+      }
+    }
     let mapResult = null;
     if (components.overlays) mapResult = await mapPhase(cwd, { yes: true, onlySkills: answers.mapSkills });
-    const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet: false };
+    // Consent is real (setup-tna unification): consenting hooks WIRES
+    // core.hooksPath — the component turns ON mechanically, or /setup-tna
+    // alone cannot complete a first install. Declining leaves the config
+    // untouched (off, not broken).
+    let hooksPathSet = false;
+    if (components.hooks) {
+      try {
+        execFileSync('git', ['config', 'core.hooksPath', 'scripts/hooks'], { cwd, stdio: 'pipe' });
+        hooksPathSet = true;
+      } catch (e) {
+        console.error(`hooks wiring failed — set it manually: git config core.hooksPath scripts/hooks (${e && e.message ? e.message : 'unknown error'})`);
+      }
+    }
+    const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet };
     writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did }));
-    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult });
+    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet });
     process.exit(0);
   }
 

@@ -372,16 +372,18 @@ triggers: error, crash, stack trace
 
 ## Onboarding (first run)
 
-After the install, run the front door once:
+After the install, type **`/setup-tna`** in your chat session — the agent
+guides the entire onboarding in chat: the briefing, the consent questions
+(through its own question mechanism — you answer, the agent forwards), the
+skill mapping into the workflow, and a doctor run as the final proof. One
+command from zero to a proven install.
+
+Prefer the terminal, or don't have a chat session in the project yet? The
+same onboarding runs there:
 
 ```
 node scripts/onboarding.mjs
 ```
-
-Or type **`/setup-tna`** in your chat session — the same onboarding, guided
-by your agent: the briefing, the consent questions, and the skill mapping
-all happen in chat, and the agent runs the same onboarding machine with your
-answers.
 
 It does four things: (1) **briefs** you on what changes in your sessions (the
 discipline floor, the commit veto, the receipt shape, the three MANDATORY
