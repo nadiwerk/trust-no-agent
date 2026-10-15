@@ -378,13 +378,6 @@ guides the entire onboarding in chat: the briefing, the consent questions
 skill mapping into the workflow, and a doctor run as the final proof. One
 command from zero to a proven install.
 
-Prefer the terminal, or don't have a chat session in the project yet? The
-same onboarding runs there:
-
-```
-node scripts/onboarding.mjs
-```
-
 It does four things: (1) **briefs** you on what changes in your sessions (the
 discipline floor, the commit veto, the receipt shape, the three MANDATORY
 skills) plus your harness's row from the compatibility table — and, on Codex,
@@ -394,9 +387,18 @@ evidence gate — and a component you decline is **mechanically OFF**, recorded
 by the doctor (consent that isn't real is decoration); (3) **maps your
 installed skills** (project + personal directories) and proposes each one as
 an overlay into the workflow — you confirm or skip per skill; names that
-collide with the canonical skills are skipped with a note; (4) writes the
-stamp `.trust/onboarding.json` (private, per-machine) and prints a 4-block
-receipt.
+collide with the canonical skills are skipped with a note; (4) wires the
+mechanical hooks when consented, appends `.trust/` to your `.gitignore`
+(never clobbering), writes the stamp `.trust/onboarding.json` (private,
+per-machine) and prints a 4-block receipt.
+
+**Terminal fallback.** No chat session in the project yet, or you prefer the
+terminal? The same machine runs there — this is the fallback, not a second
+door:
+
+```
+node scripts/onboarding.mjs
+```
 
 Modes: `--yes` accepts the default menu for scripted installs; `--map-only`
 re-scans when new skills appear without re-asking consent; `--undo` reverses

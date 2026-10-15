@@ -201,7 +201,7 @@ export function rollupLedgerFindings({ findings = [], total = null } = {}) {
  */
 export function grandfatherVerdict({ hooksWired = false, skillsFound = false } = {}) {
   if (hooksWired || skillsFound)
-    return { level: 'warn', message: 'type /setup-tna in your chat session to onboard (or run node scripts/onboarding.mjs) — a working install has no consent stamp yet' };
+    return { level: 'warn', message: 'type /setup-tna in your chat session to onboard (terminal fallback: node scripts/onboarding.mjs) — a working install has no consent stamp yet' };
   return { level: 'pass', message: 'no onboarding stamp and no working-install signal (fresh tree)' };
 }
 
