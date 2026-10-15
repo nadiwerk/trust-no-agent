@@ -378,6 +378,11 @@ After the install, run the front door once:
 node scripts/onboarding.mjs
 ```
 
+Or type **`/setup-tna`** in your chat session — the same onboarding, guided
+by your agent: the briefing, the consent questions, and the skill mapping
+all happen in chat, and the agent runs the same onboarding machine with your
+answers.
+
 It does four things: (1) **briefs** you on what changes in your sessions (the
 discipline floor, the commit veto, the receipt shape, the three MANDATORY
 skills) plus your harness's row from the compatibility table — and, on Codex,

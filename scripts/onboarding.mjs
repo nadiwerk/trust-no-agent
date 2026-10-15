@@ -322,7 +322,7 @@ function printReceipt({ components, routerVersion, harness, stamped, mapResult }
   console.log(`  Consented: floor=${yes('floor')} hooks=${yes('hooks')} overlays=${yes('overlays')} evidence-gate=${yes('evidenceGate')} (router ${routerVersion || 'unknown'}, harness ${harness})`);
   console.log(`  Mapped: ${stamped ? 'stamp written to .trust/onboarding.json' : 'no stamp written (aborted)'}${mapResult ? ` — ${mapResult.discovered} discovered, ${mapResult.written.length} written (${mapResult.written.join(', ') || 'none'}), ${mapResult.plan.skipped.length} skipped, ${mapResult.plan.noted.length} already registered` : ''}`);
   console.log('  Pending: hooks wiring is your git config step (core.hooksPath=scripts/hooks).');
-  console.log('  Next: ask your agent to read AGENTS.md and recite the four Iron Laws; then run node scripts/onboarding.mjs --map-only when new skills appear.');
+  console.log('  Next: ask your agent to read AGENTS.md and recite the four Iron Laws; then run /setup-tna in your chat session (or node scripts/onboarding.mjs --map-only) when new skills appear.');
 }
 
 async function main() {
