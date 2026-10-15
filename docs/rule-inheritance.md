@@ -15,17 +15,36 @@ A finding may become a router rule only when all four are recorded (in the ledge
 
 No origin, no rule. A rule without an origin is a preference wearing a uniform. And entry is **user-decided**: the agent surfaces the candidate with its four fields and waits — a rule that lands without explicit user sign-off is not inherited, it is smuggled.
 
+## The enforcement ladder
+
+Where a rule lands matters as much as whether it lands. Fix each recurring-failure
+class at the HIGHEST level that works — lower levels only for what the higher
+levels cannot express:
+
+1. **Architecture** — one owner per state; delete the copyable wrong way (the
+   wrong way becomes unrepresentable).
+2. **Types / lint** — the error message names the fix.
+3. **Behavior test** — pins the failure at the boundary.
+4. **Docs / agent rules LAST** — only for genuine judgment calls a machine
+   cannot express.
+
+Rules of the ladder itself: a mistake **class** counts at two occurrences (one
+incident is a lesson, two is a class); every new check must be **proven to fail
+on a real past mistake** before it lands (a check that would have passed on the
+incident it targets is decoration); and **a rule with no enforcer is itself a
+repeat failure** — pair every rule with what enforces it, or it is prose.
+
 ## The noise filter
 
 Reject before gating — a lesson that fails this filter never reaches the gate:
 
-- **One-off noise** — a single incident with no recurrence pattern.
+- **One-off noise** — a single incident with no recurrence pattern (a class counts at two — see the enforcement ladder).
 - **Unsupported hypotheses** — an explanation with no evidence attached.
 - **Transient tool outputs** — an error that resolved on retry after a real fix.
 - **Session-specific lessons** — true only for this project/task; they belong in the target project's own AGENTS.md (repo scope), not the global router.
 - **Duplicates of a mechanical check** — if a script/lint/hook already enforces the boundary, prose is redundant: encode once, reference the check.
 
-Recurring failures inherit the same way: the fix lands as a rule, not as a story in the transcript.
+Recurring failures inherit the same way: the fix lands as a rule, not as a story in the transcript — at the highest rung of the enforcement ladder that works.
 
 ## Local vs global
 

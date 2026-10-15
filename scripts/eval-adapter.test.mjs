@@ -170,7 +170,16 @@ for (const [label, re] of [
   check(`46 ${label} in setup-tna.md`, re.test(cmdFile46), String(re));
 }
 
-// Engagement-criteria pins (Adaptation wave 1): the chain engages by count, never mood.\nfor (const [label, re] of [\n  ['engagement criteria section present', /Engagement criteria \(mechanical, not felt\)/],\n  ['engagement named as count', /more than one file/],\n  ['not-a-mood guard', /never a mood/],\n]) {\n  check(6-ENG \ in AGENTS.md, re.test(agentsText2), String(re));\n}\n\n// Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
+// Engagement-criteria pins (Adaptation wave 1): the chain engages by count, never mood.\nfor (const [label, re] of [\n  ['engagement criteria section present', /Engagement criteria \(mechanical, not felt\)/],\n  ['engagement named as count', /more than one file/],\n  ['not-a-mood guard', /never a mood/],\n]) {\n  check(6-ENG \ in AGENTS.md, re.test(agentsText2), String(re));\n}\n\n// Blind reviewers + enforcement ladder pins (Adaptation wave 2).
+const roastSkill = readFileSync(join(HERE, '..', 'skills', 'engineering', 'roast-my-code', 'SKILL.md'), 'utf8');
+check('45c blind reviewers in roast-my-code', /Blind reviewers \(never leak the parent's verdict\)/.test(roastSkill), 'missing');
+check('45c inputs-not-conclusions stated', /inputs to verify[\s\S]{0,20}not the[\s\S]{0,20}conclusions drawn/.test(roastSkill), 'missing');
+const ruleInhW2 = readFileSync(join(HERE, '..', 'docs', 'rule-inheritance.md'), 'utf8');
+check('45c enforcement ladder present', /## The enforcement ladder/.test(ruleInhW2), 'missing');
+check('45c no-enforcer rule stated', /a rule with no enforcer is itself a\s+repeat failure/.test(ruleInhW2), 'missing');
+check('45c proven-to-fail stated', /proven to fail\s+on a real past mistake/.test(ruleInhW2), 'missing');
+
+// Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED
 // run — 5 errors before the section landed).

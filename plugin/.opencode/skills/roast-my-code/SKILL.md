@@ -62,6 +62,15 @@ Every smell reads *what it is* → *the fix*; match each against the diff:
 
 Send a single message with three parallel subagent calls.
 
+**Blind reviewers (never leak the parent's verdict).** A reviewer that reads
+the orchestrator's conclusion first tends to audit that conclusion instead of
+the diff. Each subagent prompt carries ONLY: the diff command, the commit
+list, its axis brief, and the reference material its axis needs — never the
+orchestrator's own assessment, suspicions, or summary of the change. If a
+harness forces you to pass context, pass the *inputs to verify*, not the
+*conclusions drawn*. Findings raised independently by more than one axis are
+the highest-signal findings — say so in the aggregate.
+
 **Standards subagent prompt** — include:
 
 - The diff command and the commit list, complete.

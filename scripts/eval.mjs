@@ -1108,6 +1108,20 @@ const agents46 = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
 if (!/Aggregate-report gate/.test(agents46) || !/gap in the report never counts as a pass/.test(agents46))
   err('AGENTS.md: missing the aggregate-report gate — a delegated report without SHA(s)+method is dropped, and a gap never counts as a pass');
 
+// ---- 45c. Blind reviewers + enforcement ladder (Adaptation wave 2) ----
+const roastSkill45 = readFileSync(join(ROOT, 'skills', 'engineering', 'roast-my-code', 'SKILL.md'), 'utf8');
+if (!/Blind reviewers \(never leak the parent's verdict\)/.test(roastSkill45))
+  err('skills/engineering/roast-my-code/SKILL.md: missing the blind-reviewer rule — a reviewer that reads the parent verdict audits the verdict, not the diff');
+if (!/inputs to verify[\s\S]{0,20}not the[\s\S]{0,20}conclusions drawn/.test(roastSkill45))
+  err('skills/engineering/roast-my-code/SKILL.md: the blind-reviewer rule must say "pass the inputs to verify, not the conclusions drawn"');
+const ruleInh46 = readFileSync(join(ROOT, 'docs', 'rule-inheritance.md'), 'utf8');
+if (!/## The enforcement ladder/.test(ruleInh46))
+  err('docs/rule-inheritance.md: missing the enforcement ladder — a rule lands at the highest level that works');
+if (!/a rule with no enforcer is itself a\s+repeat failure/.test(ruleInh46))
+  err('docs/rule-inheritance.md: the ladder must state "a rule with no enforcer is itself a repeat failure"');
+if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
+  err('docs/rule-inheritance.md: the ladder must require checks proven to fail on a real past mistake');
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
