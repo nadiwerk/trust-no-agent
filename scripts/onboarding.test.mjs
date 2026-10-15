@@ -356,5 +356,137 @@ const put = (root, name, text) => {
   rmSync(home, { recursive: true, force: true });
 }
 
+// ---- G. The --from-chat flag (spec AC1/AC2/AC3/AC6/AC7/AC13) ----
+// Spawned children with the answers JSON piped via the new flag: the CLI
+// stays the sole writer; the chat session only forwards the human's
+// answers. Fail-closed: an empty or malformed answers JSON writes nothing.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONBOARD = join(HERE, 'onboarding.mjs');
+  const fixtureSkill = (dir, name = 'team-playbook', text = '# Skill: team-playbook\nhow we ship together') => {
+    const d = join(dir, '.claude', 'skills', name);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'SKILL.md'), text);
+    return d;
+  };
+  const answers = JSON.stringify({
+    components: { floor: true, hooks: true, overlays: true, evidenceGate: false },
+    mapSkills: ['team-playbook'],
+  });
+  const runChat = (dir, answersJson) => {
+    const r = spawnSync(process.execPath, [ONBOARD, '--from-chat', answersJson], {
+      cwd: dir, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir, HOME: dir },
+    });
+    const stampPath = join(dir, '.trust', 'onboarding.json');
+    return {
+      code: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? ''),
+      stamp: existsSync(stampPath) ? parseStamp(readFileSync(stampPath, 'utf8')) : null,
+      overlays: (() => { const b = join(dir, '.trust', 'skills-overlay'); return existsSync(b) ? readdirSync(b, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : []; })(),
+    };
+  };
+
+  {
+    const dir = tmp('from-chat-');
+    fixtureSkill(dir);
+    const r = runChat(dir, answers);
+    check('G1 --from-chat writes a stamp whose components match the forwarded answers',
+      r.code === 0 && r.stamp && r.stamp.components.floor === true && r.stamp.components.evidenceGate === false
+      && r.stamp.components.hooks === true && r.stamp.consentedAt,
+      `code=${r.code} stamp=${JSON.stringify(r.stamp)?.slice(0, 200)}`);
+    check('G2 the confirmed overlay is written and parses clean through the registry seam',
+      r.overlays.join(',') === 'team-playbook', JSON.stringify(r.overlays));
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('from-chat-empty-');
+    fixtureSkill(dir);
+    const empty = runChat(dir, '');
+    const malformed = runChat(dir, 'not json');
+    check('G3 an empty or malformed answers JSON writes nothing and exits non-zero',
+      empty.code !== 0 && empty.stamp === null && empty.overlays.length === 0
+      && malformed.code !== 0 && malformed.stamp === null,
+      `empty=${empty.code}/${empty.stamp} malformed=${malformed.code}/${malformed.stamp}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('from-chat-stamped-');
+    fixtureSkill(dir);
+    // Stamp first (all consent), then --from-chat on the stamped tree:
+    // mapping-only — the new skill lands, consent is not re-asked.
+    const first = runChat(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    const d2 = join(dir, '.claude', 'skills', 'new-skill');
+    mkdirSync(d2, { recursive: true });
+    writeFileSync(join(d2, 'SKILL.md'), '# Skill: new-skill\nfreshly installed');
+    const r = runChat(dir, JSON.stringify({ components: { floor: false, hooks: false, overlays: true, evidenceGate: false }, mapSkills: ['new-skill'] }));
+    check('G4 --from-chat on a stamped tree routes to mapping-only (new skill lands, no re-consent)',
+      first.code === 0 && r.code === 0 && r.overlays.join(',') === 'new-skill' && !/Enable /.test(r.out),
+      `code=${r.code} overlays=${r.overlays.join(',')}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('from-chat-declined-');
+    fixtureSkill(dir);
+    // Overlays declined even though mapping answers still name a skill: the
+    // declined component ignores its section's answers.
+    const r = runChat(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: false, evidenceGate: true }, mapSkills: ['team-playbook'] }));
+    check('G5 a declined overlays component ignores its section answers (nothing written)',
+      r.code === 0 && r.overlays.length === 0, `code=${r.code} overlays=${JSON.stringify(r.overlays)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = tmp('from-chat-consistent-');
+    fixtureSkill(dir);
+    const allYes = JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] });
+    const viaChat = runChat(dir, allYes);
+    const dir2 = tmp('from-chat-consistent2-');
+    fixtureSkill(dir2);
+    const r2 = spawnSync(process.execPath, [ONBOARD, '--yes'], {
+      cwd: dir2, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir2, HOME: dir2 },
+    });
+    const s1 = parseStamp(readFileSync(join(dir, '.trust', 'onboarding.json'), 'utf8'));
+    const s2 = parseStamp(readFileSync(join(dir2, '.trust', 'onboarding.json'), 'utf8'));
+    check('G6 --from-chat with all-consent answers produces the same component booleans --yes produces',
+      JSON.stringify(s1.components) === JSON.stringify(s2.components),
+      `chat=${JSON.stringify(s1.components)} yes=${JSON.stringify(s2.components)}`);
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir2, { recursive: true, force: true });
+  }
+}
+
+// ---- H. Doctor final proof after --from-chat (spec AC9 end-to-end) ----
+// The command's last step: the doctor's own output is the receipt's
+// evidence. Live spawn: onboard a temp tree via --from-chat, then spawn the
+// doctor there — the grandfather/onboarding warnings must be resolved by
+// the stamp (no new doctor code; the existing wiring is the mechanism).
+{
+  const dir = tmp('from-chat-doctor-');
+  const mk = (d) => {
+    const skillDir = join(d, '.claude', 'skills', 'team-playbook');
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, 'SKILL.md'), '# Skill: team-playbook\nhow we ship together');
+  };
+  mk(dir);
+  const { spawnSync } = await import('node:child_process');
+  const ONBOARD2 = join(HERE, 'onboarding.mjs');
+  const DOCTOR = join(HERE, 'doctor.mjs');
+  const r = spawnSync(process.execPath, [ONBOARD2, '--from-chat',
+    JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: ['team-playbook'] })], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000,
+    env: { ...process.env, USERPROFILE: dir, HOME: dir },
+  });
+  const d = spawnSync(process.execPath, [DOCTOR], {
+    cwd: dir, encoding: 'utf8', timeout: 120000,
+    env: { ...process.env, USERPROFILE: dir, HOME: dir },
+  });
+  const out = String(d.stdout ?? '');
+  check('H1 the doctor after --from-chat onboarding no longer warns about the consent stamp',
+    r.status === 0 && !/no consent stamp/.test(out), `on=${r.status} doctorOut=${out.split('\n').filter((l) => /consent|stamp/.test(l)).join(' | ').slice(0, 200)}`);
+  check('H2 the doctor shows the overlay tier active with the mapped skill',
+    /1 overlay\(s\) validated/.test(out), out.split('\n').filter((l) => /overlay/.test(l)).join(' | ').slice(0, 160));
+  rmSync(dir, { recursive: true, force: true });
+}
+
 console.log(failures === 0 ? '\nAll onboarding seam expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);
 process.exit(failures === 0 ? 0 : 1);

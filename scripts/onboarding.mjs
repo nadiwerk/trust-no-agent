@@ -292,7 +292,7 @@ function writeOverlay(cwd, proposal) {
  * and `--map-only` accept every proposal without prompting; the
  * interactive path asks per proposal.
  */
-async function mapPhase(cwd, { yes }) {
+async function mapPhase(cwd, { yes, onlySkills } = {}) {
   const discovered = scanSkillDirs(discoveryRoots(cwd));
   const plan = planOnboarding({
     discovered,
@@ -301,6 +301,8 @@ async function mapPhase(cwd, { yes }) {
   });
   const written = [];
   for (const p of plan.proposals) {
+    // --from-chat carries the human's confirmed skill names; only those land.
+    if (onlySkills && !onlySkills.includes(p.name)) continue;
     let ok = yes;
     if (!yes) {
       const reader = makeLineReader();
@@ -356,6 +358,53 @@ async function main() {
     console.log(`  Mapped: ${removed.overlays.length ? `removed overlays: ${removed.overlays.join(', ')}` : 'no overlays were created'}${removed.hooksPath ? '; core.hooksPath unset' : ''}`);
     console.log('  Pending: none.');
     console.log('  Next: pre-existing files were left untouched; re-run node scripts/onboarding.mjs to onboard again.');
+    process.exit(0);
+  }
+
+  // --from-chat (setup-command ticket 01): the chat channel forwards the
+  // human's collected answers; the CLI remains the SOLE writer. The answers
+  // JSON carries { components: {...}, mapSkills: [...] }. Fail-closed: an
+  // empty or malformed answers JSON writes nothing. A stamped tree routes
+  // to mapping-only (never re-asks consent). A declined component ignores
+  // its section's answers.
+  if (args.includes('--from-chat')) {
+    let answers = null;
+    try {
+      const raw = args[args.indexOf('--from-chat') + 1];
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object' && parsed.components && typeof parsed.components === 'object'
+        && COMPONENTS.every((c) => typeof parsed.components[c] === 'boolean')) {
+        answers = parsed;
+      }
+    } catch { /* malformed = no answers */ }
+    if (!answers) {
+      console.error('--from-chat requires a valid answers JSON: {"components":{"floor":bool,...},"mapSkills":[...]}');
+      process.exit(1);
+    }
+    const stampPath = join(cwd, '.trust', 'onboarding.json');
+    let existing = null;
+    try { existing = parseStamp(readFileSync(stampPath, 'utf8')); } catch { /* no stamp */ }
+
+    if (existing) {
+      // Mapping-only on a stamped tree: never re-asks consent.
+      if (!existing.components.overlays) {
+        console.log('Overlays were declined at onboarding — nothing to map.');
+        process.exit(0);
+      }
+      const r = await mapPhase(cwd, { yes: true, onlySkills: answers.mapSkills });
+      const did = { ...existing.did, overlays: [...new Set([...(existing.did.overlays || []), ...r.written])] };
+      writeFileSync(stampPath, serializeStamp({ components: existing.components, harness: existing.harness, routerVersion: existing.routerVersion, consentedAt: existing.consentedAt, did }));
+      printMapReceipt(r, existing);
+      process.exit(0);
+    }
+
+    const components = answers.components;
+    mkdirSync(join(cwd, '.trust'), { recursive: true });
+    let mapResult = null;
+    if (components.overlays) mapResult = await mapPhase(cwd, { yes: true, onlySkills: answers.mapSkills });
+    const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet: false };
+    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did }));
+    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult });
     process.exit(0);
   }
 

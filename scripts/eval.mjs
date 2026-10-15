@@ -1052,6 +1052,37 @@ for (const [file, text] of [
     err('scripts/receipt-enforcement.mjs missing — the receipt shape must be a computed check, not prose');
 }
 
+// ---- 46. /setup-tna: the chat front door is present, guarded, and honest (HARD) ----
+// Origin: setup-command ticket 04. Guarded where the door lives: the command
+// file must exist in the repo AND be mirrored into the plugin payload; its
+// procedure must name the --from-chat flag (the machine is the CLI), the
+// no-direct-.trust-write guard (the agent is the channel, never the writer),
+// the degrade path (honest about harnesses without a question mechanism),
+// and the doctor run as the final proof.
+{
+  const cmdFile = join(ROOT, '.opencode', 'command', 'setup-tna.md');
+  if (!existsSync(cmdFile))
+    err('.opencode/command/setup-tna.md missing — the chat front door must exist, not be prose');
+  else {
+    const cmdText = readFileSync(cmdFile, 'utf8');
+    for (const [marker, why] of [
+      [/--from-chat/,
+        'the procedure must name the --from-chat flag — the CLI is the machine, the agent only forwards answers'],
+      [/NEVER write[^.]*\.trust\//i,
+        'the procedure must carry the no-direct-.trust-write guard — the agent is never the writer'],
+      [/NEVER run `--yes`|never run `--yes`/i,
+        'the procedure must forbid --yes without the human’s forwarded answers'],
+      [/Degrade path|degrade path/,
+        'the procedure must carry the honest degrade path for harnesses without a question mechanism'],
+      [/doctor\.mjs/,
+        'the procedure must end with the doctor run as the final proof'],
+    ]) {
+      if (!marker.test(cmdText))
+        err(`.opencode/command/setup-tna.md: missing ${marker} — ${why}`);
+    }
+  }
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

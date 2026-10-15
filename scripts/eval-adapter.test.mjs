@@ -156,6 +156,20 @@ for (const [label, re] of [
   check(`45 ${label} in the receipts skill`, re.test(receiptsSkill), String(re));
 }
 
+// Check 46 pins (setup-command ticket 04): the chat front door. FAIL
+// direction: remove the command file or strip a marker -> these red.
+check('eval.mjs carries check 46 (/setup-tna chat front door)', /---- 46\. /.test(evalSrc));
+const cmdFile46 = readFileSync(join(HERE, '..', '.opencode', 'command', 'setup-tna.md'), 'utf8');
+for (const [label, re] of [
+  ['from-chat named', /--from-chat/],
+  ['no-direct-write guard', /NEVER write[^.]*\.trust\//i],
+  ['no-yes-without-answers guard', /NEVER run `--yes`|never run `--yes`/i],
+  ['degrade path stated', /Degrade path|degrade path/],
+  ['doctor final proof', /doctor\.mjs/],
+]) {
+  check(`46 ${label} in setup-tna.md`, re.test(cmdFile46), String(re));
+}
+
 // Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED

@@ -166,6 +166,23 @@ const skills = canonicalSkills();
     mismatched.length === 0, mismatched.slice(0, 5).join('; '));
 }
 
+// ---- F2. The /setup-tna command mirrors are byte-identical too ----
+// (setup-command ticket 03) The chat front door ships per harness — a drifted
+// copy would give one harness a stale procedure, the exact skill-mirror
+// hazard one directory over.
+{
+  const harnesses = ['.claude', '.cursor', '.agents'];
+  const mismatched = [];
+  for (const h of harnesses) {
+    const mirror = join(PLUGIN, h, 'commands', 'setup-tna.md');
+    if (!existsSync(mirror)) { mismatched.push(`${h}: missing`); continue; }
+    if (!readFileSync(join(ROOT, '.opencode', 'command', 'setup-tna.md')).equals(readFileSync(mirror)))
+      mismatched.push(`${h}: differs`);
+  }
+  check(`F2 the /setup-tna command mirrors (${harnesses.length} harnesses) match the repo source`,
+    mismatched.length === 0, mismatched.slice(0, 5).join('; '));
+}
+
 // ---- G. The plugin router files match the repo's ----
 {
   for (const rel of ['AGENTS.md', 'WORKFLOW.md']) {
