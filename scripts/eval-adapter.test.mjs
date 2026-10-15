@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * Regression pin for eval checks 35-38 (hardening-general 05/AC9,
  *
@@ -122,7 +122,7 @@ for (const [label, re] of [
   check(`41 ${label} in make-it-so lessons section`, re.test(makeItSo), String(re));
 }
 
-// Check 44 pins (onboarding ticket 10, AC15): the onboarding contract at
+// Aggregate-report gate + labeled-claims pins (Adaptation wave 1).\nfor (const [label, re] of [\n  ['aggregate gate present', /Aggregate-report gate/],\n  ['gap-never-pass stated', /gap in the report never counts as a pass/],\n]) {\n  check(\AG \ in AGENTS.md\, re.test(agentsText2), String(re));\n}\n{\n  const rs46 = readFileSync(join(HERE, '..', 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');\n  const cr = readFileSync(join(HERE, '..', 'docs', 'chat-receipt.md'), 'utf8');\n  check('LC labeled-claims in receipts skill', /## Labeled claims/.test(rs46), 'missing');\n  check('LC labeled-claims in chat-receipt', /Labeled claims/.test(cr) && /measured \\/ inferred \\/ guess/.test(cr), 'missing');\n}\n\n// Check 44 pins (onboarding ticket 10, AC15): the onboarding contract at
 // the adopter doc. FAIL direction: strip the onboarding section from
 // docs/installation.md -> these red.
 check('eval.mjs carries check 44 (onboarding contract)', /---- 44\. /.test(evalSrc));
@@ -156,7 +156,7 @@ for (const [label, re] of [
   check(`45 ${label} in the receipts skill`, re.test(receiptsSkill), String(re));
 }
 
-// Check 46 pins (setup-command ticket 04): the chat front door. FAIL
+// INCONCLUSIVE verdict pins (Adaptation wave 1): verification that proved nothing is never a pass.\n{\n  const rs45 = readFileSync(join(HERE, '..', 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');\n  check('45a INCONCLUSIVE verdict section present', /## The INCONCLUSIVE verdict/.test(rs45), 'missing');\n  check('45a never-a-pass stated', /never a pass/.test(rs45), 'missing');\n}\n\n// Check 46 pins (setup-command ticket 04): the chat front door. FAIL
 // direction: remove the command file or strip a marker -> these red.
 check('eval.mjs carries check 46 (/setup-tna chat front door)', /---- 46\. /.test(evalSrc));
 const cmdFile46 = readFileSync(join(HERE, '..', '.opencode', 'command', 'setup-tna.md'), 'utf8');
@@ -170,7 +170,7 @@ for (const [label, re] of [
   check(`46 ${label} in setup-tna.md`, re.test(cmdFile46), String(re));
 }
 
-// Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
+// Engagement-criteria pins (Adaptation wave 1): the chain engages by count, never mood.\nfor (const [label, re] of [\n  ['engagement criteria section present', /Engagement criteria \(mechanical, not felt\)/],\n  ['engagement named as count', /more than one file/],\n  ['not-a-mood guard', /never a mood/],\n]) {\n  check(6-ENG \ in AGENTS.md, re.test(agentsText2), String(re));\n}\n\n// Check 42 pins (findings-adaptation ticket 05, AC7): the bounded-judgment
 // contract at the judgment site. FAIL direction: strip the judgment section
 // from behavioral-eval/README.md → these red (proven by check 42's own RED
 // run — 5 errors before the section landed).

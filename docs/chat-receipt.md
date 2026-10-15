@@ -1,4 +1,4 @@
-# Chat receipt — the one-screen card that closes every verifiable unit
+﻿# Chat receipt — the one-screen card that closes every verifiable unit
 
 Every verifiable unit closes in chat with these 4 blocks, in this order. Chat = live evidence (run fresh THIS message); files = archive. The ledger/tickets quote the run — they never replace it.
 
@@ -22,9 +22,10 @@ Every verifiable unit closes in chat with these 4 blocks, in this order. Chat = 
 
 1. **Verdict** — first line = verdict + exit code. The result is known without scrolling.
 2. **Evidence** — verbatim output pasted in chat, not "see file X". For behavioral units (code change, test), the fail-first cycle must be visible (FAIL before, PASS after). For non-behavioral units (docs, config, typo) that honestly have no pre-impl FAIL: fill with existence evidence or the relevant verification exit code; never invent a FAIL to fill the template.
-3. **Open** — every receipt states what remains unproven (e.g. browser check with real data). Never empty unless it says "none".
-4. **Next** — the smallest next action + archive location. A receipt missing any block is a partial receipt: it proves nothing. An action is concrete or it is not a Next: "want me to X?" is a hanging offer, not an action — either do X (when it needs no approval) or name the single thing the reader does/decides. `none` is a value, not an absence: it means the whole thread is closed and nothing waits anywhere — never "this unit is done while the next one sits".
-5. **Skim test** — the receipt is built to be read at a skim: a reader who reads only the first line and the last line must know (a) what just happened (verdict + verification result) and (b) what happens next (one concrete action). Check both lines before sending; if either fails, the receipt is rewritten, not annotated.
+3. **Labeled claims** — every prose claim carries its evidence or its label (measured / inferred / guess) in the same sentence: "measured: 38/38 gates green", "inferred: the drift came from the rebase". An unlabeled assertion is an opinion wearing a receipt's clothes.
+4. **Open** — every receipt states what remains unproven (e.g. browser check with real data). Never empty unless it says "none".
+5. **Next** — the smallest next action + archive location. A receipt missing any block is a partial receipt: it proves nothing. An action is concrete or it is not a Next: "want me to X?" is a hanging offer, not an action — either do X (when it needs no approval) or name the single thing the reader does/decides. `none` is a value, not an absence: it means the whole thread is closed and nothing waits anywhere — never "this unit is done while the next one sits".
+6. **Skim test** — the receipt is built to be read at a skim: a reader who reads only the first line and the last line must know (a) what just happened (verdict + verification result) and (b) what happens next (one concrete action). Check both lines before sending; if either fails, the receipt is rewritten, not annotated.
 
 ## Length budget (the skim test's teeth)
 

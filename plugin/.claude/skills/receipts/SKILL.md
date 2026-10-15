@@ -17,6 +17,10 @@ NO "DONE" CLAIM WITHOUT FRESH VERIFICATION EVIDENCE
 
 The verification command must run in THIS message. A run from an earlier message proves nothing about the current state.
 
+## The INCONCLUSIVE verdict
+
+A verification that ran but proved nothing is **INCONCLUSIVE** — never a pass: the command errored mid-run, the output was unreadable, the environment was wrong, or the evidence covered something other than the claim. INCONCLUSIVE is a first-class verdict alongside done and NOT done; it closes the unit honestly (report what was inconclusive and why) and forbids gating on it. Silence about an inconclusive run — reporting "done" because *something* ran — is the covered-up failure this rule exists to kill.
+
 ## The Gate Function
 
 ```
@@ -113,6 +117,15 @@ Class rules:
 - **Never claim "exactly once"** because one send succeeded. Either name the idempotency invariant, or state at-least-once with the duplicate-safety explicitly declared. Delivery guarantees are declared, never inferred from a happy run.
 - **Receipt each part of a multi-part operation** — a fix spanning several tables/regions/channels is only "done" when every part shows its own state; a silently half-applied operation becomes the next incident's root cause.
 - **Partial success gets a recovery decision on record** — complete the remainder, roll back, or accept-and-log; the choice is stated with evidence, not defaulted to silence.
+
+## Labeled claims (prose discipline)
+
+Every prose claim in a receipt or report carries its evidence or its label in the same sentence: **measured** (you ran it), **inferred** (you reasoned from evidence), or **guess** (you are speculating). An unlabeled assertion is an opinion wearing a receipt's clothes. Examples:
+
+- ✅ "measured: node scripts/eval.mjs → 37/37 green"
+- ✅ "inferred: the drift came from the rebase, because both failing suites touch rebase-touched files"
+- ❌ "the drift came from the rebase" (unlabeled — is it measured or a guess?)
+- ❌ "this should work now" (a guess wearing a verdict's clothes)
 
 ## Lesson capture
 

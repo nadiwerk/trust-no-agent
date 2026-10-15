@@ -1,4 +1,4 @@
-# trust-no-agent — AGENTS.md (the router)
+﻿# trust-no-agent — AGENTS.md (the router)
 
 Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; this file decides **when** each one loads.
 
@@ -32,6 +32,8 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 | External skill proposed (registry check hit an outside skill) | open `docs/skill-vetting.md` — audit BEFORE the user's approval |
 
 Check this table **before responding**, including before asking clarifying questions. If there is even a 1% chance a skill applies, load it. One invariant: a user-invoked skill is invoked by a human only — it may load model-invoked skills, but never another user-invoked one (that way lies an orchestration cycle). When delegating, skills reach subagents only via the delegation tool's skill-loading parameter — an unloaded skill is a dead skill.
+
+**Engagement criteria (mechanical, not felt).** The chain engages when ANY of these holds — decided by counting, never by mood: the task touches **more than one file**, or crosses a **function boundary other code calls**, or carries a **design/architecture choice**, or is a **bug whose cause is not yet known**, or spans **more than one exchange** with the user. Anything smaller proceeds directly and is verified on its real artifact. `fast` is a classification made by these criteria — never a mood, never an excuse to skip verification.
 
 ### MANDATORY discipline skills — no self-trigger, no exception
 
@@ -86,6 +88,8 @@ VERIFY: <exact command — not "run the tests", the literal command line>
 TIMEBOX: <minutes> — wall-clock budget for the delegate
 PARTIAL: <what to return if the TIMEBOX expires — evidence so far, no new work>
 ```
+
+**Aggregate-report gate.** A delegated report that does not record (a) the exact commit SHA(s) it verified, and (b) the method each measurement used, is DROPPED — the orchestrator respawns the worker once; a **gap in the report never counts as a pass**. Unverifiable results are reported as unverifiable — never folded into an aggregate "success".
 
 Filled example (template alone teaches the shape, not the substance):
 

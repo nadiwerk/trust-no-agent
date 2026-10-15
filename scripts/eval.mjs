@@ -182,6 +182,13 @@ for (const [name, markers] of MECHANICAL_SEAMS) {
 // skill. Encode twice: prose in AGENTS.md, this mechanical check for the boundary.
 const MANDATORY_SKILLS = ['expect-fail', 'root-cause', 'receipts'];
 const agentsText2 = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+// 6-ENG (Adaptation wave 1): the chain's engagement is a mechanical count,
+// never a mood — self-trigger was proven unreliable (0/3). The router must
+// carry the engagement criteria verbatim.
+if (!/Engagement criteria \(mechanical, not felt\)/.test(agentsText2))
+  err('AGENTS.md: missing the mechanical engagement criteria — the chain engages by count (files/boundary/design/unknown-cause), never by mood');
+if (!/more than one file/.test(agentsText2) || !/never a mood/.test(agentsText2))
+  err('AGENTS.md: engagement criteria must name the counts (more than one file / never a mood)');
 for (const name of MANDATORY_SKILLS) {
   // 6a. the trigger-matrix row must carry the MANDATORY marker
   if (!new RegExp(`\\| .*\\| \\\`${name}\\\` \\*\\*MANDATORY\\*\\* \\|`).test(agentsText2))
@@ -192,6 +199,7 @@ for (const name of MANDATORY_SKILLS) {
 }
 
 // 6c. each MANDATORY skill carries its own Iron Law in its body (HARD).
+// (Restored below.)
 // The router mandate (6a) proves the skill is *named*, not that the skill
 // *enforces* anything once loaded — a body that lost its Iron Law would still
 // pass 6a. Depth check: every MANDATORY skill must contain the exact Iron Law
@@ -1082,6 +1090,23 @@ for (const [file, text] of [
     }
   }
 }
+
+// ---- 45a. The INCONCLUSIVE verdict is first-class (receipts skill) ----
+// A verification that ran but proved nothing is INCONCLUSIVE — never a pass.
+const receiptsSkill45 = readFileSync(join(ROOT, 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');
+if (!/## The INCONCLUSIVE verdict/.test(receiptsSkill45))
+  err('skills/discipline/receipts/SKILL.md: the INCONCLUSIVE verdict must be first-class — a verification that ran but proved nothing is never a pass');
+
+// ---- 45b. Labeled claims + aggregate-report gate (Adaptation wave 1) ----
+const chatReceipt45 = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
+if (!/Labeled claims/.test(chatReceipt45) || !/measured \/ inferred \/ guess/.test(chatReceipt45))
+  err('docs/chat-receipt.md: missing the labeled-claims rule — every prose claim carries measured/inferred/guess in the same sentence');
+const receipts45 = readFileSync(join(ROOT, 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');
+if (!/## Labeled claims/.test(receipts45) || !/measured.*inferred.*guess/.test(receipts45))
+  err('skills/discipline/receipts/SKILL.md: missing the labeled-claims section');
+const agents46 = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+if (!/Aggregate-report gate/.test(agents46) || !/gap in the report never counts as a pass/.test(agents46))
+  err('AGENTS.md: missing the aggregate-report gate — a delegated report without SHA(s)+method is dropped, and a gap never counts as a pass');
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
