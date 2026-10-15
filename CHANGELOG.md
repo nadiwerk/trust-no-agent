@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.31] - 2026-10-16
+
+### Added
+
+- **Engagement criteria** (router §1): the chain engages by counting, never
+  by mood — the task touches more than one file, or crosses a function
+  boundary other code calls, or carries a design/architecture choice, or is
+  a bug whose cause is not yet known, or spans more than one exchange with
+  the user. Anything smaller proceeds directly and is verified on its real
+  artifact. Self-trigger was proven unreliable (0/3); engagement is now a
+  mechanical count. Pinned by eval check 6-ENG.
+- **The INCONCLUSIVE verdict** (receipts skill): a verification that ran but
+  proved nothing is INCONCLUSIVE — first-class, never a pass; reporting it is
+  mandatory, covering it up is the covered-up failure the rule kills.
+  Consistent with the local judge's J4. Pinned by eval check 45a.
+- **The aggregate-report gate** (router §5): a delegated report that does not
+  record (a) the exact commit SHA(s) it verified and (b) the method each
+  measurement used is dropped and the worker respawned once; a gap in the
+  report never counts as a pass; unverifiable results are reported as
+  unverifiable. Pinned by eval check 45b.
+- **Labeled claims** (chat-receipt rule 3 + receipts skill): every prose
+  claim in a receipt or report carries its evidence or its label (measured /
+  inferred / guess) in the same sentence; an unlabeled assertion is an
+  opinion wearing a receipt's clothes. Pinned by eval check 45b.
+- **Blind reviewers** (roast-my-code, step 4): a review subagent never
+  receives the orchestrator's verdict — its prompt carries only the diff
+  command, the commit list, its axis brief, and its axis's reference
+  material. Pass the inputs to verify, not the conclusions drawn; findings
+  raised independently by more than one axis are the highest-signal
+  findings. Pinned by eval check 45c.
+- **The enforcement ladder** (docs/rule-inheritance.md, new section): a rule
+  lands at the highest level that works — architecture, then types/lint,
+  then behavior tests, then docs/agent-rules LAST. A mistake class counts at
+  two occurrences; every new check must be proven to fail on a real past
+  mistake; a rule with no enforcer is itself a repeat failure. The noise
+  filter's one-off rule now references the class-of-two threshold. Pinned by
+  eval check 45c.
+
+Both adaptation waves follow the encode-twice discipline (prose where it is
+read, an eval marker where it is enforced, an adapter pin where it is
+regression-guarded) and were proven able to fail via strip-dance.
+
 ## [0.1.30] - 2026-10-14
 
 ### Added
@@ -600,7 +642,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.30...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...HEAD
+[0.1.31]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.27...v0.1.28
