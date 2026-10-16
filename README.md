@@ -16,15 +16,17 @@ zero. — [docs/philosophy.md](docs/philosophy.md)
 
 ## Install
 
-**Claude Code and Codex — plugin (recommended).** Hooks wire themselves;
-nothing is copied into your project:
+**Claude Code — plugin (recommended).** Hooks wire themselves; nothing is
+copied into your project:
 
 ```bash
-# Claude Code
 claude plugin marketplace add nadiwerk/trust-no-agent
 claude plugin install trust-no-agent@trust-no-agent
+```
 
-# Codex
+**Codex — plugin.** Same payload, same one-line result:
+
+```bash
 codex plugin marketplace add nadiwerk/trust-no-agent
 codex plugin add trust-no-agent@trust-no-agent
 ```
