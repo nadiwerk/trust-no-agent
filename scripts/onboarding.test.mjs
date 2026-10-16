@@ -316,11 +316,37 @@ const put = (root, name, text) => {
     rmSync(home, { recursive: true, force: true });
   }
   {
-    const dir = tmp('onboard-never-');
-    const r = spawnSync(process.execPath, [ONBOARD, '--undo'], { cwd: dir, input: '', encoding: 'utf8', timeout: 30000 });
-    check('G2 --undo on a never-onboarded tree is a no-op with a named message',
-      r.status === 0 && /nothing to undo/i.test(String(r.stdout ?? '')), `code=${r.status} out=${String(r.stdout ?? '').slice(0, 120)}`);
+    const dir = tmp('onboard-undo-');
+    const home = tmp('onboard-undo-home-');
+    // G3 — tampered stamp: an overlay name that escapes .trust must be skipped,
+    // never deleted (security: rmSync with a traversal name deletes arbitrary
+    // directories). The canary directory OUTSIDE .trust must survive.
+    const stampDir = join(dir, '.trust', 'skills-overlay');
+    mkdirSync(join(stampDir, 'real-overlay'), { recursive: true });
+    writeFileSync(join(stampDir, 'real-overlay', 'SKILL.md'), '# real overlay');
+    const canary = join(dir, 'canary-do-not-delete');
+    mkdirSync(canary, { recursive: true });
+    writeFileSync(join(canary, 'precious.txt'), 'survive');
+    const tampered = {
+      components: { floor: true, hooks: true, overlays: true, evidenceGate: true },
+      mapSkills: [],
+      did: { overlays: ['../../canary-do-not-delete', 'real-overlay'], hooksPathSet: false, tnaVersion: 'test' },
+    };
+    writeFileSync(join(dir, '.trust', 'onboarding.json'), JSON.stringify(tampered));
+    const { spawnSync } = await import('node:child_process');
+    const r = spawnSync(process.execPath, [ONBOARD, '--undo'], {
+      cwd: dir, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: home, HOME: home },
+    });
+    check('G3 --undo with a tampered stamp skips the traversal name and deletes only whitelisted overlays',
+      r.status === 0
+      && existsSync(canary)
+      && existsSync(join(canary, 'precious.txt'))
+      && !existsSync(join(stampDir, 'real-overlay'))
+      && /suspicious overlay name/i.test(String(r.stdout ?? '')),
+      `code=${r.status} canary=${existsSync(canary)} realGone=${!existsSync(join(stampDir, 'real-overlay'))} out=${String(r.stdout ?? '').slice(0, 120)}`);
     rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   }
 }
 

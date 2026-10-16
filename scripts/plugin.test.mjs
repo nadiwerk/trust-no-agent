@@ -113,7 +113,7 @@ const skills = canonicalSkills();
 // ---- D. Plugin skills are flat (what the installer and non-recursive discoverers need) ----
 {
   const flat = readdirSync(join(PLUGIN, 'skills')).filter((d) => statSync(join(PLUGIN, 'skills', d)).isDirectory());
-  check('D1 plugin/skills holds exactly the 11 skills, flat',
+  check('D1 plugin/skills holds exactly the 12 skills, flat',
     flat.length === skills.length && flat.every((d) => skills.some((s) => s.name === d)),
     `found ${flat.length}: ${flat.join(', ')}`);
   check('D2 no category nesting survived into the plugin',

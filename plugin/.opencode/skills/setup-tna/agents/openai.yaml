@@ -1,0 +1,4 @@
+allow_implicit_invocation: false
+interface:
+  display_name: "Setup TNA"
+  short_description: "Onboard trust-no-agent in chat: router copy, consent, mapping, proof"

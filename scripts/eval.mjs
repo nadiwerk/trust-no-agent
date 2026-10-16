@@ -67,7 +67,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS = join(ROOT, 'skills');
 
 // Canonical axis — must match README's "Invoked by" tables (repo decision, ledger 2026-08-30).
-const USER_INVOKED = new Set(['scribe', 'save-as', 'fork-it', 'make-it-so']);
+const USER_INVOKED = new Set(['scribe', 'save-as', 'fork-it', 'make-it-so', 'setup-tna']);
 
 const errors = [];
 const warns = [];
@@ -1061,18 +1061,30 @@ for (const [file, text] of [
 }
 
 // ---- 46. /setup-tna: the chat front door is present, guarded, and honest (HARD) ----
-// Origin: setup-command ticket 04. Guarded where the door lives: the command
-// file must exist in the repo AND be mirrored into the plugin payload; its
-// procedure must name the --from-chat flag (the machine is the CLI), the
-// no-direct-.trust-write guard (the agent is the channel, never the writer),
-// the degrade path (honest about harnesses without a question mechanism),
-// and the doctor run as the final proof.
+// Origin: setup-command ticket 04; setup-as-skill ticket 01 moved the procedure
+// into the skill body (single procedure source) and made the command a thin
+// wrapper. The guards now live where the procedure lives: the wrapper must
+// route to the skill, and the skill body must carry the machine contract
+// (--from-chat, no-direct-.trust-write, no --yes, degrade path, doctor(-lite),
+// byte-identical payload copies).
 {
   const cmdFile = join(ROOT, '.opencode', 'command', 'setup-tna.md');
   if (!existsSync(cmdFile))
     err('.opencode/command/setup-tna.md missing — the chat front door must exist, not be prose');
   else {
     const cmdText = readFileSync(cmdFile, 'utf8');
+    if (!/thin wrapper/i.test(cmdText))
+      err('.opencode/command/setup-tna.md: must be a thin wrapper — the skill body is the single procedure source');
+    if (!/setup-tna skill/i.test(cmdText))
+      err('.opencode/command/setup-tna.md: must name the setup-tna skill it routes to');
+    if (!/NEVER[^.]*\.trust\//i.test(cmdText) && !/ONLY writer of \.trust/i.test(cmdText))
+      err('.opencode/command/setup-tna.md: wrapper must still surface the no-direct-.trust-write guard');
+  }
+  const skillBody = join(ROOT, 'skills', 'meta', 'setup-tna', 'SKILL.md');
+  if (!existsSync(skillBody))
+    err('skills/meta/setup-tna/SKILL.md missing — the onboarding procedure lives in the skill body (single source)');
+  else {
+    const skillText = readFileSync(skillBody, 'utf8');
     for (const [marker, why] of [
       [/--from-chat/,
         'the procedure must name the --from-chat flag — the CLI is the machine, the agent only forwards answers'],
@@ -1082,11 +1094,17 @@ for (const [file, text] of [
         'the procedure must forbid --yes without the human’s forwarded answers'],
       [/Degrade path|degrade path/,
         'the procedure must carry the honest degrade path for harnesses without a question mechanism'],
-      [/doctor\.mjs/,
-        'the procedure must end with the doctor run as the final proof'],
+      [/doctor\.mjs|doctor-lite/,
+        'the procedure must end with the doctor(-lite) run as the final proof'],
+      [/byte-identical/i,
+        'the router-copy step must demand byte-identical payload copies, never a retyped router'],
+      [/explicit consent FIRST/i,
+        'the router-copy step must gate on the human\u2019s explicit consent before writing into the project (Iron Law 4)'],
+      [/STOP[^.]*copy over|never copy[^.]*over an existing/i,
+        'the router-copy step must refuse to overwrite an existing project router (merge path instead)'],
     ]) {
-      if (!marker.test(cmdText))
-        err(`.opencode/command/setup-tna.md: missing ${marker} — ${why}`);
+      if (!marker.test(skillText))
+        err(`skills/meta/setup-tna/SKILL.md: missing ${marker} — ${why}`);
     }
   }
 }
@@ -1121,6 +1139,39 @@ if (!/a rule with no enforcer is itself a\s+repeat failure/.test(ruleInh46))
   err('docs/rule-inheritance.md: the ladder must state "a rule with no enforcer is itself a repeat failure"');
 if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
   err('docs/rule-inheritance.md: the ladder must require checks proven to fail on a real past mistake');
+
+// ---- 47. setup-tna payload copies are byte-identical to the root sources (HARD) ----
+// Origin: setup-as-skill ticket 02. The skill's payload (router, core rules,
+// onboarding CLI) rides the skills CLI to adopters; a copy that drifts from
+// the root source would ship a different framework than the repo's. Root is
+// the single source of truth; the payload is a build artifact pinned to it.
+{
+  const pairs = [
+    ['AGENTS.md', 'skills/meta/setup-tna/references/AGENTS.md'],
+    ['WORKFLOW.md', 'skills/meta/setup-tna/references/WORKFLOW.md'],
+    ['scripts/onboarding.mjs', 'skills/meta/setup-tna/scripts/onboarding.mjs'],
+  ];
+  for (const [src, dst] of pairs) {
+    if (!existsSync(join(ROOT, dst))) { err(`payload copy missing: ${dst} — the setup-tna skill must carry its payload (setup-as-skill ticket 02)`); continue; }
+    const a = readFileSync(join(ROOT, src));
+    const b = readFileSync(join(ROOT, dst));
+    if (!a.equals(b))
+      err(`payload copy drifted: ${dst} is NOT byte-identical to ${src} — root is the source of truth; re-copy, never hand-edit`);
+  }
+}
+
+// ---- 48. Fresh-install signature -> propose setup-tna (HARD) ----
+// Origin: setup-as-skill ticket 03. A half-installed framework (skills present,
+// router/stamp missing) underperforms silently - self-trigger 0/3 without the
+// router. The agent must propose the setup-tna skill in that state; the model
+// proposes, the user approves (Iron Law 4).
+{
+  const agents48 = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+  if (!/Fresh-install signature . propose setup-tna/.test(agents48))
+    err('AGENTS.md: missing the fresh-install mandatory-recommendation rule (propose setup-tna when skills are present but the router/stamp is not)');
+  if (!/The model proposes; the user approves/.test(agents48))
+    err('AGENTS.md: the fresh-install rule must keep consent with the user (the model proposes, the user approves)');
+}
 
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }

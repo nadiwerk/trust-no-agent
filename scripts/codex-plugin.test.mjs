@@ -7,9 +7,9 @@
  *
  * Ground truth for the shaps below came from a real installed marketplace on
  * this machine (2026-09-30), not from prose:
- *   `~/.cache/codex-runtimes/.../openai-primary-runtime/.agents/plugins/marketplace.json`
- *   `~/.codex/plugins/cache/sisyphuslabs/.agents/plugins/marketplace.json`
- *   `~/.codex/plugins/cache/sisyphuslabs/omo/4.19.4/.codex-plugin/plugin.json`
+ *   `~/.cache/codex-runtimes/<runtime-id>/.agents/plugins/marketplace.json`
+ *   `~/.codex/plugins/cache/<marketplace-id>/.agents/plugins/marketplace.json`
+ *   `~/.codex/plugins/cache/<marketplace-id>/<plugin>/<version>/.codex-plugin/plugin.json`
  *   its hooks/*.json (which use `${PLUGIN_ROOT}` and emit
  *   `hookSpecificOutput.additionalContext`, the same contract gate-hook.mjs
  *   already emits).
@@ -109,7 +109,7 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
   }
   const shipped = readdirSync(join(ROOT, 'plugin', 'skills')).filter((n) =>
     existsSync(join(ROOT, 'plugin', 'skills', n, 'SKILL.md')));
-  check('E1 the payload ships every canonical skill, flat', canon.length === 11 && shipped.length === canon.length,
+  check('E1 the payload ships every canonical skill, flat', canon.length === 12 && shipped.length === canon.length,
     `canon=${canon.length} shipped=${shipped.length}`);
   const norm = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
   const mismatched = canon.filter(

@@ -156,18 +156,28 @@ for (const [label, re] of [
   check(`45 ${label} in the receipts skill`, re.test(receiptsSkill), String(re));
 }
 
-// INCONCLUSIVE verdict pins (Adaptation wave 1): verification that proved nothing is never a pass.\n{\n  const rs45 = readFileSync(join(HERE, '..', 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');\n  check('45a INCONCLUSIVE verdict section present', /## The INCONCLUSIVE verdict/.test(rs45), 'missing');\n  check('45a never-a-pass stated', /never a pass/.test(rs45), 'missing');\n}\n\n// Check 46 pins (setup-command ticket 04): the chat front door. FAIL
-// direction: remove the command file or strip a marker -> these red.
+// INCONCLUSIVE verdict pins (Adaptation wave 1): verification that proved nothing is never a pass.\n{\n  const rs45 = readFileSync(join(HERE, '..', 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');\n  check('45a INCONCLUSIVE verdict section present', /## The INCONCLUSIVE verdict/.test(rs45), 'missing');\n  check('45a never-a-pass stated', /never a pass/.test(rs45), 'missing');\n}\n\n// Check 46 pins (setup-command ticket 04; setup-as-skill ticket 01 moved the
+// procedure into the skill body). FAIL direction: remove the command file or
+// the skill, or strip a marker -> these red.
 check('eval.mjs carries check 46 (/setup-tna chat front door)', /---- 46\. /.test(evalSrc));
 const cmdFile46 = readFileSync(join(HERE, '..', '.opencode', 'command', 'setup-tna.md'), 'utf8');
+for (const [label, re] of [
+  ['wrapper named', /thin wrapper/i],
+  ['routes to skill', /setup-tna skill/],
+  ['no-direct-write guard surfaced', /NEVER[^.]*\.trust\//i],
+]) {
+  check(`46 ${label} in the command wrapper`, re.test(cmdFile46), String(re));
+}
+const skillBody46 = readFileSync(join(HERE, '..', 'skills', 'meta', 'setup-tna', 'SKILL.md'), 'utf8');
 for (const [label, re] of [
   ['from-chat named', /--from-chat/],
   ['no-direct-write guard', /NEVER write[^.]*\.trust\//i],
   ['no-yes-without-answers guard', /NEVER run `--yes`|never run `--yes`/i],
   ['degrade path stated', /Degrade path|degrade path/],
-  ['doctor final proof', /doctor\.mjs/],
+  ['doctor(-lite) final proof', /doctor\.mjs|doctor-lite/],
+  ['byte-identical copy demanded', /byte-identical/i],
 ]) {
-  check(`46 ${label} in setup-tna.md`, re.test(cmdFile46), String(re));
+  check(`46 ${label} in the setup-tna skill body`, re.test(skillBody46), String(re));
 }
 
 // Engagement-criteria pins (Adaptation wave 1): the chain engages by count, never mood.\nfor (const [label, re] of [\n  ['engagement criteria section present', /Engagement criteria \(mechanical, not felt\)/],\n  ['engagement named as count', /more than one file/],\n  ['not-a-mood guard', /never a mood/],\n]) {\n  check(6-ENG \ in AGENTS.md, re.test(agentsText2), String(re));\n}\n\n// Blind reviewers + enforcement ladder pins (Adaptation wave 2).

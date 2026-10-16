@@ -341,7 +341,16 @@ async function main() {
       process.exit(0);
     }
     const removed = { overlays: [], hooksPath: false };
-    for (const name of stamp.did.overlays || []) {
+    for (const rawName of stamp.did.overlays || []) {
+      // The stamp is an on-disk file treated as untrusted here: an overlay name
+      // must survive a normalizeName round-trip EXACTLY (the same whitelist the
+      // write path used) before any rmSync touches the filesystem — otherwise a
+      // tampered stamp ("overlays": ["../.."]) deletes arbitrary directories.
+      const name = normalizeName(rawName);
+      if (!name || name !== String(rawName)) {
+        console.log('Skipping suspicious overlay name in stamp: ' + JSON.stringify(String(rawName).slice(0, 40)));
+        continue;
+      }
       const dir = join(cwd, '.trust', 'skills-overlay', name);
       if (existsSync(dir)) { rmSync(dir, { recursive: true, force: true }); removed.overlays.push(name); }
     }
@@ -423,11 +432,24 @@ async function main() {
     // untouched (off, not broken).
     let hooksPathSet = false;
     if (components.hooks) {
-      try {
-        execFileSync('git', ['config', 'core.hooksPath', 'scripts/hooks'], { cwd, stdio: 'pipe' });
-        hooksPathSet = true;
-      } catch (e) {
-        console.error(`hooks wiring failed — set it manually: git config core.hooksPath scripts/hooks (${e && e.message ? e.message : 'unknown error'})`);
+      // Guard (security review 2026-10-16): core.hooksPath may only point at
+      // scripts/hooks when that directory EXISTS in this tree. From the
+      // setup-tna skill payload the hooks directory is not shipped — setting
+      // the config anyway would make git silently run NO hooks, disabling the
+      // adopter's pre-existing pre-commit enforcement. In that case the wiring
+      // is refused with a named manual command instead of a silent regression.
+      const hooksDir = join(cwd, 'scripts', 'hooks');
+      if (!existsSync(join(hooksDir, 'commit-msg')) && !existsSync(join(hooksDir, 'pre-commit'))) {
+        console.error('hooks wiring refused: scripts/hooks not found in this tree (running from the setup-tna skill payload?).');
+        console.error('Clone the repo and run the CLI from its root, or wire manually once the hooks exist:');
+        console.error('  git config core.hooksPath scripts/hooks');
+      } else {
+        try {
+          execFileSync('git', ['config', 'core.hooksPath', 'scripts/hooks'], { cwd, stdio: 'pipe' });
+          hooksPathSet = true;
+        } catch (e) {
+          console.error(`hooks wiring failed — set it manually: git config core.hooksPath scripts/hooks (${e && e.message ? e.message : 'unknown error'})`);
+        }
       }
     }
     const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet };

@@ -1,12 +1,21 @@
 # Installing trust-no-agent on every harness & CLI
 
-Step-by-step install for the framework core (`AGENTS.md` router + `WORKFLOW.md` core rules) and the 11 skills on each verified harness. Companion to `compatibility.md` — that page says what works, this page says how to install it.
+Step-by-step install for the framework core (`AGENTS.md` router + `WORKFLOW.md` core rules) and the 12 skills on each verified harness. Companion to `compatibility.md` — that page says what works, this page says how to install it.
 
 All commands assume you have cloned this repo (or reference it directly). Replace `<trust-no-agent>` with the path to your trust-no-agent checkout.
 
 ## Universal core (every harness)
 
-The router and core rules are plain files every harness reads. Two options:
+**The one-liner covers it (harness with a skill system).** `npx skills add
+nadiwerk/trust-no-agent` installs all 12 skills — and the setup-tna skill
+carries byte-identical copies of the router and core rules in its payload.
+Then type `/setup-tna` in your chat session: with your explicit consent the
+agent copies the router + core rules into the project root (never over an
+existing router — the merge path below), runs the consent + mapping flow,
+and proves the wiring with the doctor-lite checks.
+
+**Manual copy (no skill system, or you prefer the terminal).** The router and
+core rules are plain files every harness reads. Two options:
 
 ```bash
 # Option 1 — copy into your project (recommended for adoption)
@@ -414,7 +423,7 @@ On any harness, confirm the framework is active:
 2. Fire one movement skill, e.g. `scribe` (user-invoked) on a planning task — it should interview, not implement.
 3. Confirm `node scripts/validate.mjs`, `node scripts/eval.mjs`, and `node scripts/tickets.test.mjs` all exit 0 (structural + ownership + ticket-graph gates).
 4. Optional: add the CI workflow from `.github/workflows/ci.yml` to your repo to keep validation running automatically.
-5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, git hooks wired for your mode, all 11 skills reachable from a harness discovery location, the ledger gitignored and audited, and the corrective tier enforced — a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period (measured from the oldest dated ledger entry), then fails. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
+5. **Mechanical install check — `scripts/doctor.mjs`.** The steps above prove the router recites; doctor proves the enforcement is actually wired: router files present, git hooks wired for your mode, all 12 skills reachable from a harness discovery location, the ledger gitignored and audited, and the corrective tier enforced — a ledger with entries but no `.trust/lessons.md` warns during a 14-day grace period (measured from the oldest dated ledger entry), then fails. Run it from the adopting project (`node <trust-no-agent>/scripts/doctor.mjs`); exit 0 = healthy, exit 1 = gaps named with their fix. This closes the gap that prose install instructions cannot: nothing in the copy commands *guarantees* the enforcement is live until doctor checks it.
 
    Doctor reads your project's mode rather than assuming one. **Repo mode** (the project carries the framework's own `scripts/`) holds the strict hook contract: `core.hooksPath` set, both hooks present and identical to the tracked copies. **Adopter mode** (you copied skills, per the install above) checks that *some* git hook exists and never fails on this — a project that installed skills only cannot be expected to carry the framework's hook path, and a check that fails on a correct install teaches you to ignore it.
 

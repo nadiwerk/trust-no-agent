@@ -39,6 +39,7 @@ Bug path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`
 | Skill | One-line pitch | Page |
 |---|---|---|
 | `ship-log` | Every finished unit of work gets a ledger entry | [ship-log.md](ship-log.md) |
+| `setup-tna` | One chat command onboards the framework — router, consent, mapping, proof | [setup-tna.md](setup-tna.md) |
 
 ## Which entry point do I start at?
 

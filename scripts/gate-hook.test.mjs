@@ -6,7 +6,7 @@
  * the entire enforcement layer that existed only in the installed plugin
  * directory — never committed, never in git history, referenced by both
  * SessionStart and UserPromptSubmit in hooks.json. Every other artifact (the two
- * router files, reinject.mjs, mandatory-gate.mjs, all 11 skills) was tracked, so
+ * router files, reinject.mjs, mandatory-gate.mjs, all 12 skills) was tracked, so
  * a lost plugin folder could be rebuilt from the repo; this file could not. It
  * is 186 lines of wiring that would have had to be rewritten from memory.
  *
