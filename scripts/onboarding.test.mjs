@@ -610,6 +610,52 @@ const put = (root, name, text) => {
     rmSync(dir2, { recursive: true, force: true });
   }
   {
+    // K-series (consent-boundary spec AC1-AC4): consent is fail-closed.
+    // Empty Enter re-asks; 3 invalid answers abort with nothing written;
+    // mapSkills is type-validated; the receipt+stamp record the consent source.
+    const { spawnSync } = await import('node:child_process');
+    const ONB = join(HERE, 'onboarding.mjs');
+    // K1/K2: interactive path — pipe only empty lines: with the re-ask cap
+    // (3) and four components, the run must abort WITHOUT a stamp, naming
+    // the refusal. (Old behavior: empty = yes, stamp written.)
+    const dir = mkRepo('onboard-consent-empty-');
+    writeFileSync(join(dir, '.gitignore'), '.trust/\n');
+    const r = spawnSync(process.execPath, [ONB], {
+      cwd: dir, input: '\n\n\n\n\n\n\n\n\n\n\n\n', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir, HOME: dir },
+    });
+    check('K1 empty-Enter consent is re-asked, never granted (no stamp after 12 blank lines)',
+      !existsSync(join(dir, '.trust', 'onboarding.json')), `code=${r.status} stamp=${existsSync(join(dir, '.trust', 'onboarding.json'))}`);
+    check('K2 the run names the fail-closed refusal', /consent/i.test(String(r.stdout ?? '') + String(r.stderr ?? '')), String(r.stdout ?? '').slice(0, 200));
+    rmSync(dir, { recursive: true, force: true });
+    // K3: mapSkills non-array aborts before any write
+    const dir3 = mkRepo('onboard-consent-ms-');
+    writeFileSync(join(dir3, '.gitignore'), '.trust/\n');
+    const r3 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: 'not-an-array' })], {
+      cwd: dir3, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir3, HOME: dir3 },
+    });
+    check('K3 a non-array mapSkills aborts before any write (no stamp, no overlay dir)',
+      r3.status !== 0 && !existsSync(join(dir3, '.trust', 'onboarding.json')),
+      `code=${r3.status} stamp=${existsSync(join(dir3, '.trust', 'onboarding.json'))}`);
+    rmSync(dir3, { recursive: true, force: true });
+    // K4: non-string entries skipped with a named message; good entries land;
+    // receipt carries the consent source line.
+    const dir4 = mkRepo('onboard-consent-ms2-');
+    writeFileSync(join(dir4, '.gitignore'), '.trust/\n');
+    fixtureSkill(dir4);
+    const r4 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [42, 'team-playbook'] })], {
+      cwd: dir4, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir4, HOME: dir4 },
+    });
+    const out4 = String(r4.stdout ?? '');
+    check('K4 a non-string mapSkills entry is skipped with a named message; valid entries still land',
+      out4.includes('42') && existsSync(join(dir4, '.trust', 'skills-overlay', 'team-playbook')), out4.slice(0, 200));
+    check('K5 the receipt records the consent source (forwarded via --from-chat)',
+      /consent source.{0,40}forwarded/i.test(out4), out4.slice(0, 300));
+    rmSync(dir4, { recursive: true, force: true });
+  }
+  {
     // No .gitignore seed: onboarding APPENDS `.trust/` to the adopter's
     // .gitignore (never overwrites) — the one-door promise covers a repo
     // whose gitignore predates the framework.

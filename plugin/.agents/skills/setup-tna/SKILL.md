@@ -121,7 +121,9 @@ Evidence block quotes the CLI output and the verification results verbatim.
 
 - NEVER write the onboarding stamp, the overlay directory, or any file under
   .trust/ yourself — the CLI is the only writer.
-- NEVER run `--yes` in place of the human's forwarded answers.
+- NEVER run `--yes` in place of the human's forwarded answers. Forwarded
+  answers are the human's, verbatim: the agent never edits, fills, or
+  confirms them.
 - NEVER skip the question round — consent without the human's answers is
   fabrication.
 - NEVER copy the router without the human's explicit consent, and never copy

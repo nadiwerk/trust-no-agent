@@ -223,13 +223,27 @@ function askConsent() {
   // pending ask with null (fail-closed: a half-answered consent writes
   // nothing).
   const reader = makeLineReader();
-  const ask = (key) => reader.ask(`Enable ${COMPONENT_LABELS[key]}? [Y/n] `);
   return (async () => {
     const answers = {};
     for (const c of COMPONENTS) {
-      const line = await ask(c);
-      if (line === null) { reader.close(); return null; }
-      answers[c] = String(line).trim() === '' ? true : /^y/i.test(String(line).trim());
+      // Consent-boundary (spec AC1-AC2): an empty or unrecognized answer is
+      // never consent — re-ask, max 3 attempts, then abort fail-closed.
+      let granted = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const line = await reader.ask(`Enable ${COMPONENT_LABELS[c]}? [y/n] `);
+        if (line === null) { reader.close(); return null; }
+        const t = String(line).trim();
+        if (t === '') { console.log('  Empty answer is not consent — answer y or n explicitly.'); continue; }
+        if (/^y/i.test(t)) { granted = true; break; }
+        if (/^n/i.test(t)) { granted = false; break; }
+        console.log('  Unrecognized answer — answer y or n explicitly.');
+      }
+      if (granted === null) {
+        reader.close();
+        console.error('Consent refused after 3 unclear answers — nothing was written (fail-closed).');
+        return null;
+      }
+      answers[c] = granted;
     }
     reader.close();
     return answers;
@@ -319,12 +333,13 @@ async function mapPhase(cwd, { yes, onlySkills } = {}) {
   return { discovered: discovered.length, plan, written };
 }
 
-function printReceipt({ components, routerVersion, harness, stamped, mapResult, hooksPathSet }) {
+function printReceipt({ components, routerVersion, harness, stamped, mapResult, hooksPathSet, consentSource }) {
   const yes = (k) => (components[k] ? 'consented' : 'declined (mechanically OFF)');
   console.log('');
   console.log('Receipt');
   console.log(`  Consented: floor=${yes('floor')} hooks=${yes('hooks')} overlays=${yes('overlays')} evidence-gate=${yes('evidenceGate')} (router ${routerVersion || 'unknown'}, harness ${harness})`);
   console.log(`  Mapped: ${stamped ? 'stamp written to .trust/onboarding.json' : 'no stamp written (aborted)'}${mapResult ? ` — ${mapResult.discovered} discovered, ${mapResult.written.length} written (${mapResult.written.join(', ') || 'none'}), ${mapResult.plan.skipped.length} skipped, ${mapResult.plan.noted.length} already registered` : ''}`);
+  if (consentSource) console.log('  Consent source: ' + consentSource);
   console.log(hooksPathSet === true
     ? '  Pending: none — hooks wired (core.hooksPath=scripts/hooks).'
     : '  Pending: hooks wiring was declined — the mechanical hooks stay OFF (consent is real).');
@@ -437,7 +452,22 @@ async function main() {
       }
     }
     let mapResult = null;
-    if (components.overlays) mapResult = await mapPhase(cwd, { yes: true, onlySkills: answers.mapSkills });
+    if (components.overlays) {
+      // Consent-boundary (spec AC3): mapSkills must be an array; a non-array
+      // aborts BEFORE any write (the .gitignore append and overlay dir below
+      // happen only after this guard).
+      const ms = answers.mapSkills;
+      if (ms !== undefined && !Array.isArray(ms)) {
+        console.error('mapSkills must be an array — aborting before any write (got: ' + typeof ms + ').');
+        process.exit(1);
+      }
+      if (Array.isArray(ms)) {
+        for (const entry of ms) {
+          if (typeof entry !== 'string') console.log('Skipping non-string mapSkills entry: ' + JSON.stringify(String(entry).slice(0, 30)) + ' — only skill-name strings are accepted.');
+        }
+      }
+      mapResult = await mapPhase(cwd, { yes: true, onlySkills: (ms || []).filter((e) => typeof e === 'string') });
+    }
     // Consent is real (setup-tna unification): consenting hooks WIRES
     // core.hooksPath — the component turns ON mechanically, or /setup-tna
     // alone cannot complete a first install. Declining leaves the config
@@ -486,8 +516,9 @@ async function main() {
       }
     }
 const did = { vetoPluginCopied, overlays: mapResult ? mapResult.written : [], hooksPathSet };
-    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did }));
-    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet });
+    const consentSource = args.includes('--from-chat') ? 'forwarded via --from-chat (agent channel)' : 'interactive prompts';
+    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did, consentSource }));
+    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet, consentSource });
     process.exit(0);
   }
 

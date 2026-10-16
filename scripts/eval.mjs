@@ -1108,6 +1108,8 @@ for (const [file, text] of [
         'the skill must carry the honest audit-only branch for harnesses without a hook API'],
       [/veto plugin is present|veto-plugin-present/i,
         'doctor-lite must include the veto-plugin-present check for OpenCode trees with hooks consent'],
+      [/Forwarded[\s\S]{0,20}answers are the human.s, verbatim[\s\S]{0,60}never edits, fills, or[\s\S]{0,10}confirms/i,
+        'the skill must name the --from-chat boundary: forwarded answers are the human\u2019s, verbatim; the agent never edits, fills, or confirms them (consent-boundary)'],
       [/STOP[^.]*copy over|never copy[^.]*over an existing/i,
         'the router-copy step must refuse to overwrite an existing project router (merge path instead)'],
     ]) {

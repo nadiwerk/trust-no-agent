@@ -180,6 +180,7 @@ for (const [label, re] of [
   ['claude/codex verify-not-rewire branch', /already ships the veto|not re-wire|don't re-wire|don.t re-wire/i],
   ['honest audit-only branch', /audit-only/i],
   ['doctor-lite veto check', /veto plugin is present|veto-plugin-present/i],
+  ['forwarded-answers boundary', /Forwarded[\s\S]{0,20}answers are the human.s, verbatim[\s\S]{0,60}never edits, fills, or[\s\S]{0,10}confirms/i],
 ]) {
   check(`46 ${label} in the setup-tna skill body`, re.test(skillBody46), String(re));
 }
