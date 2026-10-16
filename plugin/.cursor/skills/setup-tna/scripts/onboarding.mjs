@@ -136,10 +136,13 @@ function canonicalSkillNames() {
 }
 
 function detectHarness(cwd) {
-  // Project-local signal FIRST: a tree carrying its own .opencode dir is an
-  // OpenCode tree regardless of the user's home dirs (several harnesses share
-  // a machine; the home checks below are the fallback, not the authority).
+  // Project-local signal FIRST: a tree carrying its own harness dir (.opencode,
+  // .omp, .pi) is that harness's tree regardless of the user's home dirs
+  // (several harnesses share a machine; the home checks below are the fallback,
+  // not the authority).
   if (existsSync(join(cwd, '.opencode'))) return 'opencode';
+  if (existsSync(join(cwd, '.omp'))) return 'omp';
+  if (existsSync(join(cwd, '.pi'))) return 'pi';
   const home = homedir();
   if (existsSync(join(home, '.codex', 'config.toml'))) return 'codex';
   if (process.env.CLAUDE_PLUGIN_ROOT) return 'claude';
@@ -381,6 +384,14 @@ async function main() {
       if (existsSync(vetoDir)) { rmSync(vetoDir, { recursive: true, force: true }); }
       console.log('Veto plugin: removed .opencode/plugins/tna-gate (it was copied by onboarding).');
     }
+    if (stamp.did.vetoHookCopiedOmp === true) {
+      const vetoOmp = join(homedir(), '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
+      if (existsSync(vetoOmp)) { rmSync(vetoOmp, { force: true }); console.log('Veto hook (omp): removed ~/.omp/agent/hooks/pre/tna-veto.ts (it was copied by onboarding).'); }
+    }
+    if (stamp.did.vetoHookCopiedPi === true) {
+      const vetoPi = join(cwd, '.pi', 'extensions', 'tna-veto.ts');
+      if (existsSync(vetoPi)) { rmSync(vetoPi, { force: true }); console.log('Veto hook (pi): removed .pi/extensions/tna-veto.ts (it was copied by onboarding).'); }
+    }
     // The overlay root is removed only when empty — pre-existing overlays
     // (not created by onboarding) stay untouched.
     const overlayRoot = join(cwd, '.trust', 'skills-overlay');
@@ -499,7 +510,10 @@ async function main() {
     // project so the mid-session veto actually runs there. Never clobber a
     // pre-existing copy; record did.vetoPluginCopied for --undo.
     let vetoPluginCopied = false;
-    if (components.hooks && detectHarness(cwd) === 'opencode') {
+    let vetoHookCopiedOmp = false;
+    let vetoHookCopiedPi = false;
+    const harness = detectHarness(cwd);
+    if (components.hooks && harness === 'opencode') {
       const srcPlugin = join(ROOT, '.opencode', 'plugins', 'tna-gate');
       const destPlugin = join(cwd, '.opencode', 'plugins', 'tna-gate');
       if (existsSync(destPlugin)) {
@@ -515,7 +529,36 @@ async function main() {
         console.error('Veto plugin: source .opencode/plugins/tna-gate not found in this tree — skipping (copy manually from the repo).');
       }
     }
-const did = { vetoPluginCopied, overlays: mapResult ? mapResult.written : [], hooksPathSet };
+    // Veto hook copy for omp (home-level hooks/pre) and pi (project .pi/extensions)
+    if (components.hooks && harness === 'omp') {
+      const srcVeto = join(ROOT, '.trust', 'veto-hooks-omp-pi', 'artifacts', 'omp', 'hooks', 'pre', 'tna-veto.ts');
+      const destVeto = join(homedir(), '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
+      if (existsSync(destVeto)) {
+        console.log('Veto hook (omp): already present at ~/.omp/agent/hooks/pre/tna-veto.ts (left untouched).');
+      } else if (existsSync(srcVeto)) {
+        mkdirSync(dirname(destVeto), { recursive: true });
+        writeFileSync(destVeto, readFileSync(srcVeto));
+        vetoHookCopiedOmp = true;
+        console.log('Veto hook (omp): copied to ~/.omp/agent/hooks/pre/tna-veto.ts (mid-session veto is ON).');
+      } else {
+        console.error('Veto hook (omp): source not found — skipping.');
+      }
+    }
+    if (components.hooks && harness === 'pi') {
+      const srcVetoPi = join(ROOT, '.trust', 'veto-hooks-omp-pi', 'artifacts', 'pi', '.pi', 'extensions', 'tna-veto.ts');
+      const destVetoPi = join(cwd, '.pi', 'extensions', 'tna-veto.ts');
+      if (existsSync(destVetoPi)) {
+        console.log('Veto hook (pi): already present at .pi/extensions/tna-veto.ts (left untouched).');
+      } else if (existsSync(srcVetoPi)) {
+        mkdirSync(dirname(destVetoPi), { recursive: true });
+        writeFileSync(destVetoPi, readFileSync(srcVetoPi));
+        vetoHookCopiedPi = true;
+        console.log('Veto hook (pi): copied to .pi/extensions/tna-veto.ts (mid-session veto is ON).');
+      } else {
+        console.error('Veto hook (pi): source not found — skipping.');
+      }
+    }
+const did = { vetoPluginCopied, vetoHookCopiedOmp, vetoHookCopiedPi, overlays: mapResult ? mapResult.written : [], hooksPathSet };
     const consentSource = args.includes('--from-chat') ? 'forwarded via --from-chat (agent channel)' : 'interactive prompts';
     writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did, consentSource }));
     printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet, consentSource });

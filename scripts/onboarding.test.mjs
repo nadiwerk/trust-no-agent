@@ -610,6 +610,75 @@ const put = (root, name, text) => {
     rmSync(dir2, { recursive: true, force: true });
   }
   {
+    // L-series (veto-hooks-omp-pi spec AC5): veto hook copy for omp and pi.
+    // omp: home-level ~/.omp/agent/hooks/pre/tna-veto.ts; pi: project .pi/extensions/
+    const { spawnSync } = await import('node:child_process');
+    const ONB = join(HERE, 'onboarding.mjs');
+    // Seed the source adapters in the checkout the CLI runs from
+    const srcOmp = join(HERE, '..', '.trust', 'veto-hooks-omp-pi', 'artifacts', 'omp', 'hooks', 'pre', 'tna-veto.ts');
+    const srcPi = join(HERE, '..', '.trust', 'veto-hooks-omp-pi', 'artifacts', 'pi', '.pi', 'extensions', 'tna-veto.ts');
+    const hadOmp = existsSync(srcOmp);
+    const hadPi = existsSync(srcPi);
+    if (!hadOmp) { mkdirSync(dirname(srcOmp), { recursive: true }); writeFileSync(srcOmp, '// fixture'); }
+    if (!hadPi) { mkdirSync(dirname(srcPi), { recursive: true }); writeFileSync(srcPi, '// fixture'); }
+
+    // L1: omp tree (.omp dir present, no .opencode) + hooks consent -> ~/.omp hook copied
+    const dirOmp = mkRepo('onboard-veto-omp-');
+    writeFileSync(join(dirOmp, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirOmp, '.omp'), { recursive: true });
+    const runOmp = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] })], {
+      cwd: dirOmp, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirOmp, HOME: dirOmp },
+    });
+    const ompDest = join(dirOmp, '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
+    check('L1 omp hooks consent copies the veto hook into ~/.omp/agent/hooks/pre/',
+      runOmp.status === 0 && existsSync(ompDest), `status=${runOmp.status} dest=${existsSync(ompDest)}`);
+    const stampOmp = parseStamp(readFileSync(join(dirOmp, '.trust', 'onboarding.json'), 'utf8'));
+    check('L2 the omp stamp records did.vetoHookCopiedOmp=true',
+      stampOmp && stampOmp.did && stampOmp.did.vetoHookCopiedOmp === true, JSON.stringify(stampOmp?.did));
+    const undoOmp = spawnSync(process.execPath, [ONB, '--undo'], {
+      cwd: dirOmp, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirOmp, HOME: dirOmp },
+    });
+    check('L3 omp --undo removes the copied veto hook',
+      undoOmp.status === 0 && !existsSync(ompDest), `code=${undoOmp.status} gone=${!existsSync(ompDest)}`);
+    rmSync(dirOmp, { recursive: true, force: true });
+
+    // L4: pi tree (.pi dir present) + hooks consent -> .pi/extensions/tna-veto.ts copied
+    const dirPi = mkRepo('onboard-veto-pi-');
+    writeFileSync(join(dirPi, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirPi, '.pi'), { recursive: true });
+    const runPi = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] })], {
+      cwd: dirPi, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirPi, HOME: dirPi },
+    });
+    const piDest = join(dirPi, '.pi', 'extensions', 'tna-veto.ts');
+    check('L4 pi hooks consent copies the veto hook into .pi/extensions/',
+      runPi.status === 0 && existsSync(piDest), `status=${runPi.status} dest=${existsSync(piDest)}`);
+    const stampPi = parseStamp(readFileSync(join(dirPi, '.trust', 'onboarding.json'), 'utf8'));
+    check('L5 the pi stamp records did.vetoHookCopiedPi=true',
+      stampPi && stampPi.did && stampPi.did.vetoHookCopiedPi === true, JSON.stringify(stampPi?.did));
+    // L6: pre-existing pi veto hook is never clobbered
+    const dirPi2 = mkRepo('onboard-veto-pi-pre-');
+    writeFileSync(join(dirPi2, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirPi2, '.pi', 'extensions'), { recursive: true });
+    writeFileSync(join(dirPi2, '.pi', 'extensions', 'tna-veto.ts'), '// USER VERSION');
+    const runPi2 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] })], {
+      cwd: dirPi2, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirPi2, HOME: dirPi2 },
+    });
+    const stampPi2 = parseStamp(readFileSync(join(dirPi2, '.trust', 'onboarding.json'), 'utf8'));
+    check('L6 a pre-existing pi veto hook is left untouched (no clobber)',
+      runPi2.status === 0
+      && readFileSync(join(dirPi2, '.pi', 'extensions', 'tna-veto.ts'), 'utf8') === '// USER VERSION'
+      && stampPi2 && stampPi2.did && stampPi2.did.vetoHookCopiedPi === false,
+      `status=${runPi2.status} stamp=${JSON.stringify(stampPi2?.did)}`);
+    if (!hadOmp) rmSync(srcOmp, { recursive: true, force: true });
+    if (!hadPi) rmSync(srcPi, { recursive: true, force: true });
+    rmSync(dirPi, { recursive: true, force: true });
+    rmSync(dirPi2, { recursive: true, force: true });
+  }
+  {
     // K-series (consent-boundary spec AC1-AC4): consent is fail-closed.
     // Empty Enter re-asks; 3 invalid answers abort with nothing written;
     // mapSkills is type-validated; the receipt+stamp record the consent source.
