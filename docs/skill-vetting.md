@@ -6,7 +6,7 @@ Vetting audits the **input** side - what ships with the skill. The verification 
 
 ## Two risk classes
 
-A skill is instructions; a script is an executable. The framework's own 11 skills ship markdown only (24 files under `skills/`, zero executables - verified 2026-09-06), so their entire surface is prose, auditable by reading. A skill that ships scripts is a different class: its scripts run **outside the repo's gates** - pre-commit hooks and CI see repo changes, not what a script does to the machine. Classify the skill first; the checklist weighs accordingly.
+A skill is instructions; a script is an executable. The framework's own 12 skills ship 29 files under `skills/` (verified 2026-10-16): eleven are markdown-only, auditable by reading. The exception is the setup-tna skill, which ships exactly one executable — its onboarding CLI (scripts/onboarding.mjs) — so the chat onboarding runs the same tested writer the repo uses; that CLI writes only under the project's .trust/ directory, its --undo path re-validates overlay names against the write-time whitelist before any deletion, and its byte-identity to the root copy is pinned by eval check 47. A skill that ships scripts beyond that pattern is a different class: its scripts run **outside the repo's gates** - pre-commit hooks and CI see repo changes, not what a script does to the machine. Classify the skill first; the checklist weighs accordingly.
 
 ## Safety checks - once, before first approval
 

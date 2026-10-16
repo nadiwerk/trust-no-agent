@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "trust-no-agent",
   "metadata": {
-    "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 11 skills, and a mechanical enforcement layer that does not rely on the model choosing to load anything."
+    "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 12 skills, and a mechanical enforcement layer that does not rely on the model choosing to load anything."
   },
   "owner": {
     "name": "nadiwerk"

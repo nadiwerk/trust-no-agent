@@ -7,7 +7,7 @@ mechanical gate before it is accepted.
 
 ## What this project is
 
-- A **markdown-only workflow framework** — 11 skills across three tiers
+- A **markdown-only workflow framework** — 12 skills across three tiers
   (engineering, discipline, meta) plus a router (`AGENTS.md` + `WORKFLOW.md`).
 - The engine is **rules, not code**. The only executable parts are the
   structural validator (`scripts/validate.mjs`), the static evals
@@ -147,7 +147,7 @@ If any fails, the PR is not mergeable. Run them locally before pushing.
 trust-no-agent/
 ├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
 ├── WORKFLOW.md          # core rules (non-negotiable)
-├── skills/              # the 11 skills, three tiers
+├── skills/              # the 12 skills, three tiers
 │   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
 │   │                    #   expect-fail, root-cause, roast-my-code
 │   ├── discipline/      #   receipts, no-thanks
