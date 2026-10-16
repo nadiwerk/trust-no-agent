@@ -16,15 +16,14 @@ zero. — [docs/philosophy.md](docs/philosophy.md)
 
 ## Install
 
-**Claude Code — plugin (recommended).**
-copied into your project:
+**Claude Code**
 
 ```bash
 claude plugin marketplace add nadiwerk/trust-no-agent
 claude plugin install trust-no-agent@trust-no-agent
 ```
 
-**Codex — plugin.**
+**Codex**
 
 ```bash
 codex plugin marketplace add nadiwerk/trust-no-agent
