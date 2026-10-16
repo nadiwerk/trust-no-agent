@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.34] - 2026-10-16
+
+### Added
+
+- **Fail-closed consent in the onboarding CLI**: an empty Enter no longer
+  means yes — empty or unrecognized answers are re-asked, three unclear
+  answers abort with "nothing was written (fail-closed)" (K1/K2 fixtures,
+  RED→GREEN). `mapSkills` is type-validated: a non-array aborts before any
+  write; non-string entries are skipped with a named message (K3/K4).
+- **The consent source is visible in every receipt and the stamp** —
+  `interactive prompts` or `forwarded via --from-chat (agent channel)` —
+  so a receipt names its trust boundary (K5).
+
+### Fixed
+
+- **Receipt labels are fixed English tokens** — Verdict / Evidence / Open /
+  Next are contract names, never translated; the body under each label
+  follows the user's language. Declared in `docs/chat-receipt.md` and the
+  receipts skill, pinned by eval check 45d (strip-dance proven), recorded as
+  an A6 row in the rule-inheritance register (origin: display-language
+  strike 4).
+- **README install section**: the Claude Code and Codex plugin commands now
+  sit in separate labeled blocks.
+
+
 ## [0.1.33] - 2026-10-16
 
 ### Added
@@ -705,7 +730,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.33...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.34...HEAD
+[0.1.34]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.30...v0.1.31
