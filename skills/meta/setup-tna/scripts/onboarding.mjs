@@ -136,6 +136,10 @@ function canonicalSkillNames() {
 }
 
 function detectHarness(cwd) {
+  // Project-local signal FIRST: a tree carrying its own .opencode dir is an
+  // OpenCode tree regardless of the user's home dirs (several harnesses share
+  // a machine; the home checks below are the fallback, not the authority).
+  if (existsSync(join(cwd, '.opencode'))) return 'opencode';
   const home = homedir();
   if (existsSync(join(home, '.codex', 'config.toml'))) return 'codex';
   if (process.env.CLAUDE_PLUGIN_ROOT) return 'claude';
@@ -354,6 +358,14 @@ async function main() {
       const dir = join(cwd, '.trust', 'skills-overlay', name);
       if (existsSync(dir)) { rmSync(dir, { recursive: true, force: true }); removed.overlays.push(name); }
     }
+    // The veto plugin is removed only when THIS onboarding copied it
+    // (did.vetoPluginCopied) — a pre-existing or user-created plugin copy
+    // (vetoPluginCopied false/absent) is never touched.
+    if (stamp.did.vetoPluginCopied === true) {
+      const vetoDir = join(cwd, '.opencode', 'plugins', 'tna-gate');
+      if (existsSync(vetoDir)) { rmSync(vetoDir, { recursive: true, force: true }); }
+      console.log('Veto plugin: removed .opencode/plugins/tna-gate (it was copied by onboarding).');
+    }
     // The overlay root is removed only when empty — pre-existing overlays
     // (not created by onboarding) stay untouched.
     const overlayRoot = join(cwd, '.trust', 'skills-overlay');
@@ -452,7 +464,28 @@ async function main() {
         }
       }
     }
-    const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet };
+        // Veto plugin copy (veto-plugin-onboarding spec AC1-AC3): when hooks are
+    // consented AND the harness is OpenCode, copy the veto plugin into the
+    // project so the mid-session veto actually runs there. Never clobber a
+    // pre-existing copy; record did.vetoPluginCopied for --undo.
+    let vetoPluginCopied = false;
+    if (components.hooks && detectHarness(cwd) === 'opencode') {
+      const srcPlugin = join(ROOT, '.opencode', 'plugins', 'tna-gate');
+      const destPlugin = join(cwd, '.opencode', 'plugins', 'tna-gate');
+      if (existsSync(destPlugin)) {
+        console.log('Veto plugin: already present at .opencode/plugins/tna-gate (left untouched).');
+      } else if (existsSync(join(srcPlugin, 'index.js'))) {
+        mkdirSync(destPlugin, { recursive: true });
+        for (const entry of readdirSync(srcPlugin, { withFileTypes: true })) {
+          if (entry.isFile()) writeFileSync(join(destPlugin, entry.name), readFileSync(join(srcPlugin, entry.name)));
+        }
+        vetoPluginCopied = true;
+        console.log('Veto plugin: copied to .opencode/plugins/tna-gate (mid-session veto is ON).');
+      } else {
+        console.error('Veto plugin: source .opencode/plugins/tna-gate not found in this tree — skipping (copy manually from the repo).');
+      }
+    }
+const did = { vetoPluginCopied, overlays: mapResult ? mapResult.written : [], hooksPathSet };
     writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did }));
     printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet });
     process.exit(0);

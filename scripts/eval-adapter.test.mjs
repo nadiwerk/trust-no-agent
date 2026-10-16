@@ -176,6 +176,10 @@ for (const [label, re] of [
   ['degrade path stated', /Degrade path|degrade path/],
   ['doctor(-lite) final proof', /doctor\.mjs|doctor-lite/],
   ['byte-identical copy demanded', /byte-identical/i],
+  ['opencode veto-copy branch', /harness is OpenCode|harness === 'opencode'|OpenCode tree/i],
+  ['claude/codex verify-not-rewire branch', /already ships the veto|not re-wire|don't re-wire|don.t re-wire/i],
+  ['honest audit-only branch', /audit-only/i],
+  ['doctor-lite veto check', /veto plugin is present|veto-plugin-present/i],
 ]) {
   check(`46 ${label} in the setup-tna skill body`, re.test(skillBody46), String(re));
 }

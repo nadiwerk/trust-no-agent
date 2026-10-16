@@ -566,6 +566,50 @@ const put = (root, name, text) => {
     rmSync(dir, { recursive: true, force: true });
   }
   {
+    // J-series (veto-plugin-onboarding spec AC1-AC3): the veto plugin copy.
+    // The CLI copies .opencode/plugins/tna-gate/ into the project when hooks
+    // are consented AND the harness is OpenCode (project-local .opencode dir
+    // is the detection signal), records did.vetoPluginCopied, never clobbers
+    // a pre-existing copy, and --undo removes exactly what it created.
+    const dir = mkRepo('onboard-veto-');
+    writeFileSync(join(dir, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dir, '.opencode'), { recursive: true });
+    // Seed the SOURCE plugin inside the repo checkout the CLI runs from
+    // (the CLI copies from its own checkout's .opencode/plugins/tna-gate).
+    const srcPlugin = join(HERE, '..', '.opencode', 'plugins', 'tna-gate');
+    const hadSrc = existsSync(srcPlugin);
+    if (!hadSrc) { mkdirSync(srcPlugin, { recursive: true }); writeFileSync(join(srcPlugin, 'index.js'), '// fixture plugin'); }
+    const r = runIn(dir, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    const dest = join(dir, '.opencode', 'plugins', 'tna-gate');
+    check('J1 hooks consent on an OpenCode tree copies the veto plugin into the project',
+      r.status === 0 && existsSync(join(dest, 'index.js')), `status=${r.status} destExists=${existsSync(dest)}`);
+    const stamp = parseStamp(readFileSync(join(dir, '.trust', 'onboarding.json'), 'utf8'));
+    check('J2 the stamp records did.vetoPluginCopied=true exactly when the copy happened',
+      stamp && stamp.did && stamp.did.vetoPluginCopied === true, JSON.stringify(stamp?.did));
+    const undo = spawnSync(process.execPath, [ONBOARD2, '--undo'], {
+      cwd: dir, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dir, HOME: dir },
+    });
+    check('J3 --undo removes the copied veto plugin directory and reports it',
+      undo.status === 0 && !existsSync(dest) && /veto plugin/i.test(String(undo.stdout ?? '')),
+      `code=${undo.status} destGone=${!existsSync(dest)} out=${String(undo.stdout ?? '').slice(0, 120)}`);
+    // AC3: pre-existing copy is never clobbered.
+    const dir2 = mkRepo('onboard-veto-pre-');
+    writeFileSync(join(dir2, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dir2, '.opencode', 'plugins', 'tna-gate'), { recursive: true });
+    writeFileSync(join(dir2, '.opencode', 'plugins', 'tna-gate', 'index.js'), '// USER CUSTOMIZATION - must survive');
+    const r2 = runIn(dir2, JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] }));
+    const stamp2 = parseStamp(readFileSync(join(dir2, '.trust', 'onboarding.json'), 'utf8'));
+    check('J4 a pre-existing veto plugin directory is left untouched (no clobber, not recorded as copied)',
+      r2.status === 0
+      && readFileSync(join(dir2, '.opencode', 'plugins', 'tna-gate', 'index.js'), 'utf8') === '// USER CUSTOMIZATION - must survive'
+      && stamp2 && stamp2.did && stamp2.did.vetoPluginCopied === false,
+      `status=${r2.status} stamp=${JSON.stringify(stamp2?.did)}`);
+    if (!hadSrc) rmSync(srcPlugin, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir2, { recursive: true, force: true });
+  }
+  {
     // No .gitignore seed: onboarding APPENDS `.trust/` to the adopter's
     // .gitignore (never overwrites) — the one-door promise covers a repo
     // whose gitignore predates the framework.

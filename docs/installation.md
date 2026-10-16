@@ -139,6 +139,13 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/
 Delegation uses `task(category, load_skills, run_in_background)` — the framework prompts already match this shape.
 
 ### opencode V2 — veto plugin install
+
+**Via /setup-tna (recommended).** When you consent to the hooks component
+during onboarding, the CLI copies the veto plugin into the project
+automatically (never over a copy you already own) and records it in the
+stamp for `--undo`.
+
+Manual copy (equivalent, for installs without onboarding):
 ```bash
 # Copy the self-contained plugin dir (it imports nothing outside itself —
 # scripts/tna-portable.test.mjs proves a relocated copy loads and denies):

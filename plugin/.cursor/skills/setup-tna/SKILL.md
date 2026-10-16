@@ -49,7 +49,7 @@ single round (the human answers once):
 
 - Consent per component (each enable/disable):
   - the session floor
-  - the mechanical hooks (session injection + commit veto)
+  - the mechanical hooks (session injection + commit veto before they run)
   - skill mapping (proposals below)
   - the evidence gate (a commit without fresh test evidence is vetoed)
 - For each discovered skill (run the onboarding CLI WITHOUT flags first if
@@ -80,6 +80,9 @@ The answers JSON carries exactly these fields (do not rename them):
   (true/false) from Step 2.
 - The mapSkills array carries ONLY the skill names the human confirmed.
 
+Read the CLI's output and relay what it did — including the veto-plugin
+handling described in Step 4.
+
 ## Step 4 — Verify (doctor-lite)
 
 Run these checks and read each result before claiming anything:
@@ -91,12 +94,25 @@ Run these checks and read each result before claiming anything:
    core-rules file).
 3. Skills detected: the harness's skill discovery lists the framework's
    skills.
+4. Veto plugin: on a tree whose harness is OpenCode and whose consent
+   included hooks, the veto plugin is present at
+   .opencode/plugins/tna-gate/index.js (the CLI copies it; its receipt line
+   names the copy or "already present").
 
-When working from a full repo checkout, ALSO run the repo's doctor script
-(scripts/doctor.mjs) and quote its output — the full doctor is the
-checkout-grade proof; the list above is the skill-grade minimum.
+## Step 5 — The veto plugin, per harness (say it exactly)
 
-## Step 5 — Receipt
+- **OpenCode**: when hooks are consented, the CLI copies the veto plugin
+  into .opencode/plugins/tna-gate/ — the mid-session veto is ON. Relay the
+  CLI's line (copied / already present / refused).
+- **Claude Code and Codex**: the plugin install already ships the veto hooks
+  — verify the presence of the hooks file in the plugin payload instead of
+  re-wiring anything, and say so.
+- **Harness without a hook API**: say honestly that the mid-session veto is
+  audit-only there — the machine ships but nothing calls it mid-session; the
+  commit gate via git hooks still applies when the hooks component was
+  consented and scripts/hooks exists.
+
+## Step 6 — Receipt
 
 Close with the 4-block receipt (Verdict / Evidence / Open / Next). The
 Evidence block quotes the CLI output and the verification results verbatim.
@@ -110,6 +126,8 @@ Evidence block quotes the CLI output and the verification results verbatim.
   fabrication.
 - NEVER copy the router without the human's explicit consent, and never copy
   it over an existing project router (merge path instead).
+- NEVER re-wire a veto the plugin install already wired (Claude Code/Codex) —
+  verify, don't duplicate.
 - NEVER name external products in your output.
 
 ## Degrade path — harness without an interactive question mechanism

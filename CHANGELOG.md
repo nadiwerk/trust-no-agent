@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`/setup-tna` now wires the veto plugin on OpenCode**: consenting to the
+  hooks component makes the onboarding CLI copy
+  `.opencode/plugins/tna-gate/` into the project (never over a copy you
+  own; recorded as `did.vetoPluginCopied` in the stamp so `--undo` removes
+  exactly what onboarding created). The skill body carries the per-harness
+  branches honestly — verify-not-rewire on Claude Code/Codex, audit-only
+  where no hook API exists — and doctor-lite gains the veto-plugin-present
+  check. Spec: `docs/specs/veto-plugin-onboarding.md`.
+
 ## [0.1.32] - 2026-10-16
 
 ### Added
