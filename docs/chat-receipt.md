@@ -23,6 +23,8 @@ English tokens: they are the contract's names, never translated, so every
 receipt is skimmable by the same shapes regardless of the language around
 them. The body text of each block follows the user's language (an
 Indonesian body under English labels is the intended form, not a defect).
+Never append a translation in parentheses to any label (no "Bukti
+(Evidence)") — the label is the label, written exactly like this.
 
 ## Block rules
 
