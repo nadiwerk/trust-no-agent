@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.35] - 2026-10-16
+
+### Added
+
+- **The veto layer reaches OMP and Pi**: both harnesses have a real
+  `tool_call` block contract (research replaced the outdated "no hook
+  surface observed" assumption in the compatibility matrix). New
+  `tna-veto.ts` adapters — hooks/pre for OMP (`~/.omp/agent/hooks/pre/`),
+  extensions for Pi (`.pi/extensions/`) — classify shell commands via the
+  same tna-gate core (IRREVERSIBLE_PATTERNS + `.trust/tna-gate-state.json`)
+  and block irreversible actions without fresh test evidence. The existing
+  fail-open discipline hooks are untouched (veto is additive).
+- **Onboarding distribution**: consenting to hooks on an OMP or Pi tree
+  copies the adapter (never clobbering a pre-existing copy), records it in
+  the stamp (`vetoHookCopiedOmp` / `vetoHookCopiedPi`), and `--undo`
+  removes exactly what onboarding copied. L1–L6 fixtures proven RED→GREEN.
+- `detectHarness` now reads project-local `.omp` and `.pi` dirs.
+
+### Fixed
+
+- `docs/jev-vs-tna-gates.md` comparison table corrected against source
+  before publication (a draft claim that TNA vetoes `git reset --hard`
+  was false — the patterns are commit/push/publish/rm -rf only).
+
 ## [0.1.34] - 2026-10-16
 
 ### Added
@@ -730,7 +754,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.34...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.35...HEAD
+[0.1.35]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.34...v0.1.35
 [0.1.34]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...v0.1.32
