@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.32] - 2026-10-16
+
 ### Added
 
 - **The setup-tna skill (the 12th)** (`skills/meta/setup-tna/`): the onboarding
@@ -24,6 +26,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deletion (a tampered stamp can no longer name traversal targets), and the
   hooks wiring refuses to set `core.hooksPath` when `scripts/hooks` does not
   exist in the tree (no silent hook disabling from a skill-payload run).
+
+- **Full-English pass**: every published file — nine specs translated
+  faithfully (structure byte-preserved), owner quotes carried with
+  `[translated]` markers, coined spec terms given English-primary forms with
+  their originals as gloss. Classifier keyword tables and test fixtures stay
+  as data.
+
+### Hardened
+
+- **The onboarding CLI's `--undo`** re-validates overlay names against the
+  write-time whitelist before any deletion (G3 fixture: a tampered stamp can
+  no longer name traversal targets; proven RED→GREEN).
+- **Hooks wiring** refuses to set `core.hooksPath` when `scripts/hooks` does
+  not exist in the tree — running the CLI from a skill payload can no longer
+  silently disable an adopter's pre-commit enforcement.
+
+### Fixed
+
+- The audit pass: personal/machine identifiers removed from published files,
+  and the README rewritten around the enforcement layer (plugin-first
+  install with the live-verified Claude Code and Codex command pairs).
 
 ## [0.1.31] - 2026-10-16
 
@@ -669,7 +692,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.32...HEAD
+[0.1.32]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.28...v0.1.29
