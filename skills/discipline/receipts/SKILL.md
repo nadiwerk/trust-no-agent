@@ -64,7 +64,7 @@ The `fail-first proven` boolean is the mechanical seam: it is what a pre-commit 
 
 ## The enforced receipt shape
 
-This repo enforces the receipt's shape, not just its presence (`scripts/receipt-enforcement.mjs`, pinned by eval check 45): the four blocks (Verdict / Evidence / Open / Next) with each of the five booleans carrying its own evidence line — a blanket "all five hold" is not a verdict and is rejected by name. The template:
+This repo enforces the receipt's shape, not just its presence (`scripts/receipt-enforcement.mjs`, pinned by eval check 45): the four blocks (Verdict / Evidence / Open / Next) with each of the five booleans carrying its own evidence line — a blanket "all five hold" is not a verdict and is rejected by name. The labels are fixed English tokens — never translated (Verdict / Evidence / Open / Next, plus the measured / inferred / guess markers); the body under each label follows the user's language. The template:
 
 ```
 **Verdict** — <one-line summary>

@@ -1183,6 +1183,18 @@ if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
     err('AGENTS.md: the fresh-install rule must keep consent with the user (the model proposes, the user approves)');
 }
 
+// ---- 45d. Receipt labels are fixed English tokens (HARD) ----
+// Ruling 2026-10-16 (display-language strike 4): the four block labels are
+// contract names — never translated; the body follows the user language.
+{
+  const crd = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
+  if (!/fixed[\s\S]{0,20}English tokens/.test(crd) || !/never translated/.test(crd))
+    err('docs/chat-receipt.md: receipt labels must be declared fixed English tokens (Verdict/Evidence/Open/Next), never translated - the body follows the user language');
+  const rsd = readFileSync(join(ROOT, 'skills', 'discipline', 'receipts', 'SKILL.md'), 'utf8');
+  if (!/fixed English tokens/.test(rsd))
+    err('skills/discipline/receipts/SKILL.md: missing the fixed-English-labels rule');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

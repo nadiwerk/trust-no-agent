@@ -18,6 +18,12 @@ Every verifiable unit closes in chat with these 4 blocks, in this order. Chat = 
 **Next:** <one action / none> — <archive location>
 ```
 
+The four block labels — **Verdict, Evidence, Open, Next** — are fixed
+English tokens: they are the contract's names, never translated, so every
+receipt is skimmable by the same shapes regardless of the language around
+them. The body text of each block follows the user's language (an
+Indonesian body under English labels is the intended form, not a defect).
+
 ## Block rules
 
 1. **Verdict** — first line = verdict + exit code. The result is known without scrolling.

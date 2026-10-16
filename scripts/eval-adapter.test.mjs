@@ -185,6 +185,11 @@ for (const [label, re] of [
   check(`46 ${label} in the setup-tna skill body`, re.test(skillBody46), String(re));
 }
 
+{ const crd45d = readFileSync(join(HERE, '..', 'docs', 'chat-receipt.md'), 'utf8');
+  check('45d labels fixed-english declared in chat-receipt', /fixed[\s\S]{0,20}English tokens/.test(crd45d), 'missing');
+  check('45d never-translated stated', /never translated/.test(crd45d), 'missing');
+}
+
 // Engagement-criteria pins (Adaptation wave 1): the chain engages by count, never mood.\nfor (const [label, re] of [\n  ['engagement criteria section present', /Engagement criteria \(mechanical, not felt\)/],\n  ['engagement named as count', /more than one file/],\n  ['not-a-mood guard', /never a mood/],\n]) {\n  check(6-ENG \ in AGENTS.md, re.test(agentsText2), String(re));\n}\n\n// Blind reviewers + enforcement ladder pins (Adaptation wave 2).
 const roastSkill = readFileSync(join(HERE, '..', 'skills', 'engineering', 'roast-my-code', 'SKILL.md'), 'utf8');
 check('45c blind reviewers in roast-my-code', /Blind reviewers \(never leak the parent's verdict\)/.test(roastSkill), 'missing');
