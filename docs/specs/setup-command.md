@@ -6,43 +6,45 @@ Date: 2026-10-15
 Origin: breakpoint session 2026-10-15 (3 frontier rounds, 9 decisions locked).
 Companion to onboarding (v0.1.29): the same machine, a new door — Master asked for
 a command that maps the user's skills into the workflow, asks consent for the
-router "secara menyeluruh", and is smooth on first install. One decision is
+router "comprehensively", and is smooth on first install. One decision is
 consciously reversed from v0.1.29: consent may now flow through the agent's
 question mechanism, because an explicit command the human types and answers is
 still human consent — the agent is the channel, never the decider.
 
 ## Problem Statement
 
-Sebagai adopter baru, onboarding yang ada memaksa saya keluar dari chat ke
-terminal untuk menjalankan `node scripts/onboarding.mjs` — briefing, consent,
-dan pemetaan skill semua terjadi di CLI terpisah, padahal saya sedang bekerja
-dengan agen di chat. Yang saya inginkan: satu slash command (`/setup-tna`) yang
-saya jalankan dari sesi — agen menampilkan briefing dan pertanyaan persetujuan
-secara menyeluruh (workflow + router + pemetaan skill), jawaban saya
-diteruskan ke mesin onboarding yang sama, dan saya menerima receipt plus bukti
-doctor hijau tanpa pernah membuka terminal. Yang saya butuhkan tanpa kompromi:
-mesin penulis stamp/overlay tetap satu (CLI yang teruji), consent tetap dari
-manusia (agen hanya kanal pertanyaan), dan di harness tanpa mekanisme
-pertanyaan, command berdegrade jujur ke instruksi terminal — bukan
-berpura-pura interaktif.
+As a new adopter, the existing onboarding forces me out of the chat into a
+terminal to run `node scripts/onboarding.mjs` — the briefing, consent,
+and skill mapping all happen in a separate CLI, while I am actually working
+with an agent in chat. What I want: one slash command (`/setup-tna`) that I
+run from my session — the agent presents the briefing and the consent
+questions comprehensively (workflow + router + skill mapping), my answers
+are forwarded to the same onboarding machine, and I receive a receipt plus
+a green doctor proof without ever opening a terminal. What I need without
+compromise: the stamp/overlay writer stays one machine (the tested CLI),
+consent still comes from the human (the agent is only the channel for
+questions), and on harnesses without a question mechanism the command
+degrades honestly to terminal instructions — it never pretends to be
+interactive.
 
 ## Solution
 
-Dari sudut pandang adopter: ketik `/setup-tna` di sesi. Agen mengikuti
-prosedur terbimbing di file command: (1) menampilkan briefing "apa yang
-berubah"; (2) menyajikan SATU mekanisme pertanyaan gabungan — empat komponen
-consent (floor / hooks / overlays / evidence gate) plus konfirmasi pemetaan
-skill per-proposal — jawaban Master dikumpulkan; (3) agen menjalankan
-`node scripts/onboarding.mjs --from-chat '<jawaban JSON>'` — CLI yang sama yang
-sudah teruji, satu-satunya penulis stamp dan overlay (validator, fail-closed,
-receipt CLI tetap berlaku); (4) agen menjalankan doctor dan menutup dengan
-receipt 4-blok — doctor hijau adalah bukti akhir. Dua jalur jujur: harness
-dengan mekanisme pertanyaan mendapat alur interaktif penuh; harness tanpa itu
-mendapat ringkasan + instruksi menjalankan CLI di terminal (degrade, pola
-briefing per-harness). File command hidup di repo (`.opencode/command/
-setup-tna.md`) dan di-mirror byte-identical ke payload plugin per-harness
-(pola 11 skill), dijaga guard byte-identity — semua adopter mendapat pintu yang
-sama.
+From the adopter's point of view: type `/setup-tna` in the session. The agent follows
+the guided procedure in the command file: (1) presents the "what changes"
+briefing; (2) presents ONE combined question mechanism — the four consent
+components (floor / hooks / overlays / evidence gate) plus the per-proposal
+skill-mapping confirmation — and collects Master's answers; (3) the agent runs
+`node scripts/onboarding.mjs --from-chat '<answers JSON>'` — the same CLI
+that is already tested, the sole writer of stamps and overlays (the
+validator, fail-closed, CLI receipt rules still apply); (4) the agent runs
+the doctor and closes with a 4-block receipt — a green doctor is the final
+proof. Two honest paths: harnesses with a question mechanism get the full
+interactive flow; harnesses without it get a summary + instructions to run
+the CLI in a terminal (degrade, the per-harness briefing pattern). The
+command file lives in the repo (`.opencode/command/
+setup-tna.md`) and is mirrored byte-identical into the per-harness plugin
+payload (the 11-skill pattern), guarded by a byte-identity guard — every
+adopter gets the same door.
 
 ## User Stories
 
@@ -124,7 +126,7 @@ sama.
   pattern) + codex-plugin.test consistency. (Round 3 Q9)
 - **Mapping-only on an onboarded tree**: `/setup-tna` on a stamped tree routes
   to `--map-only` behavior (never re-asks consent). (Derived from the
-  onboarding spec's --map-only decision; confirmed in round 1 Q3 "penuh +
+  onboarding spec's --map-only decision; confirmed in round 1 Q3 "full +
   bonus".)
 
 ## Testing Decisions

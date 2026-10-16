@@ -51,9 +51,9 @@ A zero-dependency, pattern-based classifier script that inspects a task's text a
 
 ## Acceptance Criteria
 
-1. (US 1) A ledger entry whose Summary text contains a done-claim pattern ("commit", "shipped", "selesai") and lacks a `Loaded:` line produces a warn-level finding naming `receipts` — automated test.
+1. (US 1) A ledger entry whose Summary text contains a done-claim pattern ("commit", "shipped", or the Indonesian keyword `selesai` — a trigger word in the gate's receipts table) and lacks a `Loaded:` line produces a warn-level finding naming `receipts` — automated test.
 2. (US 1) The same entry WITH a `Loaded: receipts` line produces no such finding — automated test.
-3. (US 6) Task texts in Indonesian ("perbaiki bug ini", "tulis test untuk modul X") produce the correct `root-cause` / `expect-fail` verdicts — automated test.
+3. (US 6) Task texts in Indonesian ("perbaiki bug ini", or the expect-fail fixtures in `scripts/mandatory-gate.test.mjs`) produce the correct `root-cause` / `expect-fail` verdicts — automated test.
 4. (US 7) Negative cases ("rename variable", "refactor test helper", "update README") produce no verdict for any skill — automated test.
 5. (US 3) Every keyword in the gate's tables is exercised by at least one passing test case — automated test (a table-vs-tests consistency check inside the test file).
 6. (US 4) The gate script imports only Node built-ins and runs clean under `node scripts/validate.mjs` / existing CI gates — automated test (CI run).

@@ -8,34 +8,37 @@ spec is trust-no-agent-native and deliberately names no external products.
 
 ## Problem Statement
 
-Sebagai pemilik trust-no-agent, saya ingin framework ini bisa dikomposisikan dengan skill
-buatan sendiri (atau adopter) tanpa memfork framework: trust-no-agent tetap router dan
-workflow utama, dan skill eksternal bisa **menambah step** ke alur yang sudah ada — contoh:
-skill fokus-error menambah langkah verifikasi tambahan setelah Phase 1 root-cause. Hari ini
-skill hanya bisa masuk lewat dua jalan yang sama-sama cacat: menambah ke `skills/` (masuk
-payload plugin, mirror, byte-identity — churn untuk setiap skill pribadi) atau tidak masuk
-sama sekali (pengetahuan user mati di luar framework). Yang saya butuhkan: satu mekanisme
-resmi, tervalidasi, keyless, di mana skill eksternal mendeklarasikan **kapan** ia aktif
-(trigger) dan **di mana** ia menempel (anchor per-fase), sementara aturan baja framework —
-skill eksternal boleh menambah step, tak pernah mengurangi gate — dijaga mekanis.
+As the owner of trust-no-agent, I want this framework to be composable with skills of my
+own (or an adopter's) without forking the framework: trust-no-agent remains the router and
+the main workflow, and external skills can **add steps** to the existing flow — example:
+an error-forensics skill adds an extra verification step after Phase 1 of root-cause.
+Today skills can only enter through two equally broken paths: adding them to `skills/`
+(they enter the plugin payload, the mirror, byte-identity — churn for every private
+skill) or not entering at all (the user's knowledge dies outside the framework). What I
+need: one official, validated, keyless mechanism where an external skill declares **when**
+it activates (triggers) and **where** it attaches (a per-phase anchor), while the
+framework's steel rules — external skills may add steps and never subtract a gate — are
+guarded mechanically.
 
 ## Solution
 
-Dari sudut pandang user: adopter menaruh skill-nya di `.trust/skills-overlay/<nama>/SKILL.md`
-dengan frontmatter YAML (`name`, `extends`, `triggers` opsional, `role`). Framework:
-(1) memvalidasi registry tiap kali dibaca (anchor harus ada di katalog fase kanonik yang
-*diturunkan* dari heading SKILL.md kanonik; role hanya boleh insert-before/insert-after/wrap);
-(2) menyusun floor sesi dengan **kanonik lebih dulu, penuh** — Iron Laws + bagian MANDATORY
-selalu utuh, sisa budget diisi entri overlay bertanda `user:` (nama bertabrakan ditandai,
-tak pernah menimpa); (3) mekanisme kegagalan fail-open — sesi jalan, dokter merah menunjuk
-skill rusak; (4) doctor memverifikasi registry (file ada, frontmatter valid, anchor valid,
-role legal) dan melaporkan hitungan overlay yang terpotong budget. Trigger bekerja dua arah:
-matriks kata kunci otomatis (overlay yang mendeklarasikan triggers) + pemanggilan eksplisit
-user (semua overlay, termasuk yang tanpa triggers). Eksekusi tetap kontrak teks dieksekusi
-agent — tidak ada engine runtime baru. Fitur ini adalah **sistem decision TNA sendiri**:
-memperluas mesin keputusan yang ada (gate, classifier, judge) dengan kemampuan mengomposisi
-unit keputusan eksternal ke dalam workflow. Pola eksternal hanyalah inspirasi; tidak ada
-permukaan API yang dikirim di fitur ini.
+From the user's point of view: the adopter places their skill at
+`.trust/skills-overlay/<name>/SKILL.md` with YAML frontmatter (`name`, `extends`, optional
+`triggers`, `role`). The framework: (1) validates the registry every time it is read
+(anchors must exist in the canonical phase catalog *derived* from canonical SKILL.md
+headings; the role may only be insert-before/insert-after/wrap); (2) composes the session
+floor with **canonical first, complete** — the Iron Laws + MANDATORY section always
+intact, the budget remainder filled with overlay entries marked `user:` (colliding names
+are flagged, never overwritten); (3) the failure mechanism is fail-open — the session
+runs, a red doctor points at the broken skill; (4) the doctor validates the registry (file
+exists, frontmatter valid, anchor valid, role legal) and reports the count of overlays cut
+by the budget. Triggers work both ways: the automatic keyword matrix (overlays that
+declare triggers) + explicit user invocation (all overlays, including those without
+triggers). Execution stays the text contract executed by the agent — no new runtime
+engine. This feature is **trust-no-agent's own decision system**: extending the existing
+decision machinery (gate, classifier, judge) with the ability to compose external
+decision units into the workflow. The external pattern is inspiration only; no API surface
+ships in this feature.
 
 ## User Stories
 
@@ -140,7 +143,7 @@ permukaan API yang dikirim di fitur ini.
   env config (the same pattern `behavioral-eval/run.mjs` already uses for its external
   endpoint); absent key = `inconclusive`, never a fabricated verdict.
 - **Execution model**: text contract, agent-executed — the floor names the skills and their
-  anchors; the agent runs the steps, exactly as it does for the 11 canonical skills today.
+  anchors; the agent runs the steps, exactly as it does for the 12 canonical skills today.
   No runtime engine, no phase-execution machinery.
 - **Anchor derivation rule**: anchors derive from canonical skill phase headings where they
   exist; a canonical skill without phase headings exposes no anchors, so no overlay can
@@ -271,7 +274,7 @@ permukaan API yang dikirim di fitur ini.
   optional last resort — keyword matrix stays tier one — and never becomes a second routing
   system.
 - Runtime workflow engine (phase-execution machinery); overlays are text contracts executed
-  by the agent, like the 11 canonical skills.
+  by the agent, like the 12 canonical skills.
 - Auto-downgrade or decay for overlay trust claims (the autonomy ladder stays per-harness).
 - Distributing overlays through the plugin marketplace payload.
 - Any network, API, or key surface in this feature.

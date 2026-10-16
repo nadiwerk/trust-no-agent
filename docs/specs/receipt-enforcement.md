@@ -1,53 +1,61 @@
-# Spec: receipt enforcement — the hilir side becomes steel
+# Spec: receipt enforcement — the hilir (downstream, end of chain) side becomes steel
 
 Status: draft (breakpoint complete 2026-10-14, 11 decisions locked; awaiting Master
 approval before publish)
 Date: 2026-10-14
 Origin: breakpoint session 2026-10-14 (3 frontier rounds, 11 decisions locked).
-Companion to the hulu-strengthening chain: where breakpoint/save-as/fork-it sharpened
+Companion to the hulu (upstream, front of chain) strengthening chain: where
+breakpoint/save-as/fork-it sharpened
 intent at the chain's front, this spec makes the done-claim at the chain's back
 un-cheatable.
 
 ## Problem Statement
 
-Sebagai pemilik trust-no-agent, saya menolak empat penyimpangan di sisi akhir rantai:
-**membuat-buat** (bukti fabrikasi: "36/36 gate hijau" tanpa run nyata), **iya-iya**
-(verdict blanket "all-yes" tanpa pembenaran per-poin), **tidak disiplin** (unit
-ditutup tanpa receipt), dan **melewati receipt** (done-claim mendarat di commit tanpa
-receipt valid). Hari ini mesin hilir memeriksa KEHADIRAN + KESEGARAN bukti — M9
-menandai klaim all-yes tanpa bukti, tapi kutipan fabrikasi lolos; satu-satunya
-cross-check mekanis adalah veto commit (state file bukti-test), bukan prose receipt
-di ledger. Klaim lama tak pernah diverifikasi ulang. Yang saya butuhkan: receipt
-yang buktinya per-poin dan literal, bypass yang ditolak sampai ke commit, dan klaim
-yang meluruh dengan waktu seperti tangga otonomi.
+As the owner of trust-no-agent, I reject four deviations at the end of the
+chain: **fabricated evidence** (*membuat-buat*: a "36/36 gates green" claim without a
+real run), **the blanket yes** (*iya-iya*: an "all-yes" verdict without per-point
+justification), **undisciplined** (units closed without a receipt), and
+**melewati receipt** (a done-claim landing in a commit without a valid
+receipt). Today the hilir machinery checks the
+PRESENCE + FRESHNESS of evidence — M9 flags all-yes claims lacking
+evidence, but a fabricated citation slips through; the only mechanical
+cross-check is the commit veto (the evidence-test state file), not the
+prose receipt in the ledger. Old claims are never re-verified. What I
+need: receipts whose evidence is per-point and literal, bypass denied all
+the way to the commit, and claims that decay with time like the autonomy
+ladder.
 
 ## Solution
 
-Dari sudut pandang maintainer: setiap unit yang ditutup menulis receipt di ledger
-prosa — tapi sekarang receipt itu **tervalidasi bentuk**: lima boolean (constraints
-satisfied / evidence fresh / scope held / subject verified / fail-first proven)
-masing-masing WAJIB membawa buktinya sendiri (blanket "all-yes" ditolak), dan
-perintah verifikasi yang dikutip harus literal dan termasuk gate repo (allowlist
-dari ci.yml — "tests pass" bukan bukti, dan perintah non-repo ditolak sebagai
-bukti). Ledger-audit (yang sudah jalan di CI + pre-commit) memeriksa setiap entri:
-done-claim tanpa receipt valid = temuan HARD. Veto commit diperluas: entri ledger
-TERBARU wajib punya receipt valid, kalau tidak commit DITOLAK dengan alasan
-bernama — receipt menjadi prasyarat mendarat, bukan dokumentasi. Klaim lebih tua
-dari 14 hari dianggap BASI (dihitung, bukan diingat) dan wajib diverifikasi ulang
-sebelum boleh men-GATE: verifikasi-ulang = audit MENJALANKAN perintah gate yang
-dikutip lewat runner terkeras (tanpa shell, allowlist, timeout — pola stale-probe).
-Status klaim mengikuti stale-probe: fresh (<14 hari) / re-verified (basi, re-run
-lulus) / stale (basi, re-run gagal atau belum) / unverifiable (tak ada perintah
-bukti); hanya fresh dan re-verified boleh men-GATE. Unit fast pun mendapat receipt
-MINIMAL wajib (satu baris: klaim + perintah + hasil) — tak ada yang benar-benar
-melewati receipt. Entri pra-fitur di-GRANDFATHER: warn, bukan fail. Dokter
-menampilkan klaim basi sebagai warn di awal sesi.
+From the maintainer's point of view: every closed unit writes a prose
+receipt in the ledger — but that receipt is now **shape-validated**: five
+booleans (constraints satisfied / evidence fresh / scope held / subject
+verified / fail-first proven), each of which MUST carry its own evidence
+(a blanket "all-yes" verdict is rejected), and the cited verification
+commands must be literal and among the repo gates (an allowlist derived
+from ci.yml — "tests pass" is not evidence, and non-repo commands are
+rejected as proof). Ledger-audit (already running in CI + pre-commit)
+checks every entry: a done-claim without a valid receipt is a HARD
+finding. The commit veto is extended: the NEWEST ledger entry must carry a
+valid receipt, otherwise the commit is DENIED with a named reason — the
+receipt becomes a prerequisite for landing, not documentation. Claims
+older than 14 days are treated as STALE (computed, not remembered) and
+must be re-verified before they may GATE anything: re-verification = the
+audit RUNNING the cited gate command through the hardened runner (no
+shell, allowlist, timeout — the stale-probe pattern). A claim's status
+follows the stale-probe statuses: fresh (<14 days) / re-verified (stale,
+re-run passed) / stale (stale, re-run failed or not yet) / unverifiable
+(no evidence command); only fresh and re-verified may GATE. Even fast
+units get a MINIMAL mandatory receipt (one line: claim + command +
+result) — nothing truly bypasses the receipt. Pre-feature entries are
+GRANDFATHERED: warn, not fail. The doctor surfaces stale claims as a warn
+at the start of a session.
 
 ## User Stories
 
 1. As the maintainer, I want every full/loop receipt to carry per-boolean evidence
-   (each of the five booleans justified, not one blanket sentence), so that an
-   iya-iya verdict cannot pass as a receipt.
+   (each of the five booleans justified, not one blanket sentence), so that a
+   blanket-yes verdict cannot pass as a receipt.
 2. As the maintainer, I want cited verification commands to be literal repo gates
    (an allowlist derived from the CI workflow), so that "tests pass" is not
    evidence and agent-authored commands cannot become proof.

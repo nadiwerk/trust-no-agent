@@ -1,16 +1,16 @@
-# Spec: hardening-general — enforcement mekanis di luar prose
+# Spec: hardening-general — mechanical enforcement beyond prose
 
-Status: published (approved Master 2026-10-12) — awaiting fork-it
+Status: published (approved by Master 2026-10-12) — awaiting fork-it
 Date: 2026-10-12
-Origin: keluhan Master (model melanggar gates/iron wall/receipt, pura-pura patuh) + 3 retakan struktural di foto (numpang API mati, word-gate, tanpa meter) + pola fail-closed worker Omo. Breakpoint 6 keputusan 2026-10-12.
+Origin: Master's complaint (the model bypassing gates/iron wall/receipt, faking compliance) + 3 structural cracks in the screenshot (enforcement riding on a dead API, word-gate, no meter) + the fail-closed pattern of the Omo worker. Breakpoint: 6 decisions, 2026-10-12.
 
 ## Problem Statement
 
-Sebagai Master, saya kesal model bisa mengabaikan gates, iron wall, dan receipt — disiplin dan receipt tidak berjalan sesuai filosofi trust-no-agent (don't trust anyone, even themselves), dan model bisa berpura-pura iyain (tulis Loaded:, verdict yes) tapi tetap melanggar. TNA hari ini kuat sebagai checklist audit, lemah sebagai penjamin: enforcement menumpang API mati, gate menghukum kata bukan aksi, dan tidak ada yang mengukur gate-nya sendiri.
+As Master, I am frustrated that the model can ignore gates, the iron wall, and receipts — discipline and receipts do not run according to the trust-no-agent philosophy (don't trust anyone, even themselves), and the model can fake agreement (write Loaded:, verdict yes) yet still violate. TNA today is strong as an audit checklist, weak as a guarantor: enforcement rides on a dead API, the gate punishes words instead of actions, and nothing measures the gate itself.
 
 ## Solution
 
-Ubah lapisan enforcement dari advisory text menjadi mekanis di batas aksi, per-harness adapter, dengan bukti observabel dan meter efektivitas. Core tetap harness-agnostic; yang per-harness hanya adapter veto/audit. Kata ("done") hanya sinyal; yang diblokir/diaudit adalah aksi tanpa bukti (commit/push tanpa test fresh, klaim Loaded:/receipt tanpa evidence).
+Change the enforcement layer from advisory text to mechanical at the action boundary, via per-harness adapters, with observable evidence and an effectiveness meter. The core stays harness-agnostic; only the veto/audit adapter is per-harness. Words ("done") are only a signal; what gets blocked/audited is action without evidence (commit/push without a fresh test, Loaded:/receipt claims without evidence).
 
 ## User Stories
 
@@ -21,70 +21,70 @@ Ubah lapisan enforcement dari advisory text menjadi mekanis di batas aksi, per-h
 5. As an adopter on omp/Devin (doc-first), I want the adapter documented with WARN degrade until live proof exists, so I know what I am getting.
 6. As a maintainer, I want Loaded: + receipt verdicts cross-checked against observable evidence (tool log / test output / diff ref), so fake compliance becomes a countable finding.
 7. As a maintainer, I want the word-gate augmented by an action-gate (tool name + args) and an evidence-gate, so saying "done" is never punished but acting without evidence is.
-8. As a maintainer, I want a gate-effectiveness meter (per-harness TRIGGER S13 scores, veto-fire log, fake-detect count) surfaced in doctor, so "kuat" is measured, not asserted.
+8. As a maintainer, I want a gate-effectiveness meter (per-harness TRIGGER S13 scores, veto-fire log, fake-detect count) surfaced in doctor, so "strong" is measured, not asserted.
 9. As a maintainer, I want eval check 6b revised from the literal load_skills string to the adapter contract, so CI enforces the new boundary instead of the dead API.
 10. As an adopter, I want per-harness install docs stating veto vs audit-only per action, so the guarantee is legible before I rely on it.
 
 ## Decisions Already Made
 
-- Scope: semua harness live (OMO, Claude Code, Codex, opencode V2) + omp + Devin doc-first WARN (breakpoint R1+R2, 2026-10-12).
-- Fail-closed boundary: hanya aksi irreversible; write/edit biasa tetap fail-open.
-- Anti-pura-pura-patuh: Loaded: + verdict 5-boolean wajib bukti observabel; klaim tanpa bukti = finding.
-- Meter: doctor WARN saja bila meter mati; tidak pernah FAIL CI (keputusan Master).
-- Eval 6b: direvisi ke kontrak adapter (bukan literal load_skills).
-- Omp/Devin: doc-first, degrade WARN sampai live proof ada.
+- Scope: all live harnesses (OMO, Claude Code, Codex, opencode V2) + omp + Devin doc-first WARN (breakpoint R1+R2, 2026-10-12).
+- Fail-closed boundary: irreversible actions only; ordinary write/edit stays fail-open.
+- Anti-fake-compliance: Loaded: + the 5-boolean verdict requires observable evidence; a claim without evidence = finding.
+- Meter: doctor WARN only when the meter is off; never CI FAIL (Master's decision).
+- Eval 6b: revised to the adapter contract (not the literal load_skills).
+- Omp/Devin: doc-first, WARN degrade until live proof exists.
 
 ## Testing Decisions
 
 - What counts as a good test: verdicts on observable inputs (tool-call fixtures, ledger-entry texts, hook manifests, router prose markers) — never narration, never implementation details.
-- Modules (seams, minimal, tertinggi yang ada):
-  - Seam A (baru): action-gate pure fn over tool calls (tool, args, state) — zero deps.
-  - Seam B (ada): auditLedger() + finding baru fake-compliance — extend, bukan modul baru.
-  - Seam C (ada): doctor-checks (gateVerdict/hookVerdict + verdict meter baru) — extend.
-  - Seam D (baru): plugin opencode tool.execute.before/after + state file — fixture-driven.
-- Prior art: mandatory-gate.test.mjs, ledger-audit.test.mjs, doctor.test.mjs, gate-hook.test.mjs (pola pure-fn + RED/GREEN + boundary-matched consistency).
+- Modules (seams, minimal, the highest that exist):
+  - Seam A (new): action-gate pure fn over tool calls (tool, args, state) — zero deps.
+  - Seam B (existing): auditLedger() + a new fake-compliance finding — extend, not a new module.
+  - Seam C (existing): doctor checks (gateVerdict/hookVerdict + a new verdict meter) — extend.
+  - Seam D (new): opencode plugin tool.execute.before/after + state file — fixture-driven.
+- Prior art: mandatory-gate.test.mjs, ledger-audit.test.mjs, doctor.test.mjs, gate-hook.test.mjs (pure-fn pattern + RED/GREEN + boundary-matched consistency).
 
 ## Constraints
 
-- Core harness-agnostic; yang per-harness hanya adapter. Tidak ada logika disiplin di dalam adapter selain veto/audit wiring.
-- Fail-closed hanya untuk irreversible (commit, push, publish, delete, destructive migration). Write/edit biasa fail-open.
-- Setiap temuan baru (termasuk fake-compliance) warn-level; meter mati = WARN, tidak FAIL.
-- Scripts: zero runtime deps, Node builtins only. Plugin: JS only, tanpa dep baru.
-- Tidak ada hard requirement pada string literal load_skills di mana pun kecuali sebagai satu adapter yang tersedia.
-- Omp/Devin: doc-first, degrade WARN; tidak ada klaim hostable/live sebelum bukti live.
-- Security: state file lokal saja (.trust/, gitignored), tanpa secret, tanpa exfil; veto melempar Error beralasan, tidak pernah blok diam-diam.
-- Prose + check (encode-twice): setiap kontrak baru di atas dikawal satu eval check HARD.
+- Core is harness-agnostic; only the adapter is per-harness. No discipline logic inside the adapter beyond veto/audit wiring.
+- Fail-closed only for irreversible actions (commit, push, publish, delete, destructive migration). Ordinary write/edit is fail-open.
+- Every new finding (including fake-compliance) is warn-level; meter off = WARN, not FAIL.
+- Scripts: zero runtime deps, Node builtins only. Plugin: JS only, no new deps.
+- No hard requirement on the literal load_skills string anywhere except as one available adapter.
+- Omp/Devin: doc-first, WARN degrade; no hostable/live claim before live proof.
+- Security: local state file only (.trust/, gitignored), no secrets, no exfil; the veto throws a reasoned Error, never blocks silently.
+- Prose + check (encode-twice): every new contract above is guarded by one HARD eval check.
 
 ## Acceptance Criteria
 
-1. (US1) Tool-call fixture `bash git commit` tanpa test-pass fresh di state file DITOLAK plugin opencode (throw) — automated test.
-2. (US2) Manifest hooks Claude memuat guard PreToolUse-equivalent untuk aksi yang sama — automated test (parse manifest + guard present) + human verification live.
-3. (US3) codex.hooks.json memuat guard yang sama — automated test + human verification live.
-4. (US4) AGENTS.md §5 menamai adapter matrix dan tidak lagi mensyaratkan literal load_skills sebagai satu-satunya jalan — automated test (eval check revisi).
-5. (US5) compatibility.md + installation.md menandai omp/Devin doc-first WARN dengan catatan degrade — automated test (marker check).
-6. (US6) Ledger entry berisi `Loaded: receipts` + verdict all-yes TANPA referensi test output/diff menghasilkan temuan fake-compliance — automated test (RED sebelum, GREEN sesudah).
-7. (US7) Prompt berisi kata "done" tanpa aksi tool menghasilkan TIDAK ada temuan; tool commit tanpa evidence menghasilkan temuan — automated test.
-8. (US8) Doctor mencetak meter (skor TRIGGER, veto-fire count, fake-detect count) sebagai WARN dan exit 0 saat meter absen — automated test.
-9. (US9) Eval check 6b revisi FAIL saat kontrak adapter dihapus dan PASS saat dipulihkan (RED/GREEN proof) — automated test.
-10. (US10) Tabel install per-harness menyatakan veto vs audit-only per aksi — human verification (baca tabel docs).
+1. (US1) A tool-call fixture `bash git commit` without a fresh test-pass in the state file is REJECTED by the opencode plugin (throw) — automated test.
+2. (US2) The Claude hooks manifest carries a PreToolUse-equivalent guard for the same actions — automated test (parse manifest + guard present) + human live verification.
+3. (US3) codex.hooks.json carries the same guard — automated test + human live verification.
+4. (US4) AGENTS.md §5 names the adapter matrix and no longer requires the literal load_skills as the only path — automated test (revised eval check).
+5. (US5) compatibility.md + installation.md mark omp/Devin doc-first WARN with the degrade note — automated test (marker check).
+6. (US6) A ledger entry containing `Loaded: receipts` + an all-yes verdict WITHOUT a reference to test output/diff produces a fake-compliance finding — automated test (RED before, GREEN after).
+7. (US7) A prompt containing the word "done" with no tool action produces NO finding; a commit tool call without evidence produces a finding — automated test.
+8. (US8) Doctor prints the meter (TRIGGER score, veto-fire count, fake-detect count) as WARN and exits 0 when the meter is absent — automated test.
+9. (US9) Revised eval check 6b FAILs when the adapter contract is removed and PASSes when restored (RED/GREEN proof) — automated test.
+10. (US10) The per-harness install table states veto vs audit-only per action — human verification (reading the docs table).
 
 ## Out of Scope
 
-- Varian B (model-judgment/probability classifier), network call, API key.
-- Memblokir semua write/edit; fail-closed di luar irreversible.
-- FAIL CI untuk meter mati (diputuskan WARN saja).
-- Live proof omp/Devin (doc-first dulu).
-- Git hook baru di luar yang sudah ada.
+- Variant B (model-judgment/probability classifier), network calls, API keys.
+- Blocking all write/edit; fail-closed beyond irreversible actions.
+- CI FAIL for a meter being off (decided: WARN only).
+- Live proof for omp/Devin (doc-first first).
+- New git hooks beyond the existing ones.
 
 ## Open Questions
 
-- Nama pasti hook surface Devin (riset docs, fakta agen — bukan tebakan).
-- Skema final state file (nama field, rotasi veto-fire log).
-- Ambang bulk vs flat untuk temuan fake-compliance di doctor (ikut pola BULK_THRESHOLD atau flat).
+- The exact name of Devin's hook surface (research the docs, agent facts — not guesses).
+- Final state-file schema (field names, veto-fire log rotation).
+- Bulk vs flat threshold for fake-compliance findings in doctor (follow the BULK_THRESHOLD pattern or flat).
 
 ## Adversarial self-review
 
-- Ambiguity: "fresh evidence" → DIPERJELAS di Constraints + AC1/AC6 (test-pass di sesi/state yang sama, bukan run lama).
-- Contradiction: "semua harness" vs "omp/Devin doc-first" → DIPERJELAS (semua = cakupan, doc-first = tingkat garansi; tabel install membedakan veto vs audit-only).
-- Hidden assumption: state file ada sebelum veto pertama → DINYATAKAN (plugin membuat state bila absen, veto membaca absen sebagai "no evidence" = tolak untuk irreversible).
-- Untestable: AC2/AC3 "human verification live" → DIPERTAHANKAN sebagai second check di samping automated manifest test (bukan satu-satunya check).
+- Ambiguity: "fresh evidence" → CLARIFIED in Constraints + AC1/AC6 (test-pass in the same session/state, not an old run).
+- Contradiction: "all harnesses" vs "omp/Devin doc-first" → CLARIFIED (all = scope, doc-first = guarantee level; the install table distinguishes veto vs audit-only).
+- Hidden assumption: the state file exists before the first veto → STATED (the plugin creates the state when absent; the veto reads absence as "no evidence" = reject for irreversible).
+- Untestable: AC2/AC3 "human live verification" → KEPT as a second check alongside the automated manifest test (not the only check).

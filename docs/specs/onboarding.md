@@ -9,40 +9,41 @@ makes the router, the gates, and the overlay mechanism discoverable and consente
 
 ## Problem Statement
 
-Sebagai adopter baru, saat pertama memasang trust-no-agent saya menghadapi
-tumpukan file (AGENTS.md, WORKFLOW.md, 11 skill, hooks, doctor) tanpa satu
-pintu resmi: apa yang saya setujui saat framework ini aktif di sesi saya?
-(veto commit tanpa bukti, floor tiap sesi, receipt discipline). Skill yang
-sudah terpasang di mesin saya tidak terpetakan ke workflow — mereka mati di
-luar framework. Pemasangan juga punya celah yang tak ada yang menamai:
-Codex melewati hook sampai user percaya, mesin lama tak punya stamp
-persetujuan, dan "update nanti" tak dijelaskan. Yang saya butuhkan: satu
-perintah onboarding yang (1) meminta persetujuan eksplisit per komponen,
-(2) memetakan skill terpasang dan mengusulkan penggabungannya ke workflow,
-(3) menerbitkan receipt + jalan pembatalan — tanpa satu pun instalasi lama
-rusak.
+As a new adopter, when first installing trust-no-agent I face a pile of
+files (AGENTS.md, WORKFLOW.md, 12 skills, hooks, doctor) with no single
+official door: what am I consenting to when this framework goes active in
+my sessions? (the commit veto without evidence, the per-session floor, the
+receipt discipline). Skills already installed on my machine are not mapped
+into the workflow — they die outside the framework. Installation also has
+gaps nobody has named: Codex skips the hook until the user trusts it, older
+machines have no consent stamp, and "update later" is left unexplained.
+What I need: one onboarding command that (1) asks explicit consent per
+component, (2) maps installed skills and proposes merging them into the
+workflow, (3) issues a receipt + an undo path — without breaking a single
+existing install.
 
 ## Solution
 
-Dari sudut pandang adopter: jalankan `node scripts/onboard.mjs` sekali.
-Onboarding: (1) menampilkan ringkas router + floor (Iron Laws + bagian
-MANDATORY) dan briefing "apa yang akan berubah di sesi Anda" — termasuk baris
-harness Anda dari compatibility.md dan peringatan Codex hook-trust bila
-relevan; (2) meminta persetujuan PER KOMPONEN (floor sesi / hooks mekanis /
-overlay skill / gate bukti — opt-in nyata: yang ditolak benar-benar mati,
-dokter mencatatnya); (3) memindai skill terpasang (direktori proyek +
-personal) dan MENGUSULKAN tiap skill sebagai overlay (nama + kata kunci
-trigger dari isinya), adopter konfirmasi/sunting; nama yang bertabrakan
-dengan 11 kanonik dilewati tercatat; (4) menulis stamp
-`.trust/onboarding.json` (privat, per-mesin) + overlay yang disetujui;
-(5) menutup dengan receipt 4-blok. `--map-only` mengulang pemetaan saat
-skill baru terpasang tanpa bertanya persetujuan lagi; `--undo` membalik
-semua yang onboarding lakukan. Instalasi lama (hooksPath + skill ditemukan,
-tanpa stamp) di-GRANDFATHER: dokter memberi warn "jalankan onboard.mjs
-untuk stamp + briefing", tidak gagal. Paket v1 juga membawa: briefing
-per-harness, peringatan Codex hook-trust, rehearsal tugas pertama (prosedur
-terbimbing: bacakan 4 Iron Laws + satu tugas lewat bentuk receipt), dan
-bagian jalan-keluar + update.
+From the adopter's point of view: run `node scripts/onboard.mjs` once.
+Onboarding: (1) shows a concise briefing of the router + floor (Iron Laws
++ the MANDATORY section) and the "what will change in your sessions"
+briefing — including your harness's row from compatibility.md and the
+Codex hook-trust warning when relevant; (2) asks for consent PER COMPONENT
+(session floor / mechanical hooks / skill overlay / evidence gate — real
+opt-in: what you decline is genuinely off, the doctor records it); (3)
+scans installed skills (project + personal directories) and PROPOSES each
+skill as an overlay (name + trigger keywords derived from its content),
+which the adopter confirms or edits; names colliding with the 12 canonical
+ones are skipped and recorded; (4) writes the `.trust/onboarding.json`
+stamp (private, per-machine) + the approved overlays; (5) closes with a
+4-block receipt. `--map-only` re-runs the mapping when new skills are
+installed without asking for consent again; `--undo` reverses everything
+onboarding did. Existing installs (hooksPath + skills found, no stamp) are
+GRANDFATHERED: the doctor prints a warn "run onboard.mjs for stamp +
+briefing" and does not fail. The v1 package also carries: the per-harness
+briefing, the Codex hook-trust warning, the first-task rehearsal (a guided
+procedure: recite the 4 Iron Laws + one task through the receipt shape),
+and the exit + update section.
 
 ## User Stories
 
@@ -122,7 +123,7 @@ bagian jalan-keluar + update.
   from the skill's own content; the adopter confirms or edits interactively
   (or `--yes` accepts). Anchors are left empty by default (explicit-only);
   attaching to a phase is the adopter's edit. (Round 1 Q4)
-- **Canonical collision**: skipped with a recorded note (the 11 canonical
+- **Canonical collision**: skipped with a recorded note (the 12 canonical
   names are the skip set). (Round 1 Q5)
 - **Stamp**: `.trust/onboarding.json` — private, gitignored, per-machine:
   consentedAt, routerVersion, components, harness, and what onboarding did
@@ -223,7 +224,7 @@ bagian jalan-keluar + update.
 7. (US5) Confirmed overlays parse clean through the registry seam and
    appear in the composed floor marked `user:`. — automated test (registry
    + composer seams).
-8. (US6) A skill whose name matches one of the 11 canonical names is
+8. (US6) A skill whose name matches one of the 12 canonical names is
    skipped and appears in the run's skipped list, never as an overlay.
    — automated test (planner seam).
 9. (US9) `--map-only` on a tree with one new skill since the stamp adds

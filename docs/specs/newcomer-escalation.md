@@ -1,6 +1,6 @@
 # Spec: newcomer escalation — first-run onboarding gate + docs hardening
 
-Status: published (approved Master 2026-10-13) — awaiting fork-it
+Status: published (approved by Master 2026-10-13) — awaiting fork-it
 Date: 2026-10-13
 Origin: Master question on first-time-user "defiance"; breakpoint 2026-10-13
 (2 rounds, frontier empty). Scribe attempt cancelled by Master; this spec is
@@ -10,17 +10,18 @@ audit-only decision A).
 
 ## Problem Statement
 
-Sebagai pengguna baru trust-no-agent, saya mengikuti instalasi tapi agent
-tetap bertingkah "membangkang": skill tak di-load, receipt dilewati, perilaku
-lama bertahan. Saya tidak tahu apakah instalasi saya rusak atau frameworknya
-yang lemah — tak ada cek yang memberi tahu di sesi pertama.
+As a new trust-no-agent user, I follow the install but the agent still
+behaves "defiantly": skills are not loaded, receipts are skipped, old
+behavior persists. I cannot tell whether my install is broken or the
+framework is weak — no check tells me in the first session.
 
 ## Solution
 
-Eskalasi dua lapis, docs dulu lalu gate: (1) keraskan alur onboarding di docs
-agar tiap langkah bisa diverifikasi — bukan sekadar dibaca; (2) tambah
-first-run gate mekanis yang memeriksa doctor hijau + skills reachable DAN
-Iron Laws recitable dari router proyek, sebelum disiplin diklaim berjalan.
+Two-layer escalation, docs first then gate: (1) harden the onboarding flow in
+the docs so that every step can be verified — not merely read; (2) add a
+mechanical first-run gate that checks doctor green + skills reachable AND
+the Iron Laws recitable from the project's router, before discipline is
+claimed to be running.
 
 ## User Stories
 
@@ -43,12 +44,14 @@ Iron Laws recitable dari router proyek, sebelum disiplin diklaim berjalan.
 
 ## Decisions Already Made
 
-- Target: keduanya — docs dulu, gate menyusul (breakpoint ronde 1).
-- Bukti: temuan sesi ini, tanpa pengumpulan bukti baru (breakpoint ronde 1).
-- Keluaran: spec + tiket (breakpoint ronde 1), bukan catatan saja.
-- Gate memeriksa doctor+skills DAN recite Iron Laws (breakpoint ronde 2).
-- Diagnosis tetap: apparent defiance = unwired enforcement + stale memory,
-  bukan disobedience (temuan sesi; ADR dibatalkan, tidak diterbitkan).
+- Target: both — docs first, gate follows (breakpoint round 1).
+- Evidence: this session's findings, no new evidence gathering (breakpoint
+  round 1).
+- Output: spec + tickets (breakpoint round 1), not notes only.
+- The gate checks doctor+skills AND reciting the Iron Laws (breakpoint
+  round 2).
+- Diagnosis stands: apparent defiance = unwired enforcement + stale memory,
+  not disobedience (session findings; the ADR was cancelled, not published).
 
 ## Testing Decisions
 
@@ -71,42 +74,45 @@ Iron Laws recitable dari router proyek, sebelum disiplin diklaim berjalan.
 
 ## Acceptance Criteria
 
-1. (US1) Tiap langkah install yang baru/berubah membawa cara verifikasi
-   satu-barisnya — automated test (eval marker ada).
-2. (US2) Satu verdict first-run ada (doctor hijau + skills reachable +
-   recite) — automated test (suite hijau + RED/GREEN proof saat wiring
-   dilepas).
-3. (US3) Alur adopsi menolak setup dual-router (interview + merge, tanpa
-   copy-over) — human verification (baca alur) + automated test (marker).
-4. (US4) Alur install/turun (install + de-adoption) terdokumentasi penuh —
-   automated test (marker purge + sweep ada di docs).
-5. (US5) Panduan support "minta output doctor dulu" tertulis — human
-   verification (baca docs).
-6. (US6) Gate memeriksa KEDUA sisi (doctor dan recite), bukan salah satu —
-   automated test (suite gagal bila satu sisi dilepas).
-7. (US7) Tiap aturan onboarding baru dikawal eval check — automated test
-   (eval hijau + RED proof per check).
+1. (US1) Every new/changed install step carries its one-line verification
+   method — automated test (eval marker present).
+2. (US2) A single first-run verdict exists (doctor green + skills reachable +
+   recite) — automated test (green suite + RED/GREEN proof when the wiring
+   is removed).
+3. (US3) The adoption flow rejects dual-router setups (interview + merge,
+   no copy-over) — human verification (reading the flow) + automated test
+   (marker).
+4. (US4) The install/uninstall flow (install + de-adoption) is fully
+   documented — automated test (purge marker + sweep present in the docs).
+5. (US5) The support guidance "ask for doctor output first" is written down —
+   human verification (reading the docs).
+6. (US6) The gate checks BOTH sides (doctor and recite), not just one —
+   automated test (the suite fails when one side is removed).
+7. (US7) Every new onboarding rule is guarded by an eval check — automated
+   test (green eval + RED proof per check).
 
 ## Out of Scope
 
-- Adapter harness baru (tiket 07/08 track-nya sendiri).
-- Mengubah severity WARN/FAIL yang sudah ada di doctor.
-- Menulis ulang docs instalasi dari nol — hardening aditif saja.
+- New harness adapters (tickets 07/08 are their own track).
+- Changing the existing WARN/FAIL severities in doctor.
+- Rewriting the install docs from scratch — additive hardening only.
 
 ## Open Questions
 
-- Gate first-run WARN atau FAIL saat tak terpenuhi? (Tak dibahas di
-  breakpoint — jangan diasumsi; default usulan: WARN, ikut doktrin doctor
-  untuk instalasi.)
-- Di mana gate hidup: bagian dari doctor, skrip baru, atau keduanya?
+- First-run gate WARN or FAIL when unmet? (Not discussed in the breakpoint —
+  do not assume; proposed default: WARN, following the doctor doctrine for
+  installs.)
+- Where does the gate live: part of doctor, a new script, or both?
 
 ## Adversarial self-review
 
-- Ambiguity: "recitable" → DIPERJELAS: model mengutip 4 Iron Laws dari router
-  proyek (bukan dari checkout framework) saat ditanya, sesi pertama.
-- Contradiction: US2 (satu verdict) vs US6 (dua sisi) → BUKAN kontradiksi:
-  satu verdict TERSUSUN dari dua sisi; keduanya harus hijau.
-- Hidden assumption: harness punya skill system → DINYATAKAN: fallback
-  no-skill-system ikut alur yang sama (router recital + doctor tanpa C3).
-- Untestable: "tahu langkah mana yang gagal" (US1) → DIPERTAHANKAN dengan
-  check method marker: tiap langkah menamai perintah verifikasinya.
+- Ambiguity: "recitable" → CLARIFIED: the model quotes the 4 Iron Laws from
+  the project's router (not from the framework checkout) when asked, first
+  session.
+- Contradiction: US2 (one verdict) vs US6 (two sides) → NOT a contradiction:
+  the one verdict is COMPOSED of two sides; both must be green.
+- Hidden assumption: the harness has a skill system → STATED: the
+  no-skill-system fallback follows the same flow (router recital + doctor
+  without C3).
+- Untestable: "knowing which step failed" (US1) → KEPT via the check-method
+  marker: every step names its verification command.

@@ -9,19 +9,18 @@ not found, K6/K9 pattern approved instead).
 
 ## Problem Statement
 
-Sebagai pemilik trust-no-agent, saya mau pelajaran teruji dari korpus riset
-eksternal (344 temuan, evals, memory, Jev, harness) masuk ke framework —
-bukan sebagai kutipan, melainkan sebagai mekanisme dengan gigi: kontrak eval
-yang memisahkan tuning dari pelaporan, brief delegasi yang membawa perintah
-verifikasi eksak, tangga otonomi yang meluruh, probe memori basi, dan
-judgment murah-tanpa-API.
+As the owner of trust-no-agent, I want the tested lessons from the external research
+corpus (344 findings, evals, memory, Jev, harness) to enter the framework — not as
+quotations, but as mechanisms with teeth: an eval contract that separates tuning from
+reporting, a delegation brief that carries the exact verification command, an autonomy
+ladder that decays, a stale-memory probe, and cheap no-API judgment.
 
 ## Solution
 
-Adopsi lima transfer, masing-masing dengan batas mekanisnya: kontrak eval
-(dev/test split, negatives, failure tags), brief delegasi 9-field J2,
-tangga otonomi per harness dengan decay, probe re-verifikasi memori basi,
-dan pola judgment K6/K9 (deterministik dulu, model-judge terakhir, tanpa API key).
+Adopt the five transfers, each with its mechanical limit: the eval contract (dev/test
+split, negatives, failure tags), the 9-field J2 delegation brief, the per-harness
+autonomy ladder with decay, the stale-memory re-verification probe, and the K6/K9
+judgment pattern (deterministic first, model-judge last, no API key).
 
 ## User Stories
 
@@ -48,8 +47,8 @@ dan pola judgment K6/K9 (deterministik dulu, model-judge terakhir, tanpa API key
 
 ## Decisions Already Made
 
-- Adopted (breakpoint ronde 1): eval-contract, J2 brief, autonomy ladder,
-  stale-memory probe — plus K6/K9 local-judgment pattern (ronde 2).
+- Adopted (breakpoint round 1): eval-contract, J2 brief, autonomy ladder,
+  stale-memory probe — plus the K6/K9 local-judgment pattern (round 2).
 - Not adopted: Jev model-slot usage, auto-downgrade paths, uncalibrated
   scores, Likert verdicts, agent self-grading, second graph system.
 - Evidence base: `.trust/coworker-research/*.md` (jev harness loop graph
@@ -80,45 +79,46 @@ dan pola judgment K6/K9 (deterministik dulu, model-judge terakhir, tanpa API key
 
 ## Acceptance Criteria
 
-1. (US1) Fixture dev/test terpisah fisik + check menolak tuning di angka
-   lapor — automated test (marker + layout).
-2. (US2) Setiap run eval bertag infra vs agent fault — automated test
-   (bentuk verdict + counter both directions).
-3. (US3) Suite negatives ~separuh + gate yang tak bisa diam tertangkap —
-   automated test (rasio + must-not-fire case merah).
-4. (US4) Brief delegasi membawa VERIFY-exact-cmd + TIMEBOX + partial —
-   automated test (marker template + satu contoh terisi).
-5. (US5) Tangga otonomi per harness + decay berlaku — automated test
-   (status basi → turun tingkat, bukan bertahan).
-6. (US6) Probe memori-basi berjalan + pelajaran mati tak bisa gate —
-   automated test (pelajaran basi vs perilaku kini).
-7. (US7) Judgment bounded tanpa API key + model-judge terakhir —
-   automated test (zero-dep + urutan deterministic-dulu).
-8. (US8) Laporan pass@k + reliabilitas + flakiness — automated test
-   (bentuk laporan + run berulang deterministik).
+1. (US1) Dev/test fixtures physically separated + the check rejects tuning
+   in the reported numbers — automated test (marker + layout).
+2. (US2) Every eval run tagged infra vs agent fault — automated test
+   (verdict shape + counter in both directions).
+3. (US3) Negatives suite at ~half + a gate that cannot stay silent is
+   caught — automated test (ratio + a red must-not-fire case).
+4. (US4) The delegation brief carries VERIFY-exact-cmd + TIMEBOX + partial
+   — automated test (template marker + one filled example).
+5. (US5) The per-harness autonomy ladder + decay applies — automated test
+   (a stale status drops a rung, it does not hold).
+6. (US6) The stale-memory probe runs + a dead lesson cannot gate —
+   automated test (stale lesson vs current behavior).
+7. (US7) Bounded judgment without an API key + model-judge last —
+   automated test (zero-dep + deterministic-first ordering).
+8. (US8) pass@k + reliability + flakiness reporting — automated test
+   (report shape + deterministic repeated runs).
 
 ## Out of Scope
 
-- Jev API / model-slot judgment / kalibrasi model (ditolak eksplisit).
-- Retrieval semantik ledger (ditunda sampai skala nyata).
-- Adapter harness baru (track 07/08).
-- Ubah severity WARN/FAIL yang sudah diputus.
+- Jev API / model-slot judgment / model calibration (explicitly rejected).
+- Semantic retrieval over the ledger (deferred until real scale).
+- New harness adapters (tracks 07/08).
+- Changing the already-decided WARN/FAIL severity.
 
 ## Open Questions
 
-- Ambang "separuh" negatives: tepat 50% atau rentang?
-- Batas peluruhan tangga (berapa hari tanpa bukti)?
-- Format verdict probe stale-memory: finding baru atau reuse lesson-gap?
+- The "half" negatives threshold: exactly 50% or a range?
+- The ladder decay limit (how many days without evidence)?
+- The stale-memory probe verdict format: a new finding or reuse
+  lesson-gap?
 
 ## Adversarial self-review
 
-- Ambiguity: "terpisah fisik" → DIPERJELAS: direktori dev/ vs test/ berbeda,
-  bukan flag.
-- Contradiction: US7 (tanpa API) vs judge-terakhir → BUKAN kontradiksi:
-  judge-terakhir = model sesi yang sama, bukan API luar; tanpa itu pun
-  deterministic harus cukup untuk gate.
-- Hidden assumption: harness mendukung run berulang murah → DINYATAKAN di
-  Constraints? Belum — PINDAH ke Open Questions bila implementasi butuh.
-  (Dicatat di sini agar tak hilang.)
-- Untestable: "defense in depth" → Dihindari; tiap AC di atas gagal-tuntas
-  (marker hilang / rasio turun / status basi bertahan).
+- Ambiguity: "physically separated" → CLARIFIED: separate dev/ vs test/
+  directories, not a flag.
+- Contradiction: US7 (no API) vs judge-last → NOT a contradiction:
+  judge-last = the same session's model, not an external API; even without
+  it, deterministic must be enough to gate.
+- Hidden assumption: the harness supports cheap repeated runs → DECLARED
+  in Constraints? Not yet — MOVE to Open Questions if implementation needs
+  it. (Recorded here so it is not lost.)
+- Untestable: "defense in depth" → Avoided; every AC above is
+  fail-complete (marker missing / ratio drops / stale status holds).

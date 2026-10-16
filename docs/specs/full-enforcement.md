@@ -9,18 +9,17 @@ v2.0.27) and newcomer-escalation 01–03.
 
 ## Problem Statement
 
-Sebagai pemilik framework, saya mau trust-no-agent yang terinstall penuh di
-berbagai project berdisiplin 100% — bukan instruksi teks yang dibaca lalu
-diabaikan model saat tertekan. Hari ini enforcement-nya menumpang API yang
-bisa mati, gate menghukum kata bukan aksi, dan tiap harness punya tingkat
-garansi berbeda tanpa ada yang memaksa level tertinggi.
+As the owner of the framework, I want a fully installed trust-no-agent across
+various projects to be 100% disciplined — not text instructions the model reads and
+then ignores under pressure. Today its enforcement piggybacks on an API that can die,
+gates punish words rather than actions, and every harness carries a different
+guarantee level with nothing forcing the highest one.
 
 ## Solution
 
-Naikkan semua harness ber-adapter ke veto fail-closed yang terbukti live,
-tolak merge yang melanggar di CI, dan nyatakan jujur per harness mana yang
-terjamin veto vs audit-only. Ragu = blokir; klaim tanpa bukti live = proposal,
-bukan garansi.
+Raise every harness with an adapter to a live-proven fail-closed veto, refuse
+violating merges in CI, and state honestly per harness which is veto-guaranteed vs
+audit-only. Doubt = block; a claim without live proof = a proposal, not a guarantee.
 
 ## User Stories
 
@@ -46,13 +45,13 @@ bukan garansi.
 ## Decisions Already Made
 
 - "100%" = block-total: veto blocks every irreversible attempt without
-  evidence (breakpoint ronde 1).
-- Scope: all harnesses — opencode, Claude, Codex, OMO, omp, Devin (ronde 1).
-- Fail-closed on doubt, with the reason surfaced (ronde 1).
-- Gates run both locally (hooks) and in CI (ronde 2).
-- Blocked package: commit/push/publish/delete/destructive migration (ronde 2).
+  evidence (breakpoint round 1).
+- Scope: all harnesses — opencode, Claude, Codex, OMO, omp, Devin (round 1).
+- Fail-closed on doubt, with the reason surfaced (round 1).
+- Gates run both locally (hooks) and in CI (round 2).
+- Blocked package: commit/push/publish/delete/destructive migration (round 2).
 - Honest per harness: 100% claimed only where an adapter with live proof
-  exists (ronde 2).
+  exists (round 2).
 
 ## Testing Decisions
 
@@ -78,40 +77,42 @@ bukan garansi.
 
 ## Acceptance Criteria
 
-1. (US1) Veto opencode terpasang dari install standar (bukan hanya repo
-   ini) — automated test (instalasi bersih + live denial fixture).
-2. (US2) PreToolUse Claude terbukti memblokir live — human verification
+1. (US1) The opencode veto installs from a standard install (not just this
+   repo) — automated test (clean install + live denial fixture).
+2. (US2) The Claude PreToolUse is proven to block live — human verification
    (live run) + automated test (manifest + exit-2 suite).
-3. (US3) Forwarding Codex terbukti live — human verification + automated test.
-4. (US4) OMO: adapter veto ATAU alasan tertulis kenapa audit-only plafonnya
-   — human verification (baca keputusan).
-5. (US5) omp/Devin: adapter ATAU rencana live-proof ber-tanggal — human
+3. (US3) The Codex forwarding is proven live — human verification +
+   automated test.
+4. (US4) OMO: a veto adapter OR a written reason why audit-only is its
+   ceiling — human verification (reading the decision).
+5. (US5) omp/Devin: an adapter OR a dated live-proof plan — human
    verification.
-6. (US6) CI merah saat boundary dilanggar — automated test (pipeline fixture
-   atau mutation: hapus wiring → build merah).
-7. (US7) Ragu = blokir + alasan tampil — automated test (bentuk tak dikenal
-   → deny, bukan allow-diam).
-8. (US8) Tabel garansi gagal CI bila baris veto tanpa bukti live — automated
-   test (eval marker: tiap baris veto menautkan bukti).
+6. (US6) CI goes red when the boundary is violated — automated test
+   (pipeline fixture or mutation: remove the wiring → red build).
+7. (US7) Doubt = block + the reason surfaced — automated test (an unknown
+   shape → deny, not a silent allow).
+8. (US8) The guarantee table fails CI when a row claims veto without live
+   proof — automated test (eval marker: every veto row links evidence).
 
 ## Out of Scope
 
-- Harness di luar enam yang diputus (ronde 1).
-- Aksi di luar paket irreversible (ronde 2).
-- Mengubah severity WARN/FAIL doctor yang sudah diputus.
+- Harnesses beyond the six decided ones (round 1).
+- Actions outside the irreversible package (round 2).
+- Changing the already-decided doctor WARN/FAIL severity.
 
 ## Open Questions
 
-- Urutan eksekusi per harness (paralel vs satu per satu)?
-- Batas waktu live-proof omp/Devin sebelum barisnya diturunkan?
+- Execution order per harness (parallel vs one at a time)?
+- The live-proof deadline for omp/Devin before its row is downgraded?
 
 ## Adversarial self-review
 
-- Ambiguity: "terinstall penuh" → DIPERJELAS: router + skills + hooks +
-  doctor hijau di proyek adopter (post-install verification).
-- Contradiction: "semua harness" vs "jujur per harness" → BUKAN kontradiksi:
-  cakupan semua, klaim veto hanya ber-adapter-berbukti.
-- Hidden assumption: harness mengizinkan hook/tool-gate → DINYATAKAN: yang
-  tak mengizinkan tetap audit-only tertulis (-US4/US5 adalah hasilnya).
-- Untestable: "tanpa membangkang" → DITERJEMAHKAN ke AC1–AC8 yang falsifiable;
-  niat model tak diukur, perilaku terblokir/tertangkap yang diukur.
+- Ambiguity: "fully installed" → CLARIFIED: router + skills + hooks + a
+  green doctor in the adopter's project (post-install verification).
+- Contradiction: "all harnesses" vs "honest per harness" → NOT a
+  contradiction: the scope covers all; a veto claim only where an adapter
+  with proof exists.
+- Hidden assumption: harnesses allow a hook/tool-gate → DECLARED: those
+  that do not stay written-down audit-only (-US4/US5 are the outcome).
+- Untestable: "without defiance" → TRANSLATED into falsifiable AC1–AC8;
+  the model's intent is not measured, blocked/caught behavior is.
