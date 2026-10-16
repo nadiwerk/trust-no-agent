@@ -16,22 +16,21 @@ zero. — [docs/philosophy.md](docs/philosophy.md)
 
 ## Install
 
-**Claude Code — plugin (recommended).** Hooks wire themselves; nothing is
-copied into your project:
+**Claude Code**
 
 ```bash
 claude plugin marketplace add nadiwerk/trust-no-agent
 claude plugin install trust-no-agent@trust-no-agent
 ```
 
-**Codex — plugin.** Same payload, same one-line result:
+**Codex**
 
 ```bash
 codex plugin marketplace add nadiwerk/trust-no-agent
 codex plugin add trust-no-agent@trust-no-agent
 ```
 
-**Any other harness** — one line inside your project:
+**Any other harness**
 
 ```bash
 npx skills add nadiwerk/trust-no-agent
@@ -135,7 +134,7 @@ run beyond the verification commands. It works on any harness that reads
 `AGENTS.md`; verified matrix across ten harnesses with evidence levels:
 [docs/compatibility.md](docs/compatibility.md).
 
-## The honest limits
+## Honest limits
 
 - **It verifies testability, not intent.** The upstream gate forces specs to be
   *testable*, not *true* — wrong intent stays possible, only cheap to catch.
