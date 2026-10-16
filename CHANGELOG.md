@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-10-16
+
 ### Added
 
 - **`/setup-tna` now wires the veto plugin on OpenCode**: consenting to the
@@ -703,7 +705,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.32...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.33...HEAD
+[0.1.33]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.29...v0.1.30
