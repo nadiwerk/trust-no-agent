@@ -140,7 +140,7 @@ The parts that never depend on the model choosing to comply:
 - **Hooks** — the discipline floor re-injects after compaction; a prompt
   classifier routes test/bug/done work to its mandatory skill; destructive
   actions wait for sign-off.
-- **Veto hooks for OMP and Pi** — the veto layer now reaches four harnesses
+- **Veto** — the veto layer now reaches four harnesses
   (OpenCode, Claude Code, Codex, OMP, Pi), each with a real deny contract.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.
