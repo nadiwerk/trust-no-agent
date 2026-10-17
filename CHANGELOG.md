@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **README: the core loop explained stage by stage** — claim, evidence,
+  receipt, guardrail each get a table row (what happens, what makes it
+  honest) instead of one buried prose sentence; the loop stays bold prose,
+  keeping exactly one fenced chain line in the README (eval pin).
+- **README: the verification gates updated to the current suite** — each of
+  the four repo commands now names the property it proves (structure /
+  discipline / tickets / doctor), the stale recorded outputs are replaced
+  with gate roles, and CI's full-suite scope (changelog-guard,
+  plugin-mirror, ledger-audit, onboarding, receipt-enforcement, and more)
+  is stated instead of implying four commands are all there is.
+
 ### Added
 
 - **README carries the site's five pillars**: the core, the verification

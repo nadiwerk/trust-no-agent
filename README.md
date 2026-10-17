@@ -73,28 +73,38 @@ of which workflow produced the code.
 Most agent workflows stop at output. This one stops at a **proof boundary**:
 the router makes the next action explicit, asks for decisions when the request
 is underspecified, and rejects a completion claim that has no fresh evidence
-behind it. The loop in four words: **claim → evidence → receipt →
-guardrail**. The agent says what changed; a test, command, or rendered
-result checks it; the result records what passed and what remains open;
-accepted findings become rules for the next session. The point is not
-ceremony — it is to make the expensive failure visible while it is still
-cheap to change ([docs/design.md](docs/design.md)).
+behind it. Every unit of work travels the same loop —
+**claim → evidence → receipt → guardrail**:
+
+| Stage | What happens |
+|---|---|
+| **claim** | The agent says what changed — specific, named files and commands, never a vibe of progress. |
+| **evidence** | A test, command, or rendered result checks the claim — run fresh in this session, never quoted from an earlier run. |
+| **receipt** | The outcome is recorded: what passed, what failed, what stays open — visible in chat, appended to the ledger. |
+| **guardrail** | Accepted findings become router rules for the next session — the same failure cannot silently recur. |
+
+The point is not ceremony. It is to make the expensive failure visible while
+it is still cheap to change ([docs/design.md](docs/design.md)).
 
 ## The verification gates
 
-Four commands turn "done" from a tone of voice into an observable result:
+Four repo commands are the minimum boundary a change must cross before it
+may be called done. Each proves a different property:
 
 ```bash
-node scripts/validate.mjs   # OK: 3 categories, 12 skills, no structural errors.
-node scripts/eval.mjs       # OK: 12 skills, invocation axis consistent, 0 warnings.
-node scripts/tickets.test.mjs   # OK: ticket-graph validator behaves as specified.
-node scripts/doctor.test.mjs    # OK: doctor behaves as specified.
+node scripts/validate.mjs        # structure: frontmatter, cross-refs, ownership
+node scripts/eval.mjs            # discipline: router rules pinned by checks that can fail
+node scripts/tickets.test.mjs    # tickets: the ticket-graph validator behaves as specified
+node scripts/doctor.test.mjs     # doctor: the install self-check behaves as specified
 ```
 
-Exit zero is the minimum boundary, not a promise that intent was correct —
-the gate checks the framework's structure and behavior; it does not pretend
-to prove your product intent. The same checks run in CI on every push, and
-the pre-commit hook rejects a commit that skips them.
+CI runs the full gate suite on every push — dozens of expectations across
+these and the remaining suites (changelog-guard, plugin-mirror, ledger-audit,
+onboarding, receipt-enforcement, and more) — and the pre-commit hook rejects
+a commit that skips them. Exit zero is the minimum boundary, not a promise
+that intent was correct: the gates check the framework's structure and
+behavior; they do not pretend to prove your product intent. That distinction
+is part of the contract.
 
 ## The four Iron Laws
 
