@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The omp/pi veto adapters ship in the release now** (bug report from an
+  omp user, root cause confirmed): the two `tna-veto.ts` adapters lived
+  under gitignored `.trust/` and were never committed — v0.1.35 and
+  v0.1.36 shipped the onboarding copy CODE but not the payload, so
+  onboarding failed open with "Veto hook (omp): source not found -
+  skipping" and the veto stayed off. The adapters moved to the tracked
+  `veto-hooks/{omp,pi}/tna-veto.ts` and byte-identical copies ride every
+  skill payload (`veto-hooks/` sibling of each `scripts/`, 7 locations);
+  onboarding resolves them relative to its own location, so both repo
+  checkouts and skills-installed trees work. New release-integrity pins:
+  the adapters must be git-tracked and byte-identical across all payloads
+  (L0a/L0b/L0c, RED observed first — the checks the release needed all
+  along), and the L-series no longer seeds a synthetic fixture: it copies
+  the real shipped files, so a missing payload can never pass green again.
+  Verified end-to-end from the adopter's path: payload copy -> omp tree ->
+  onboarding -> `~/.omp/agent/hooks/pre/tna-veto.ts` == canonical, no
+  "source not found", stamp records the copy.
+
 ### Changed
 
 - **README: the three skill tables are pipe-aligned** — all 18 table lines

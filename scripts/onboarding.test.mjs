@@ -13,7 +13,7 @@
  */
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanSkillDirs, suggestTriggers, planOnboarding, serializeStamp, parseStamp } from './onboarding.mjs';
@@ -614,13 +614,43 @@ const put = (root, name, text) => {
     // omp: home-level ~/.omp/agent/hooks/pre/tna-veto.ts; pi: project .pi/extensions/
     const { spawnSync } = await import('node:child_process');
     const ONB = join(HERE, 'onboarding.mjs');
-    // Seed the source adapters in the checkout the CLI runs from
-    const srcOmp = join(HERE, '..', '.trust', 'veto-hooks-omp-pi', 'artifacts', 'omp', 'hooks', 'pre', 'tna-veto.ts');
-    const srcPi = join(HERE, '..', '.trust', 'veto-hooks-omp-pi', 'artifacts', 'pi', '.pi', 'extensions', 'tna-veto.ts');
-    const hadOmp = existsSync(srcOmp);
-    const hadPi = existsSync(srcPi);
-    if (!hadOmp) { mkdirSync(dirname(srcOmp), { recursive: true }); writeFileSync(srcOmp, '// fixture'); }
-    if (!hadPi) { mkdirSync(dirname(srcPi), { recursive: true }); writeFileSync(srcPi, '// fixture'); }
+    // RELEASE-INTEGRITY (origin: omp user bug report 2026-10-17 - the v0.1.35
+    // release shipped the copy CODE but not the adapters, which lived under
+    // gitignored .trust/ and were never committed; onboarding failed open with
+    // "source not found - skipping"). The adapters are RELEASE PAYLOAD: they
+    // must be tracked in git AND present as veto-hooks/ siblings of EVERY
+    // onboarding.mjs (repo root + all skill payloads), byte-identical. The old
+    // test seeded a synthetic fixture when the source was missing - that crutch
+    // let the release ship empty. The test now reads the real shipped files.
+    const adapters = ['omp', 'pi'];
+    const payloadRoots = [
+      join(HERE, '..'),
+      join(HERE, '..', 'skills', 'meta', 'setup-tna'),
+      join(HERE, '..', 'plugin', 'skills', 'setup-tna'),
+      join(HERE, '..', 'plugin', '.agents', 'skills', 'setup-tna'),
+      join(HERE, '..', 'plugin', '.claude', 'skills', 'setup-tna'),
+      join(HERE, '..', 'plugin', '.cursor', 'skills', 'setup-tna'),
+      join(HERE, '..', 'plugin', '.opencode', 'skills', 'setup-tna'),
+    ];
+    const rel = { omp: join('veto-hooks', 'omp', 'tna-veto.ts'), pi: join('veto-hooks', 'pi', 'tna-veto.ts') };
+    const ompSource = join(HERE, '..', rel.omp);
+    const piSource = join(HERE, '..', rel.pi);
+    let tracked = '';
+    try { tracked = spawnSync('git', ['ls-files', 'veto-hooks'], { cwd: join(HERE, '..'), encoding: 'utf8' }).stdout; } catch { /* not a repo */ }
+    check('L0a the omp veto adapter is TRACKED in git (release payload, not a gitignored artifact)',
+      tracked.split('\n').map((s) => s.trim()).includes(rel.omp.split('\\').join('/')), `tracked=[${tracked.trim().split('\n').join(', ')}]`);
+    check('L0b the pi veto adapter is TRACKED in git (release payload, not a gitignored artifact)',
+      tracked.split('\n').map((s) => s.trim()).includes(rel.pi.split('\\').join('/')), `tracked=[${tracked.trim().split('\n').join(', ')}]`);
+    for (const a of adapters) {
+      const canonical = readFileSync(join(HERE, '..', rel[a]), 'utf8');
+      for (const root of payloadRoots.slice(1)) {
+        const p = join(root, rel[a]);
+        check(`L0c veto-hooks/${a} byte-identical in payload ${basename(root)}`,
+          existsSync(p) && readFileSync(p, 'utf8') === canonical, p);
+      }
+    }
+    const srcOmp = ompSource;
+    const srcPi = piSource;
 
     // L1: omp tree (.omp dir present, no .opencode) + hooks consent -> ~/.omp hook copied
     const dirOmp = mkRepo('onboard-veto-omp-');
@@ -732,9 +762,6 @@ const put = (root, name, text) => {
     rmSync(dirM2, { recursive: true, force: true });
     rmSync(dirM3, { recursive: true, force: true });
     rmSync(dirM4, { recursive: true, force: true });
-    if (!hadOmp) rmSync(srcOmp, { recursive: true, force: true });
-    if (!hadPi) rmSync(srcPi, { recursive: true, force: true });
-    rmSync(dirPi, { recursive: true, force: true });
     rmSync(dirPi2, { recursive: true, force: true });
   }
   {

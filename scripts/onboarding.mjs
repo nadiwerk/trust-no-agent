@@ -536,7 +536,7 @@ async function main() {
     }
     // Veto hook copy for omp (home-level hooks/pre) and pi (project .pi/extensions)
     if (components.hooks && harness === 'omp') {
-      const srcVeto = join(ROOT, '.trust', 'veto-hooks-omp-pi', 'artifacts', 'omp', 'hooks', 'pre', 'tna-veto.ts');
+      const srcVeto = join(ROOT, 'veto-hooks', 'omp', 'tna-veto.ts');
       const destVeto = join(homedir(), '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
       if (existsSync(destVeto)) {
         console.log('Veto hook (omp): already present at ~/.omp/agent/hooks/pre/tna-veto.ts (left untouched).');
@@ -550,7 +550,7 @@ async function main() {
       }
     }
     if (components.hooks && harness === 'pi') {
-      const srcVetoPi = join(ROOT, '.trust', 'veto-hooks-omp-pi', 'artifacts', 'pi', '.pi', 'extensions', 'tna-veto.ts');
+      const srcVetoPi = join(ROOT, 'veto-hooks', 'pi', 'tna-veto.ts');
       const destVetoPi = join(cwd, '.pi', 'extensions', 'tna-veto.ts');
       if (existsSync(destVetoPi)) {
         console.log('Veto hook (pi): already present at .pi/extensions/tna-veto.ts (left untouched).');
