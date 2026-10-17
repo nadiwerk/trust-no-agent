@@ -20,7 +20,7 @@ assert.match(html, /\.hero\s*\{[^}]*text-align:\s*center/i, 'hero content is cen
 assert.match(html, /\.hero \.lead\s*\{[^}]*max-width:\s*72ch/i, 'desktop subtitle uses a two-line measure');
 
 assert.match(html, /\.hero\s*\{[^}]*width:\s*min\(100%\s*-\s*3\.6rem/i, 'hero uses a narrower centered measure');
-assert.match(html, /An agent can sound done and still be wrong\. trust-no-agent turns claims into evidence, receipts, and human sign-off before anything irreversible ships\./, 'hero subtitle uses the shortened copy');
+assert.match(html, /Your agent says "done": but did you verify it\? trust-no-agent answers both questions mechanically: whether the work is actually correct \(receipts \+ commit gate\) and what to do next \(the chain \+ receipts\)\. Bring your own workflow; the trust layer applies regardless\./, 'hero subtitle uses the trust-first copy');
 
 
 

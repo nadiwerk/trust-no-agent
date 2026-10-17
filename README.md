@@ -5,14 +5,17 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-trust-no-agent is a discipline layer for AI coding agents. It does not make the
-model smarter — it makes its output **verifiable**: every claim carries fresh
-evidence, every stage of work has a named skill, and the rules are enforced
-mechanically where the model would otherwise decide for itself.
+Your agent says "done." But did you **verify** it — mechanically, not by
+trusting the model's tone?
 
-**Philosophy:** an agent's claim is not evidence, a subagent's report is not
-evidence, and "should work" is a confession. Work only counts when it exits
-zero. — [docs/philosophy.md](docs/philosophy.md)
+trust-no-agent is a **trust layer** for AI coding agents. It answers two
+questions every developer has after an agent finishes:
+
+1. **"Is it actually correct?"** — Every "done" claim must carry fresh
+   verification evidence. A commit without it is **rejected mechanically** —
+   not by asking the model nicely.
+2. **"What do I do next?"** — Every work unit closes with a receipt that
+   names the next concrete step. You are never left guessing.
 
 ## Install
 
@@ -45,12 +48,25 @@ harness guarantees (veto vs audit-only):
 [docs/compatibility.md](docs/compatibility.md).
 
 Then type **`/setup-tna`** in your chat session — the agent asks for your
-consent, copies the router into the project root, runs the consent + skill
+consent, copies the router into the project root, asks which workflow you
+use (the built-in chain, your own, or both), runs the consent + skill
 mapping flow, and closes with a doctor-lite proof.
 
 The skills alone are inert — fresh agents self-triggered them **0 out of 3
 times** in evals. The router forces the discipline to load; the plugin wires
 the enforcement. ([docs/design.md](docs/design.md))
+
+## Bring your own workflow
+
+The trust layer works with **any** workflow — the built-in chain is one
+option, not a requirement. Already using skills from another repo
+([mattpocock/skills](https://github.com/mattpocock/skills),
+[obra/superpowers](https://github.com/obra/superpowers),
+[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills),
+[pstack](https://github.com/cursor/plugins/tree/main/pstack))? Install them
+alongside TNA — the onboarding detects and maps them as overlays. The
+receipts, the veto, and the consent gate apply to every action regardless
+of which workflow produced the code.
 
 ## The four Iron Laws
 
@@ -65,16 +81,15 @@ Three of the four are enforced by **mandatory skills** the router loads before
 the relevant work starts — self-trigger was measured unreliable, so forcing is
 the design.
 
-## The chain
+## The chain (one workflow option)
 
 ```
 breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log
 ```
 
-Bugs take their own path — `root-cause` → `expect-fail` → fix → `receipts` —
-and both paths meet at the same gates. Small work skips the chain but never
-the registry check. After every stage the agent proposes the next step by name
-and waits.
+This is the built-in workflow — use it if you don't have one, or skip it and
+bring your own. Bugs take their own path: `root-cause` → `expect-fail` →
+fix → `receipts`. Small work skips the chain but never the gates.
 
 ## The 12 skills
 
@@ -103,7 +118,7 @@ and waits.
 | Skill | Invoked by | What it does | Use cases |
 |---|---|---|---|
 | `ship-log` | model | Append-only private ledger + self-review + rulings | [docs/skills/ship-log.md](docs/skills/ship-log.md) |
-| `setup-tna` | user | Chat-guided onboarding — router copy, consent, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
+| `setup-tna` | user | Chat-guided onboarding — router copy, consent, workflow choice, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
 
 ## The enforcement layer
 
@@ -116,8 +131,13 @@ The parts that never depend on the model choosing to comply:
 - **Hooks** — the discipline floor re-injects after compaction; a prompt
   classifier routes test/bug/done work to its mandatory skill; destructive
   actions wait for sign-off.
+- **Veto hooks for OMP and Pi** — the veto layer now reaches four harnesses
+  (OpenCode, Claude Code, Codex, OMP, Pi), each with a real deny contract.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.
+- **Workflow choice** — the onboarding asks which workflow you use (built-in
+  chain, your own, or both) and records it in the stamp; the gates apply
+  regardless.
 - **Review integrity** — review subagents never see the orchestrator's verdict;
   delegated reports without the verified SHA and method are dropped.
 - **Labeled claims** — every prose claim is measured, inferred, or a guess, in
@@ -134,7 +154,7 @@ run beyond the verification commands. It works on any harness that reads
 `AGENTS.md`; verified matrix across ten harnesses with evidence levels:
 [docs/compatibility.md](docs/compatibility.md).
 
-## Honest limits
+## The honest limits
 
 - **It verifies testability, not intent.** The upstream gate forces specs to be
   *testable*, not *true* — wrong intent stays possible, only cheap to catch.
