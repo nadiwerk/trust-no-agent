@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **README: the three skill tables are pipe-aligned** — every row in
-  Engineering, Discipline, and Meta shares the same column widths, so the
-  pipes line up visually in the raw markdown (rendered tables are unaffected;
-  alignment is whitespace-only). The eval's user-invoked check was widened to
-  accept padded columns (`| `name`   | user   |`), keeping the pin alive.
+- **README: the three skill tables are pipe-aligned** — all 18 table lines
+  now share the same global column widths, so pipes land at identical
+  positions across Engineering, Discipline, and Meta: vertical lines drawn
+  across all three tables are straight, matching the reference image. The
+  eval's user-invoked check was widened to accept padded columns
+  (`| `name`   | user   |`), keeping the pin alive.
 
 - **README: honest limits gains the veto-proof limit** — the live denial
   proofs exist on OpenCode; the other four harnesses' deny contracts are
