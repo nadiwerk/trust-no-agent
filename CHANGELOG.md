@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **README: honest limits gains the veto-proof limit** — the live denial
+  proofs exist on OpenCode; the other four harnesses' deny contracts are
+  wired from documented hook APIs but not yet proven by a live run
+  (doc-first in the compatibility matrix, review-by 2026-11-13).
+- **README: "thirty gates" freed from the count** — the pinned number rotted
+  (34 script steps in CI today); both mentions now say "the full gate
+  suite", matching the framework's own rule that a claim without fresh
+  verification is a rumor.
+
+### Changed
+
 - **README: the TNA gates are named** — a new enforcement-layer bullet
   introduces the named core (`tna-gate` evidence recording +
   `action-gate` irreversible-command classification), and the veto

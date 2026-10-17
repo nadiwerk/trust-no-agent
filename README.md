@@ -166,7 +166,7 @@ The parts that never depend on the model choosing to comply:
   the same sentence.
 - **Doctor** — one command verifies the install is actually wired, not just
   recited.
-- **CI** — thirty gates run on every push; every rule in the router is pinned
+- **CI** — the full gate suite runs on every push; every rule in the router is pinned
   by a check that was proven able to fail (encode-twice).
 
 ## The 12 skills
@@ -223,6 +223,11 @@ run beyond the verification commands. It works on any harness that reads
   forbids dishonest claims; output quality still comes from the model.
 - **It does not enforce itself.** Skills are text; what never depends on the
   model is the mechanical layer above — hooks, CI, and the doctor.
+- **Its veto is proven where it was tested.** The live denial proofs exist on
+  OpenCode; the other four harnesses' deny contracts are wired from documented
+  hook APIs but not yet proven by a live run — the compatibility matrix marks
+  them doc-first until one fires
+  ([docs/compatibility.md](docs/compatibility.md), review-by 2026-11-13).
 
 ## Contributing
 
@@ -235,7 +240,7 @@ git config core.hooksPath scripts/hooks   # once — the same gate then runs on 
 
 Before pushing, the core four gates must exit 0 — `node scripts/validate.mjs
 && node scripts/eval.mjs && node scripts/tickets.test.mjs &&
-node scripts/doctor.test.mjs`; CI runs the full thirty. Conventional Commits;
+node scripts/doctor.test.mjs`; CI runs the full gate suite. Conventional Commits;
 `CHANGELOG.md` updated for user-visible changes; security issues via the
 private path in [SECURITY.md](SECURITY.md).
 
