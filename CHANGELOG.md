@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The omp/pi veto adapters were runtime-broken — fixed** (second bug
+  report from the same omp user, on the v0.1.37 adapters): both
+  `tna-veto.ts` files called `readFileSync` without importing `node:fs`,
+  so the handler threw `ReferenceError` inside `readEvidence`, the catch
+  swallowed it, and every read resolved "(missing)" — the veto blocked
+  FOREVER even with fresh test evidence (fail-closed into uselessness;
+  reproduced locally before the fix). The adapters now import what they
+  call, verified at runtime in both branches (fresh evidence → allow, no
+  evidence → block). New runtime-correctness pins L1b/L4b: the shipped
+  adapter must self-contain its fs identifiers — a copied-but-broken file
+  can never pass green again (RED observed: `unresolved: readFileSync`
+  on both adapters before the import landed).
+
+
 - **The private ledger is append-only, now mechanically** (ledger-overwrite
   incident 2026-10-18): a `write`/`edit` targeting `.trust/progress.txt` is
   vetoed by the shared classifier regardless of evidence — fresh test

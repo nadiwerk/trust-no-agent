@@ -19,6 +19,8 @@
 // omp tool_call contract: return { block?: boolean; reason?: string }.
 // First block stops dispatch; reason becomes the tool error text.
 
+import { readFileSync } from "node:fs";
+
 const IRREVERSIBLE_PATTERNS = ["git commit", "git push", "npm publish", "rm -rf"];
 
 function classifyCommand(command) {

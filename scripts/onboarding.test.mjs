@@ -663,6 +663,21 @@ const put = (root, name, text) => {
     const ompDest = join(dirOmp, '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
     check('L1 omp hooks consent copies the veto hook into ~/.omp/agent/hooks/pre/',
       runOmp.status === 0 && existsSync(ompDest), `status=${runOmp.status} dest=${existsSync(ompDest)}`);
+    // L1b (origin: omp user bug report 2026-10-18): the copied adapter must be
+    // RUNTIME-correct, not merely present - the shipped file referenced
+    // readFileSync with NO import, so the handler threw ReferenceError inside
+    // readEvidence, the catch swallowed it, and the veto blocked FOREVER even
+    // with fresh test evidence (state always read "(missing)"). The shipped
+    // adapter must self-contain its imports: every identifier it calls must be
+    // imported or defined in the file itself.
+    {
+      const src = readFileSync(ompDest, 'utf8');
+      const calledButUndefined = ['readFileSync', 'writeFileSync', 'existsSync', 'mkdirSync']
+        .filter((name) => new RegExp(`\\b${name}\\s*\\(`).test(src))
+        .filter((name) => !new RegExp(`import[\\s\\S]*?\\b${name}\\b`).test(src));
+      check('L1b the shipped omp adapter is runtime-correct (no unresolved fs identifiers)',
+        calledButUndefined.length === 0, `unresolved: ${calledButUndefined.join(', ') || 'none'}`);
+    }
     const stampOmp = parseStamp(readFileSync(join(dirOmp, '.trust', 'onboarding.json'), 'utf8'));
     check('L2 the omp stamp records did.vetoHookCopiedOmp=true',
       stampOmp && stampOmp.did && stampOmp.did.vetoHookCopiedOmp === true, JSON.stringify(stampOmp?.did));
@@ -685,6 +700,15 @@ const put = (root, name, text) => {
     const piDest = join(dirPi, '.pi', 'extensions', 'tna-veto.ts');
     check('L4 pi hooks consent copies the veto hook into .pi/extensions/',
       runPi.status === 0 && existsSync(piDest), `status=${runPi.status} dest=${existsSync(piDest)}`);
+    // L4b: same runtime-correctness pin as L1b, for the pi adapter.
+    {
+      const src = readFileSync(piDest, 'utf8');
+      const calledButUndefined = ['readFileSync', 'writeFileSync', 'existsSync', 'mkdirSync']
+        .filter((name) => new RegExp(`\\b${name}\\s*\\(`).test(src))
+        .filter((name) => !new RegExp(`import[\\s\\S]*?\\b${name}\\b`).test(src));
+      check('L4b the shipped pi adapter is runtime-correct (no unresolved fs identifiers)',
+        calledButUndefined.length === 0, `unresolved: ${calledButUndefined.join(', ') || 'none'}`);
+    }
     const stampPi = parseStamp(readFileSync(join(dirPi, '.trust', 'onboarding.json'), 'utf8'));
     check('L5 the pi stamp records did.vetoHookCopiedPi=true',
       stampPi && stampPi.did && stampPi.did.vetoHookCopiedPi === true, JSON.stringify(stampPi?.did));
