@@ -121,7 +121,7 @@ for (const m of readme.matchAll(/\| `([a-z-]+)` \| (user|model) \|/g)) {
     err(`README says "${name}" is ${axis}-invoked, canonical axis is ${declared.get(name).axis}-invoked`);
 }
 for (const name of USER_INVOKED)
-  if (!new RegExp(`\\| \\\`${name}\\\` \\| user \\|`).test(readme))
+  if (!new RegExp(`\\| \\\`${name}\\\`\\s+\\| user\\s+\\|`).test(readme))
     err(`README skills table missing user-invoked skill: ${name}`);
 
 // ---- 3. descriptions are trigger-shaped (soft) ----
