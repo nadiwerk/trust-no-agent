@@ -202,7 +202,7 @@ run beyond the verification commands. It works on any harness that reads
 `AGENTS.md`; verified matrix across ten harnesses with evidence levels:
 [docs/compatibility.md](docs/compatibility.md).
 
-## The honest limits
+## Honest limits
 
 - **It verifies testability, not intent.** The upstream gate forces specs to be
   *testable*, not *true* — wrong intent stays possible, only cheap to catch.
