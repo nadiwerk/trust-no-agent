@@ -68,6 +68,34 @@ alongside TNA — the onboarding detects and maps them as overlays. The
 receipts, the veto, and the consent gate apply to every action regardless
 of which workflow produced the code.
 
+## The core
+
+Most agent workflows stop at output. This one stops at a **proof boundary**:
+the router makes the next action explicit, asks for decisions when the request
+is underspecified, and rejects a completion claim that has no fresh evidence
+behind it. The loop in four words: **claim → evidence → receipt →
+guardrail**. The agent says what changed; a test, command, or rendered
+result checks it; the result records what passed and what remains open;
+accepted findings become rules for the next session. The point is not
+ceremony — it is to make the expensive failure visible while it is still
+cheap to change ([docs/design.md](docs/design.md)).
+
+## The verification gates
+
+Four commands turn "done" from a tone of voice into an observable result:
+
+```bash
+node scripts/validate.mjs   # OK: 3 categories, 12 skills, no structural errors.
+node scripts/eval.mjs       # OK: 12 skills, invocation axis consistent, 0 warnings.
+node scripts/tickets.test.mjs   # OK: ticket-graph validator behaves as specified.
+node scripts/doctor.test.mjs    # OK: doctor behaves as specified.
+```
+
+Exit zero is the minimum boundary, not a promise that intent was correct —
+the gate checks the framework's structure and behavior; it does not pretend
+to prove your product intent. The same checks run in CI on every push, and
+the pre-commit hook rejects a commit that skips them.
+
 ## The four Iron Laws
 
 ```
@@ -119,6 +147,16 @@ fix → `receipts`. Small work skips the chain but never the gates.
 |---|---|---|---|
 | `ship-log` | model | Append-only private ledger + self-review + rulings | [docs/skills/ship-log.md](docs/skills/ship-log.md) |
 | `setup-tna` | user | Chat-guided onboarding — router copy, consent, workflow choice, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
+
+## The ledger
+
+Every completed unit is appended to a private, gitignored ledger
+(`.trust/progress.txt`) — append-only, one dated entry per unit: the verdict,
+the evidence, the ruling behind any decision made, and the next step. It is
+the memory that survives compaction and fresh sessions: when work resumes,
+the next step is read from the ledger, never guessed from partial memory.
+Recovered findings become router rules (gated, scoped, reversible:
+[docs/rule-inheritance.md](docs/rule-inheritance.md)).
 
 ## The enforcement layer
 

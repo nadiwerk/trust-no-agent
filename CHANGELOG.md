@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **README carries the site's five pillars**: the core, the verification
+  gates, and the ledger sections added (the chain and the Iron Laws were
+  already there) — README and the landing page now tell the same story,
+  and the canonical-chain eval pin still holds (exactly one fenced chain
+  line; the core loop renders as bold prose, not a second fence).
+
 ## [0.1.36] - 2026-10-17
 
 ### Added
