@@ -112,7 +112,7 @@ that intent was correct: the gates check the framework's structure and
 behavior; they do not pretend to prove your product intent. That distinction
 is part of the contract.
 
-## The four Iron Laws
+## The iron laws
 
 ```
 NO ACTING until the user confirms shared understanding.        (breakpoint)
