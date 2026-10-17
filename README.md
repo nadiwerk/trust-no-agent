@@ -119,16 +119,6 @@ This is the built-in workflow — use it if you don't have one, or skip it and
 bring your own. Bugs take their own path: `root-cause` → `expect-fail` →
 fix → `receipts`. Small work skips the chain but never the gates.
 
-## The ledger
-
-Every completed unit is appended to a private, gitignored ledger
-(`.trust/progress.txt`) — append-only, one dated entry per unit: the verdict,
-the evidence, the ruling behind any decision made, and the next step. It is
-the memory that survives compaction and fresh sessions: when work resumes,
-the next step is read from the ledger, never guessed from partial memory.
-Recovered findings become router rules (gated, scoped, reversible:
-[docs/rule-inheritance.md](docs/rule-inheritance.md)).
-
 ## The enforcement layer
 
 The parts that never depend on the model choosing to comply:
@@ -184,6 +174,16 @@ The parts that never depend on the model choosing to comply:
 |---|---|---|---|
 | `ship-log` | model | Append-only private ledger + self-review + rulings | [docs/skills/ship-log.md](docs/skills/ship-log.md) |
 | `setup-tna` | user | Chat-guided onboarding — router copy, consent, workflow choice, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
+
+## The ledger
+
+Every completed unit is appended to a private, gitignored ledger
+(`.trust/progress.txt`) — append-only, one dated entry per unit: the verdict,
+the evidence, the ruling behind any decision made, and the next step. It is
+the memory that survives compaction and fresh sessions: when work resumes,
+the next step is read from the ledger, never guessed from partial memory.
+Recovered findings become router rules (gated, scoped, reversible:
+[docs/rule-inheritance.md](docs/rule-inheritance.md)).
 
 ## Portability
 
