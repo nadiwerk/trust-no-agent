@@ -82,6 +82,43 @@ const check = (label, cond, detail = '') => {
   check('G3 fresh evidence still opens the gate under an unknown tool', open.gated === false, JSON.stringify(open));
 }
 
+// ---- H. The private ledger is append-only — write/edit to it is gated (ledger-overwrite incident, 2026-10-18) ----
+// Origin: the `write` tool overwrote .trust/progress.txt (a season's history
+// lost; the append-only contract is prose in lessons.md but nothing enforced
+// it — a rule with no enforcer is itself a repeat failure). A write/edit whose
+// target path resolves to the private ledger is gated regardless of evidence:
+// fresh test evidence cannot restore lost history, so evidence NEVER opens
+// this gate. Other paths stay fail-open (E suite unchanged).
+{
+  const ledgerPaths = [
+    '.trust/progress.txt',
+    'C:\\abs\\project\\.trust\\progress.txt',
+    '/abs/project/.trust/progress.txt',
+    '.trust\\progress.txt',
+  ];
+  for (const p of ledgerPaths) {
+    const w = classifyAction({ tool: 'write', args: { filePath: p, content: 'x' }, evidence: {} });
+    check(`H1 write to the private ledger is gated (${p})`, w.gated === true, JSON.stringify(w));
+    const e = classifyAction({ tool: 'edit', args: { filePath: p }, evidence: {} });
+    check(`H2 edit of the private ledger is gated (${p})`, e.gated === true, JSON.stringify(e));
+    const fresh = classifyAction({ tool: 'write', args: { filePath: p, content: 'x' }, evidence: { testPassFresh: true } });
+    check(`H3 evidence never opens the ledger gate (${p})`, fresh.gated === true, JSON.stringify(fresh));
+  }
+  const notLedger = [
+    { tool: 'write', args: { filePath: '.trust/tna-gate-state.json', content: '{}' } },
+    { tool: 'write', args: { filePath: 'src/a.ts', content: 'x' } },
+    { tool: 'edit', args: { filePath: 'docs/x.md' } },
+    { tool: 'write', args: { filePath: '.trust/onboarding.json', content: '{}' } },
+  ];
+  for (const input of notLedger) {
+    check(`H4 fail-open preserved: ${input.tool} ${input.args.filePath}`, classifyAction(input).gated === false, JSON.stringify(classifyAction(input)));
+  }
+  const bashAppend = classifyAction({ tool: 'bash', args: { command: 'echo x >> .trust/progress.txt' }, evidence: {} });
+  check('H5 bash APPEND to the ledger is allowed (append is the contract)', bashAppend.gated === false, JSON.stringify(bashAppend));
+  const bashTruncate = classifyAction({ tool: 'bash', args: { command: 'Set-Content .trust/progress.txt -Value x' }, evidence: {} });
+  check('H6 bash overwrite/truncate of the ledger is gated (doubt blocks)', bashTruncate.gated === true, JSON.stringify(bashTruncate));
+}
+
 // ---- E. Ordinary writes stay fail-open (Constraints: irreversible only) ----
 {
   const cases = [

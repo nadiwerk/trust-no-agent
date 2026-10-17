@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The private ledger is append-only, now mechanically** (ledger-overwrite
+  incident 2026-10-18): a `write`/`edit` targeting `.trust/progress.txt` is
+  vetoed by the shared classifier regardless of evidence — fresh test
+  evidence cannot restore overwritten history. Bash overwrite/truncate
+  forms naming the ledger are gated too (doubt blocks); the append form
+  (`>>`) stays fail-open because appending IS the contract. Ordinary
+  writes, state files, and onboarding.json stay fail-open (H4 suite).
+  New H-series pins in action-gate.test.mjs (RED observed first: 13 H1/H2/H3
+  FAILs + H6 before the classifier knew the ledger). Ships to every
+  harness through the shared core: opencode plugin (vendored copy synced),
+  Claude Code and Codex hooks (gate-hook.mjs reads the same classifier).
+
 ### Changed
 
 - **design.md names the trust effort pyramid** — the four levels (codebase

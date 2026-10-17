@@ -46,6 +46,36 @@ export const IRREVERSIBLE_PATTERNS = [
  */
 export const SHELL_TOOLS = new Set(['bash', 'shell']);
 
+/**
+ * The private ledger is append-only by contract (`.trust/progress.txt`).
+ * A write/edit targeting it is gated REGARDLESS of evidence: fresh test
+ * evidence cannot restore lost history. State files and everything else
+ * stay fail-open (the framework itself writes tna-gate-state.json and
+ * onboarding.json via non-ledger paths). Matched on a path суффикс after
+ * backslash normalization, so absolute and relative forms both hit — and
+ * a cultivated `notes-on-progress.txt`-style sibling never matches.
+ */
+export const LEDGER_PATH = '.trust/progress.txt';
+
+/**
+ * Bash append semantics (>>) are the CONTRACT for the ledger — additions
+ * only. An overwrite/truncate form targeting the ledger file is gated
+ * (doubt blocks): Set-Content, redirect-truncate, and similar overwrite
+ * commands name the ledger path without an append operator.
+ */
+const LEDGER_APPEND_SAFE = /(^|\s)>>\s*(?:"[^"]*\.trust[\\/]progress\.txt"|'[^']*\.trust[\\/]progress\.txt'|\.trust[\\/]progress\.txt)(\s|$)/i;
+const LEDGER_OVERWRITE_PATTERNS = [
+  /\bset-content\b[^|]*\.trust[\\/]progress\.txt/i,
+  /\bout-file\b[^|]*\.trust[\\/]progress\.txt/i,
+  /(^|\s)>\s*"?\.trust[\\/]progress\.txt/i,
+  /\btee\b[^|]*\.trust[\\/]progress\.txt/i,
+];
+
+function isLedgerPath(p) {
+  const norm = String(p ?? '').replace(/\\/g, '/').toLowerCase();
+  return norm === '.trust/progress.txt' || norm.endsWith('/.trust/progress.txt');
+}
+
 function matchesAnyCommand(command) {
   for (const p of IRREVERSIBLE_PATTERNS) {
     const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -68,6 +98,26 @@ function matchesAnyCommand(command) {
 export function classifyAction({ tool = '', args = {}, evidence = {} } = {}) {
   const name = String(tool ?? '').toLowerCase();
   const command = typeof args?.command === 'string' ? args.command : '';
+  const filePath = typeof args?.filePath === 'string' ? args.filePath
+    : typeof args?.file_path === 'string' ? args.file_path
+    : typeof args?.path === 'string' ? args.path
+    : '';
+  // Ledger append-only gate (H series): write/edit whose target IS the
+  // private ledger is gated before any evidence check — fresh test evidence
+  // cannot restore overwritten history. The contract's allowed form is the
+  // bash append (>>), which stays fail-open (H5).
+  const writesLedger = ['write', 'edit'].includes(name) && filePath && isLedgerPath(filePath);
+  if (writesLedger) {
+    return { gated: true, reason: `the private ledger (${LEDGER_PATH}) is append-only — a ${name} overwrites it and is vetoed (ledger-overwrite incident 2026-10-18); append via bash >> or a staging file instead` };
+  }
+  // Bash overwrite/truncate forms naming the ledger path are gated (doubt
+  // blocks, same AC7 principle as unknown-shell). Append (>>) stays open.
+  if (SHELL_TOOLS.has(name) && command && /\.trust[\\/]progress\.txt/i.test(command) && !LEDGER_APPEND_SAFE.test(command)) {
+    const overwriting = LEDGER_OVERWRITE_PATTERNS.some((r) => r.test(command)) || !command.includes('>>');
+    if (overwriting) {
+      return { gated: true, reason: `a shell command overwriting the private ledger (${LEDGER_PATH}) is vetoed — the ledger is append-only; use >> to append (ledger-overwrite incident 2026-10-18)` };
+    }
+  }
   const hit = command ? matchesAnyCommand(command) : null;
   if (hit) {
     const via = SHELL_TOOLS.has(name) ? name : `${name || '(unnamed tool)'} (unknown shell name)`;
