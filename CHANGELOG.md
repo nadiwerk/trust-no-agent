@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **design.md names the trust effort pyramid** — the four levels (codebase
+  improvements, static analysis, prose rules, human review) and the
+  effort-allocates-to-the-top principle, then states the framework's
+  position in one line: this framework is that pyramid built out — the
+  enforcement ladder is the pyramid as an operating procedure, the gates
+  and veto are static analysis made mechanical, and the honest-limits
+  boundary is where human judgment begins.
+
 ## [0.1.37] - 2026-10-17
 
 ### Fixed
