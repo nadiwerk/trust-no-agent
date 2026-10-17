@@ -146,8 +146,15 @@ The parts that never depend on the model choosing to comply:
 - **Hooks** — the discipline floor re-injects after compaction; a prompt
   classifier routes test/bug/done work to its mandatory skill; destructive
   actions wait for sign-off.
-- **Veto** — the veto layer now reaches four harnesses
+- **Veto** — irreversible actions are denied, not discouraged: `git commit`,
+  `git push`, `npm publish`, `rm -rf` are blocked until fresh test evidence
+  exists (see the TNA gates below). The veto layer reaches five harnesses
   (OpenCode, Claude Code, Codex, OMP, Pi), each with a real deny contract.
+- **TNA gates** — the named enforcement core behind the veto: `tna-gate`
+  records session evidence (which test commands ran and whether they exited
+  clean) in `.trust/tna-gate-state.json`, and `action-gate` classifies
+  irreversible commands against that record. The same core runs on all five
+  harnesses, so the veto follows you across tools.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.
 - **Workflow choice** — the onboarding asks which workflow you use (built-in

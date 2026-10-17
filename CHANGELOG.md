@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **README: the TNA gates are named** — a new enforcement-layer bullet
+  introduces the named core (`tna-gate` evidence recording +
+  `action-gate` irreversible-command classification), and the veto
+  bullet now states the four blocked command patterns and corrects the
+  harness count four → five (OpenCode, Claude Code, Codex, OMP, Pi).
+
+### Changed
+
 - **README: four questions, not two** — the intro adds "why does the same
   bug keep coming back?" (lesson capture + rule promotion) and "can I trust
   the agent with destructive actions?" (sign-off veto) to the existing
