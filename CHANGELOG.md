@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **README: four questions, not two** — the intro adds "why does the same
+  bug keep coming back?" (lesson capture + rule promotion) and "can I trust
+  the agent with destructive actions?" (sign-off veto) to the existing
+  correctness and next-step questions.
+- **README: bring-your-own is any repo, not four** — the example repos stay
+  but now close with "and yours?" so the section says what it always meant:
+  any workflow, any skill set, same trust layer.
+
+### Changed
+
 - **README: the core loop explained stage by stage** — claim, evidence,
   receipt, guardrail each get a table row (what happens, what makes it
   honest) instead of one buried prose sentence; the loop stays bold prose,

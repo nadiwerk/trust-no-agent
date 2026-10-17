@@ -8,7 +8,7 @@
 Your agent says "done." But did you **verify** it — mechanically, not by
 trusting the model's tone?
 
-trust-no-agent is a **trust layer** for AI coding agents. It answers two
+trust-no-agent is a **trust layer** for AI coding agents. It answers four
 questions every developer has after an agent finishes:
 
 1. **"Is it actually correct?"** — Every "done" claim must carry fresh
@@ -16,6 +16,12 @@ questions every developer has after an agent finishes:
    not by asking the model nicely.
 2. **"What do I do next?"** — Every work unit closes with a receipt that
    names the next concrete step. You are never left guessing.
+3. **"Why does the same bug keep coming back?"** — A fix without a lesson is
+   a repeat in waiting. Every repair feeds a corrective tier, and recurring
+   failures become permanent rules — the fix outlives the session.
+4. **"Can I trust the agent with destructive actions?"** — Commit, push,
+   publish, and delete are **vetoed** without your explicit sign-off, and an
+   irreversible action without fresh test evidence is blocked before it runs.
 
 ## Install
 
@@ -63,10 +69,10 @@ option, not a requirement. Already using skills from another repo
 ([mattpocock/skills](https://github.com/mattpocock/skills),
 [obra/superpowers](https://github.com/obra/superpowers),
 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills),
-[pstack](https://github.com/cursor/plugins/tree/main/pstack))? Install them
-alongside TNA — the onboarding detects and maps them as overlays. The
-receipts, the veto, and the consent gate apply to every action regardless
-of which workflow produced the code.
+[pstack](https://github.com/cursor/plugins/tree/main/pstack)) — and yours?
+Any skill you already have installs alongside TNA: the onboarding detects
+and maps them as overlays, and the receipts, the veto, and the consent gate
+apply to every action regardless of which workflow produced the code.
 
 ## The core
 
