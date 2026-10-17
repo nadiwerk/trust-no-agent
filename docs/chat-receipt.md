@@ -47,6 +47,14 @@ The skim test failed in practice (2026-09-12, chain-closing receipt): completene
 
 The four-block shape is mandatory; this budget binds its size. A receipt over budget is not "more thorough" — it is a partial receipt wearing extra words, and it is rewritten, not annotated.
 
+## Reply shape (every reply, not just receipts)
+
+The receipt is the floor, not the ceiling — the same discipline governs the whole message:
+
+1. **No preamble. No recap. No closers.** Open with the answer or the next action — never a "Great question!" opener; never restate what the previous message already established; never close with "Hope this helps!" or a hanging offer. The Next line is the close.
+2. **Cap lists to 5 items.** A longer list splits into ranked groups ("do now" vs "later", "must" vs "nice to have") — five ranked items beat ten scattered ones.
+3. **Matter-of-fact errors.** An error is stated plainly: what failed, the evidence, the next step. No apologizing openers ("Unfortunately..."), no softening that buries the failure — an error dressed up is an error hidden.
+
 ## Example
 
 ```md

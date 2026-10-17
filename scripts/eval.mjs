@@ -1199,6 +1199,26 @@ if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
     err('skills/discipline/receipts/SKILL.md: missing the fixed-English-labels rule');
 }
 
+// ---- 49. Reply shape: no preamble/recap/closers, lists capped at 5, matter-of-fact errors (HARD) ----
+// Origin: 2026-10-17 output-discipline review (Master adoption ruling; the three
+// rules and their upstream source live in the private ledger — no external repo
+// names in tracked files). The chat-receipt shape governs receipts; this governs
+// every reply. Encode twice: prose in docs/chat-receipt.md §Reply shape and the
+// AGENTS.md §6 bullet, this mechanical check for the boundary.
+{
+  const crd49 = readFileSync(join(ROOT, 'docs', 'chat-receipt.md'), 'utf8');
+  for (const marker of [
+    /## Reply shape/,
+    /No preamble\. No recap\. No closers\./,
+    /Cap lists to 5 items/,
+    /[Mm]atter-of-fact/,
+  ])
+    if (!marker.test(crd49))
+      err(`docs/chat-receipt.md: missing reply-shape marker ${marker} (every reply: no preamble/recap/closers, lists capped at 5, matter-of-fact errors)`);
+  if (!/Reply shape: no preamble, no recap, no closers/.test(agents46) || !/Cap lists to 5 items/.test(agents46) || !/[Mm]atter-of-fact/.test(agents46))
+    err('AGENTS.md §6: missing the reply-shape bullet (no preamble/recap/closers, lists capped at 5, matter-of-fact errors)');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
