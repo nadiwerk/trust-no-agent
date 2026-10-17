@@ -386,6 +386,28 @@ triggers: error, crash, stack trace
 - The mechanism is **keyless** and zero-dependency: no API key, no network, no runtime engine — the floor is text the agent executes, like the canonical skills. A broken overlay never breaks the session (**fail-open**); the doctor reports every defect by name, and overlays that do not fit the floor budget are counted, never silently dropped.
 - Validate any time: `node scripts/overlay-registry.mjs [dir]` (exit 0 = registry consistent).
 
+## Bring your own workflow
+
+The framework ships a default chain (breakpoint → save-as → fork-it →
+make-it-so → roast-my-code → ship-log), but the chain is one workflow
+option, not the identity — the trust layer is. Two supported postures:
+
+- **Run the TNA chain** — the default posture: classification scales
+  discipline with stakes, and the chain carries large features from
+  grill to ledger.
+- **Bring your own** — keep the workflow you already run (your own
+  commands, prompts, or skills from another repo) and adopt TNA for the
+  trust machinery: the Iron Laws floor, the commit veto, receipts, and
+  the ledger. Install the universal core unchanged, then map your
+  external skills as overlays (previous section) so they ride the floor
+  instead of competing with it.
+
+The onboarding workflow-choice question records which posture you chose
+(`tna-chain` / `bring-your-own` / `both`) in the consent stamp — `both`
+maps external skills as overlays while keeping the chain available.
+Either way the enforcement layer is identical: gates never depend on
+which workflow chose them.
+
 ## Onboarding (first run)
 
 After the install, type **`/setup-tna`** in your chat session — the agent

@@ -137,6 +137,30 @@ Honest classification: this fix is **judgment-level, not mechanically encodable*
 - `load_skills` failed to resolve `root-cause` in one run (registry staleness, see Design notes #2 below) — the inline fallback is what makes the framework robust to this.
 - The evals measure whether the skill is loaded and applied, not whether the applied procedure produces correct output on hard cases; that remains unmeasured.
 
+## Trust and workflow are separable (the bring-your-own repositioning)
+
+The framework's two claims are independent, and the repositioning
+(2026-10-17, Master ruling) makes that explicit:
+
+- **The trust layer is the identity**: fresh-evidence receipts, the commit
+  veto, the consent boundaries, the ledger. These assume nothing about how
+  you plan or slice work.
+- **The chain** (breakpoint → save-as → fork-it → make-it-so → roast →
+  ship-log) is **one workflow option** — a strong default for features,
+  not a membership test. An adopter running their own workflow keeps every
+  gate: the classifier still decides when the chain engages, the evidence
+  gate still vetoes unevidenced commits, receipts still close units.
+
+Why this matters architecturally: trust enforcement that depended on the
+chain would break the moment someone brought their own workflow — the
+gates would silently stop guarding the people who need them most. The
+enforcement ladder (see `docs/rule-inheritance.md`) is what makes the
+separation real: rules land at the highest level that works, most of
+them at the gate level, which is workflow-agnostic by construction.
+Contribution-wise this splits cleanly too: domain skills extend the
+workflow side, enforcement machinery extends the trust side, and the
+overlay registry is the seam where the two meet add-only.
+
 ## Design notes — how the framework behaves on real harnesses
 
 Technical knowledge that shapes how trust-no-agent works in practice, written for anyone integrating the framework into their own agent setup. These are hard-won observations about harness behavior, not opinions — each one changed how the framework is built.

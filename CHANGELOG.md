@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Onboarding fixture M3/M3b/M4** (`scripts/onboarding.test.mjs`): the
+  workflow-choice contract is now proven for all three values, not one —
+  `tna-chain` and `both` record in the stamp (M3, M4), and a mapping-only
+  re-run on a stamped tree preserves the recorded choice instead of
+  dropping it (M3b). M3/M3b caught a real bug fail-first: the mapping-only
+  stamp rewrite did not carry `workflowChoice` through — fixed in
+  `scripts/onboarding.mjs` (payload copies re-synced byte-identical).
+- **Bring-your-own docs completed** (repositioning ticket 2): the
+  "Bring your own workflow" section in `docs/installation.md` (both
+  postures, workflow-choice stamp tie-in, identical enforcement),
+  contributor positioning in `CONTRIBUTING.md` (trust layer is the
+  identity; domain-skill and enforcement contributions equally welcome),
+  and the philosophy behind the separation in `docs/design.md` (trust
+  and workflow are separable; gates are workflow-agnostic).
+- **Reply-shape rule in the router** (§6): no preamble/recap/closers, lists
+  capped at 5 items (split into ranked groups beyond that), matter-of-fact
+  errors — for every reply, receipts included. Prose in the §6 bullet and
+  `docs/chat-receipt.md` §Reply shape; mechanically enforced by eval
+  check 49 (encode-twice).
+
+
 ## [0.1.35] - 2026-10-16
 
 ### Added

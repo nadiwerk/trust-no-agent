@@ -9,6 +9,13 @@ mechanical gate before it is accepted.
 
 - A **markdown-only workflow framework** — 12 skills across three tiers
   (engineering, discipline, meta) plus a router (`AGENTS.md` + `WORKFLOW.md`).
+- The identity is the **trust layer**: proven work (receipts, evidence gates,
+  vetoes, the ledger). The built-in chain is one workflow option — bring-your-
+  own workflows are first-class too, so contributions are equally welcome on
+  both sides: **domain/engineering skills** (new capabilities mapped as
+  overlays or canonical additions) and **enforcement machinery** (gates,
+  evals, hooks). The chain's shape is not a contribution gate; the trust
+  discipline is.
 - The engine is **rules, not code**. The only executable parts are the
   structural validator (`scripts/validate.mjs`), the static evals
   (`scripts/eval.mjs`), the CI workflow, and the git hooks.
