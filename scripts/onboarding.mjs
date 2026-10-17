@@ -81,12 +81,13 @@ export function planOnboarding({ discovered = [], canonicalNames = new Set(), ex
 }
 
 /** Serialize the consent stamp. Stable key order; 2-space JSON. */
-export function serializeStamp({ components = {}, harness = '', routerVersion = '', did = {}, consentedAt }) {
+export function serializeStamp({ components = {}, harness = '', routerVersion = '', did = {}, consentedAt, workflowChoice }) {
   return JSON.stringify({
     schema: 1,
     consentedAt: consentedAt || new Date().toISOString(),
     routerVersion,
     harness,
+    workflowChoice: workflowChoice || undefined,
     components: Object.fromEntries(COMPONENTS.map((c) => [c, components[c] === true])),
     did,
   }, null, 1);
@@ -106,6 +107,7 @@ export function parseStamp(text) {
   if (!COMPONENTS.every((c) => typeof obj.components[c] === 'boolean')) return null;
   return {
     schema: obj.schema ?? 1,
+    workflowChoice: typeof obj.workflowChoice === 'string' ? obj.workflowChoice : undefined,
     consentedAt: obj.consentedAt ?? null,
     routerVersion: obj.routerVersion ?? '',
     harness: obj.harness ?? '',
@@ -559,8 +561,9 @@ async function main() {
       }
     }
 const did = { vetoPluginCopied, vetoHookCopiedOmp, vetoHookCopiedPi, overlays: mapResult ? mapResult.written : [], hooksPathSet };
+    const workflowChoice = typeof answers.workflowChoice === 'string' ? answers.workflowChoice : '';
     const consentSource = args.includes('--from-chat') ? 'forwarded via --from-chat (agent channel)' : 'interactive prompts';
-    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did, consentSource }));
+    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did, consentSource, workflowChoice }));
     printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet, consentSource });
     process.exit(0);
   }

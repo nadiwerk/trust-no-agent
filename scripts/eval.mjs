@@ -1112,6 +1112,10 @@ for (const [file, text] of [
         'the skill must name the --from-chat boundary: forwarded answers are the human\u2019s, verbatim; the agent never edits, fills, or confirms them (consent-boundary)'],
       [/STOP[^.]*copy over|never copy[^.]*over an existing/i,
         'the router-copy step must refuse to overwrite an existing project router (merge path instead)'],
+      [/workflow choice/i,
+        'setup-tna SKILL must carry the workflow-choice question (tna-chain / bring-your-own / both) before skill mapping'],
+      [/workflowChoice/,
+        'setup-tna SKILL must name the workflowChoice stamp field (tna-chain / bring-your-own / both)'],
     ]) {
       if (!marker.test(skillText))
         err(`skills/meta/setup-tna/SKILL.md: missing ${marker} — ${why}`);

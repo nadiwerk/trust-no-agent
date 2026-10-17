@@ -50,6 +50,17 @@ single round (the human answers once):
 - Consent per component (each enable/disable):
   - the session floor
   - the mechanical hooks (session injection + commit veto before they run)
+  - **workflow choice** (before skill mapping — see below):
+    (a) TNA chain — breakpoint → save-as → fork-it → make-it-so → roast →
+        ship-log
+    (b) bring your own workflow — skills from other repos you already have
+        installed will be mapped as the primary workflow
+    (c) both — TNA chain + external skills as overlays, side by side
+
+The workflow-choice answer is recorded in the stamp as workflowChoice
+(tna-chain / bring-your-own / both). It changes how the mapping
+section is presented next.
+
   - skill mapping (proposals below)
   - the evidence gate (a commit without fresh test evidence is vetoed)
 - For each discovered skill (run the onboarding CLI WITHOUT flags first if

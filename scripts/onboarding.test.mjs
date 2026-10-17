@@ -673,6 +673,29 @@ const put = (root, name, text) => {
       && readFileSync(join(dirPi2, '.pi', 'extensions', 'tna-veto.ts'), 'utf8') === '// USER VERSION'
       && stampPi2 && stampPi2.did && stampPi2.did.vetoHookCopiedPi === false,
       `status=${runPi2.status} stamp=${JSON.stringify(stampPi2?.did)}`);
+    // M-series (workflow-choice spec AC2): the stamp records workflowChoice
+    const dirM = mkRepo('onboard-wf-');
+    writeFileSync(join(dirM, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirM, '.opencode'), { recursive: true });
+    const runM = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, workflowChoice: 'bring-your-own', mapSkills: [] })], {
+      cwd: dirM, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirM, HOME: dirM },
+    });
+    const stampM = parseStamp(readFileSync(join(dirM, '.trust', 'onboarding.json'), 'utf8'));
+    check('M1 the stamp records workflowChoice=bring-your-own when consented',
+      runM.status === 0 && stampM && stampM.workflowChoice === 'bring-your-own', 'status=' + runM.status + ' wf=' + (stampM && stampM.workflowChoice));
+    const dirM2 = mkRepo('onboard-wf-miss-');
+    writeFileSync(join(dirM2, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirM2, '.opencode'), { recursive: true });
+    const runM2 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] })], {
+      cwd: dirM2, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirM2, HOME: dirM2 },
+    });
+    const stampM2 = parseStamp(readFileSync(join(dirM2, '.trust', 'onboarding.json'), 'utf8'));
+    check('M2 missing workflowChoice -> stamp omits it (fail-closed)',
+      runM2.status === 0 && stampM2 && stampM2.workflowChoice === undefined, 'wf=' + JSON.stringify(stampM2 && stampM2.workflowChoice));
+    rmSync(dirM, { recursive: true, force: true });
+    rmSync(dirM2, { recursive: true, force: true });
     if (!hadOmp) rmSync(srcOmp, { recursive: true, force: true });
     if (!hadPi) rmSync(srcPi, { recursive: true, force: true });
     rmSync(dirPi, { recursive: true, force: true });
