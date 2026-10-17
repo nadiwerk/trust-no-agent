@@ -444,7 +444,10 @@ async function main() {
       }
       const r = await mapPhase(cwd, { yes: true, onlySkills: answers.mapSkills });
       const did = { ...existing.did, overlays: [...new Set([...(existing.did.overlays || []), ...r.written])] };
-      writeFileSync(stampPath, serializeStamp({ components: existing.components, harness: existing.harness, routerVersion: existing.routerVersion, consentedAt: existing.consentedAt, did }));
+      // workflowChoice rides through: a mapping-only re-run rewrites the stamp,
+      // and dropping the recorded choice here would silently rewrite the
+      // adopter's posture (caught fail-first by onboarding.test.mjs M3).
+      writeFileSync(stampPath, serializeStamp({ components: existing.components, harness: existing.harness, routerVersion: existing.routerVersion, consentedAt: existing.consentedAt, workflowChoice: existing.workflowChoice, did }));
       printMapReceipt(r, existing);
       process.exit(0);
     }

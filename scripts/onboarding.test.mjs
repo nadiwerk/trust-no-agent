@@ -694,8 +694,44 @@ const put = (root, name, text) => {
     const stampM2 = parseStamp(readFileSync(join(dirM2, '.trust', 'onboarding.json'), 'utf8'));
     check('M2 missing workflowChoice -> stamp omits it (fail-closed)',
       runM2.status === 0 && stampM2 && stampM2.workflowChoice === undefined, 'wf=' + JSON.stringify(stampM2 && stampM2.workflowChoice));
+    // M3/M4: the other two vocabulary values — the contract promises three
+    // (tna-chain / bring-your-own / both); only prove-all-three makes the
+    // promise a fact rather than a hope (a validation bug rejecting "both"
+    // would pass M1/M2 green).
+    const dirM3 = mkRepo('onboard-wf-chain-');
+    writeFileSync(join(dirM3, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirM3, '.opencode'), { recursive: true });
+    const runM3 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, workflowChoice: 'tna-chain', mapSkills: [] })], {
+      cwd: dirM3, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirM3, HOME: dirM3 },
+    });
+    const stampM3 = parseStamp(readFileSync(join(dirM3, '.trust', 'onboarding.json'), 'utf8'));
+    check('M3 the stamp records workflowChoice=tna-chain when consented',
+      runM3.status === 0 && stampM3 && stampM3.workflowChoice === 'tna-chain', 'status=' + runM3.status + ' wf=' + (stampM3 && stampM3.workflowChoice));
+    // M3b: a mapping-only re-run on a stamped tree NEVER re-asks consent - the
+    // forwarded workflowChoice is ignored and the recorded one persists
+    // (the rewrite must carry it through, never drop it).
+    const runM3b = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, workflowChoice: 'tna-chain', mapSkills: [] })], {
+      cwd: dirM, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirM, HOME: dirM },
+    });
+    const stampM3b = parseStamp(readFileSync(join(dirM, '.trust', 'onboarding.json'), 'utf8'));
+    check('M3b a mapping-only re-run preserves the recorded workflowChoice (never re-asks)',
+      runM3b.status === 0 && stampM3b && stampM3b.workflowChoice === 'bring-your-own', 'status=' + runM3b.status + ' wf=' + (stampM3b && stampM3b.workflowChoice));
+    const dirM4 = mkRepo('onboard-wf-both-');
+    writeFileSync(join(dirM4, '.gitignore'), '.trust/\n');
+    mkdirSync(join(dirM4, '.opencode'), { recursive: true });
+    const runM4 = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, workflowChoice: 'both', mapSkills: [] })], {
+      cwd: dirM4, input: '', encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, USERPROFILE: dirM4, HOME: dirM4 },
+    });
+    const stampM4 = parseStamp(readFileSync(join(dirM4, '.trust', 'onboarding.json'), 'utf8'));
+    check('M4 the stamp records workflowChoice=both when consented',
+      runM4.status === 0 && stampM4 && stampM4.workflowChoice === 'both', 'status=' + runM4.status + ' wf=' + (stampM4 && stampM4.workflowChoice));
     rmSync(dirM, { recursive: true, force: true });
     rmSync(dirM2, { recursive: true, force: true });
+    rmSync(dirM3, { recursive: true, force: true });
+    rmSync(dirM4, { recursive: true, force: true });
     if (!hadOmp) rmSync(srcOmp, { recursive: true, force: true });
     if (!hadPi) rmSync(srcPi, { recursive: true, force: true });
     rmSync(dirPi, { recursive: true, force: true });
