@@ -119,35 +119,6 @@ This is the built-in workflow — use it if you don't have one, or skip it and
 bring your own. Bugs take their own path: `root-cause` → `expect-fail` →
 fix → `receipts`. Small work skips the chain but never the gates.
 
-## The 12 skills
-
-### Engineering
-
-| Skill | Invoked by | What it does | Use cases |
-|---|---|---|---|
-| `breakpoint` | model | Execution pauses — the agent interviews the user | [docs/skills/breakpoint.md](docs/skills/breakpoint.md) |
-| `scribe` | user | Interview + writes glossary/ADRs as you go | [docs/skills/scribe.md](docs/skills/scribe.md) |
-| `save-as` | user | Conversation → spec (PRD), synthesis only | [docs/skills/save-as.md](docs/skills/save-as.md) |
-| `fork-it` | user | Plan → tracer-bullet tickets with blocking edges | [docs/skills/fork-it.md](docs/skills/fork-it.md) |
-| `make-it-so` | user | Build from spec/tickets, test-first | [docs/skills/make-it-so.md](docs/skills/make-it-so.md) |
-| `expect-fail` | model | Fail-first reference — good tests, seams, anti-patterns | [docs/skills/expect-fail.md](docs/skills/expect-fail.md) |
-| `root-cause` | model | Root-cause-first debugging — no fixes before investigation | [docs/skills/root-cause.md](docs/skills/root-cause.md) |
-| `roast-my-code` | model | Three-axis review, parallel subagents, severity labels | [docs/skills/roast-my-code.md](docs/skills/roast-my-code.md) |
-
-### Discipline
-
-| Skill | Invoked by | What it does | Use cases |
-|---|---|---|---|
-| `receipts` | model | No "done" claim without fresh verification evidence | [docs/skills/receipts.md](docs/skills/receipts.md) |
-| `no-thanks` | model | Receive review feedback with rigor — verify before implementing | [docs/skills/no-thanks.md](docs/skills/no-thanks.md) |
-
-### Meta
-
-| Skill | Invoked by | What it does | Use cases |
-|---|---|---|---|
-| `ship-log` | model | Append-only private ledger + self-review + rulings | [docs/skills/ship-log.md](docs/skills/ship-log.md) |
-| `setup-tna` | user | Chat-guided onboarding — router copy, consent, workflow choice, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
-
 ## The ledger
 
 Every completed unit is appended to a private, gitignored ledger
@@ -184,6 +155,35 @@ The parts that never depend on the model choosing to comply:
   recited.
 - **CI** — thirty gates run on every push; every rule in the router is pinned
   by a check that was proven able to fail (encode-twice).
+
+## The 12 skills
+
+### Engineering
+
+| Skill | Invoked by | What it does | Use cases |
+|---|---|---|---|
+| `breakpoint` | model | Execution pauses — the agent interviews the user | [docs/skills/breakpoint.md](docs/skills/breakpoint.md) |
+| `scribe` | user | Interview + writes glossary/ADRs as you go | [docs/skills/scribe.md](docs/skills/scribe.md) |
+| `save-as` | user | Conversation → spec (PRD), synthesis only | [docs/skills/save-as.md](docs/skills/save-as.md) |
+| `fork-it` | user | Plan → tracer-bullet tickets with blocking edges | [docs/skills/fork-it.md](docs/skills/fork-it.md) |
+| `make-it-so` | user | Build from spec/tickets, test-first | [docs/skills/make-it-so.md](docs/skills/make-it-so.md) |
+| `expect-fail` | model | Fail-first reference — good tests, seams, anti-patterns | [docs/skills/expect-fail.md](docs/skills/expect-fail.md) |
+| `root-cause` | model | Root-cause-first debugging — no fixes before investigation | [docs/skills/root-cause.md](docs/skills/root-cause.md) |
+| `roast-my-code` | model | Three-axis review, parallel subagents, severity labels | [docs/skills/roast-my-code.md](docs/skills/roast-my-code.md) |
+
+### Discipline
+
+| Skill | Invoked by | What it does | Use cases |
+|---|---|---|---|
+| `receipts` | model | No "done" claim without fresh verification evidence | [docs/skills/receipts.md](docs/skills/receipts.md) |
+| `no-thanks` | model | Receive review feedback with rigor — verify before implementing | [docs/skills/no-thanks.md](docs/skills/no-thanks.md) |
+
+### Meta
+
+| Skill | Invoked by | What it does | Use cases |
+|---|---|---|---|
+| `ship-log` | model | Append-only private ledger + self-review + rulings | [docs/skills/ship-log.md](docs/skills/ship-log.md) |
+| `setup-tna` | user | Chat-guided onboarding — router copy, consent, workflow choice, skill mapping, doctor-lite proof | [docs/skills/setup-tna.md](docs/skills/setup-tna.md) |
 
 ## Portability
 
