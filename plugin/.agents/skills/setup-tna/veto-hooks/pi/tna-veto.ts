@@ -41,7 +41,11 @@ export default function tnaVeto(pi) {
     const { irreversible, pattern } = classifyCommand(command);
     if (!irreversible) return;
 
-    const cwd = ctx?.cwd || process.cwd();
+    // cwd resolution (origin: omp deny-path report 2026-10-18): read the
+    // state from the PROJECT the command runs in - event cwd first, then
+    // ctx cwd, harness process.cwd() last. A harness launched from a parent
+    // directory with its own stale state file must not open the gate.
+    const cwd = event?.cwd || ctx?.cwd || process.cwd();
     const evidence = readEvidence(cwd);
     if (evidence.testPassFresh) return; // fresh evidence: allow
 

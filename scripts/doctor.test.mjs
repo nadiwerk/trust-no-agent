@@ -567,7 +567,8 @@ const ledgerWithDate = (dateStr) =>
   const STAMP = jQ(REPO, '.trust', 'onboarding.json');
   const runRepoDoctor = () => String(spawnSync(process.execPath, [DOCTOR], { cwd: REPO, encoding: 'utf8', timeout: 120000 }).stdout ?? '');
   const hadStamp = exQ(STAMP);
-  const saved = hadStamp ? readFileSync(STAMP, 'utf8') : null;
+  const { readFileSync: rfQ } = await import('node:fs');
+  const saved = hadStamp ? rfQ(STAMP, 'utf8') : null;
   try {
     if (hadStamp) rmQ(STAMP, { force: true });
     const before = runRepoDoctor();

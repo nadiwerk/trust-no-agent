@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Veto adapters resolve cwd per-command** (origin: omp user deny-path
+  report 2026-10-18, hypothesis confirmed by elimination): the omp adapter
+  read evidence via the HARNESS process cwd — a harness launched from a
+  parent directory (or another checkout) with a stale
+  `testPassFresh: true` state file opened the gate for commits whose own
+  project had no evidence at all; that is the deny-path anomaly their
+  receipt reported as INCONCLUSIVE. Both adapters now resolve the project
+  cwd per-command (event cwd → ctx cwd → harness cwd last), verified by a
+  three-tree runtime test (project-with-evidence → allow,
+  project-without → block, stale harness-cwd state → ignored). The omp
+  adapter also gains the pi adapter's ctx fallback, and the denial reason
+  continues to embed the resolved state path so "(missing)" vs "true" is
+  distinguishable in the wild.
+
 ## [0.1.38] - 2026-10-18
 
 ### Fixed

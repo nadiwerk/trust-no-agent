@@ -18,6 +18,16 @@
 //
 // omp tool_call contract: return { block?: boolean; reason?: string }.
 // First block stops dispatch; reason becomes the tool error text.
+//
+// cwd resolution (origin: omp user deny-path report 2026-10-18): the state
+// file MUST be read from the PROJECT the command runs in, not from the
+// harness process cwd — a harness launched from a parent directory (or a
+// different checkout) reads a DIFFERENT .trust/tna-gate-state.json, and a
+// stale testPassFresh=true in that file opens the gate for commits whose
+// own project has no evidence at all. Resolve per-command: event/ctx cwd
+// first (mirrors the pi adapter), harness cwd as last fallback. Also embed
+// the resolved path in the denial reason so "(missing)" vs "true" is
+// distinguishable in the wild (the user's receipt quoted exactly this).
 
 import { readFileSync } from "node:fs";
 
@@ -46,13 +56,13 @@ function readEvidence(cwd) {
 }
 
 export default function tnaVeto(pi) {
-  pi.on("tool_call", async (event) => {
+  pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
     const command = String(event.input?.command ?? "");
     const { irreversible, pattern } = classifyCommand(command);
     if (!irreversible) return;
 
-    const cwd = process.cwd();
+    const cwd = ctx?.cwd || event?.cwd || process.cwd();
     const evidence = readEvidence(cwd);
     if (evidence.testPassFresh) return; // fresh evidence: allow
 
