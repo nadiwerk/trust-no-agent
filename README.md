@@ -39,6 +39,19 @@ codex plugin marketplace add nadiwerk/trust-no-agent
 codex plugin add trust-no-agent@trust-no-agent
 ```
 
+**Cursor**
+
+```bash
+# from a checkout of this repo
+cursor plugin install ./plugin
+```
+
+Installs all 12 skills plus the mechanical veto: `beforeShellExecution`
+hooks route `git commit` / `git push` / `npm publish` / `rm -rf` through
+the shared gate — blocked without fresh test evidence, exit-2 block
+contract. Also register the router by pointing Cursor at the project's
+`AGENTS.md` (read natively).
+
 **Any other harness**
 
 ```bash
@@ -148,12 +161,14 @@ The parts that never depend on the model choosing to comply:
   actions wait for sign-off.
 - **Veto** — irreversible actions are denied, not discouraged: `git commit`,
   `git push`, `npm publish`, `rm -rf` are blocked until fresh test evidence
-  exists (see the TNA gates below). The veto layer reaches five harnesses
-  (OpenCode, Claude Code, Codex, OMP, Pi), each with a real deny contract.
+  exists (see the TNA gates below). The veto layer reaches six harnesses
+  (OpenCode, Claude Code, Codex, OMP, Pi, Cursor — the Cursor deny contract
+  is wired but doc-first until a live deny fires on a real session), each
+  with a real deny contract where proven.
 - **TNA gates** — the named enforcement core behind the veto: `tna-gate`
   records session evidence (which test commands ran and whether they exited
   clean) in `.trust/tna-gate-state.json`, and `action-gate` classifies
-  irreversible commands against that record. The same core runs on all five
+  irreversible commands against that record. The same core runs on all six
   harnesses, so the veto follows you across tools.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.
@@ -224,7 +239,7 @@ run beyond the verification commands. It works on any harness that reads
 - **It does not enforce itself.** Skills are text; what never depends on the
   model is the mechanical layer above — hooks, CI, and the doctor.
 - **Its veto is proven where it was tested.** The live denial proofs exist on
-  OpenCode; the other four harnesses' deny contracts are wired from documented
+  OpenCode; the other five harnesses' deny contracts are wired from documented
   hook APIs but not yet proven by a live run — the compatibility matrix marks
   them doc-first until one fires
   ([docs/compatibility.md](docs/compatibility.md), review-by 2026-11-13).

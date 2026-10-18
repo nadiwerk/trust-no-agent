@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cursor install in the README** — the Install section gains a Cursor
+  block (plugin install from the repo checkout, what the veto hooks cover,
+  AGENTS.md natively read) and the harness counts are updated: the veto
+  layer reaches six harnesses, the TNA gates core runs on all six, and the
+  honest-limits line now says five harnesses await live proof (Cursor
+  joined the doc-first group).
+
+### Added
+
 - **Cursor plugin payload: the veto layer reaches Cursor** — a Cursor
   Plugin manifest (`.cursor-plugin/plugin.json` declaring skills,
   commands, hooks), a `hooks/hooks.json` wiring `beforeShellExecution`,
