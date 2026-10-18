@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.41] - 2026-10-18
+
 ### Added
 
 - **Cursor marketplace listing** — `.cursor-plugin/marketplace.json` lists
@@ -48,6 +50,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fires on a real Cursor session (documented Cursor caveats: malformed
   hook JSON fails open, `ask` decision not enforced on
   beforeShellExecution).
+
+## [0.1.40] - 2026-10-18
+
+### Added
+
+- **Cursor plugin: the veto layer reaches Cursor** — a Cursor Plugin
+  manifest (`.cursor-plugin/plugin.json`) declaring skills, commands, and
+  hooks; `hooks/hooks.json` wiring `beforeShellExecution`, `sessionStart`,
+  and `preCompact` through a thin event-name shim
+  (`.cursor/scripts/gate-hook-shim.mjs`) onto the shared gate-hook brain —
+  the same classifier Claude Code and Codex use, exit-2 block contract.
+  New fail-first guard: `scripts/cursor-plugin.test.mjs`, registered in CI.
+  Compatibility row updated honestly: doc-first WARN until a live deny
+  fires on a real Cursor session.
+- **Cursor install in the README** — the Install section gains a Cursor
+  block and the harness counts are updated: the veto layer reaches six
+  harnesses, the TNA gates core runs on all six, and the honest-limits
+  line now says five harnesses await live proof.
+
+### Fixed
+
+- **The omp/pi veto adapters were runtime-broken — fixed** (second bug
+  report from the same omp user): both `tna-veto.ts` files called
+  `readFileSync` without importing `node:fs` — the veto blocked FOREVER
+  even with fresh test evidence. Runtime-verified in both branches.
+- **The private ledger is append-only, now mechanically** (ledger-overwrite
+  incident): a `write`/`edit` targeting `.trust/progress.txt` is vetoed
+  regardless of evidence; bash overwrite forms gated; `>>` stays open.
+- **Veto adapters resolve cwd per-command** (the deny-path anomaly):
+  evidence is read from the PROJECT the command runs in, not the harness
+  process cwd — a stale harness-cwd state file no longer opens the gate.
+
+### Changed
+
+- **design.md names where trust is built** — the four ground levels and
+  the strict leverage ordering, stated in the framework's own vocabulary.
+- README polish carried from the previous Unreleased (five pillars, TNA
+  gates, honest limits, table alignment, four questions, verification
+  gates current-suite).
 
 ## [0.1.39] - 2026-10-18
 
@@ -959,7 +1000,9 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.39...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...HEAD
+[0.1.41]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.40...v0.1.41
+[0.1.40]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.39...v0.1.40
 [0.1.39]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.38...v0.1.39
 [0.1.38]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.36...v0.1.37
