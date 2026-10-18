@@ -54,31 +54,36 @@ The framework's entire standing cost is the skill descriptions. Everything else 
 
 The core runs on any harness that reads `AGENTS.md`. Subagents, MCP servers, and background tasks are accelerators, not dependencies. The model is a commodity; the stack around it is the engineering. This is why the framework is harness-agnostic by design — the discipline layer should not be hostage to any single tool.
 
-## The trust effort pyramid
+## Where trust is built — four ground levels
 
-Trust in agent output is built at four levels, and effort belongs at the top
-of this pyramid, not the bottom — the higher levels are deterministic and
-compound; the lower ones do not scale:
+Trust in agent work is manufactured at four levels of the system, and the
+leverage ordering is strict: the closer a fix sits to the code itself, the
+more deterministic it is, the cheaper it runs, and the longer it keeps
+working after everyone forgot it. Each level exists; effort belongs where
+it compounds:
 
-1. **Codebase improvements** — architecture, types, invariants, clear
-   boundaries. Agents copy what exists and take the shortest path, so the
+1. **Shape the ground** — architecture, types, invariants, boundaries.
+   Agents copy what exists and take the shortest path, so the
    highest-leverage move is making the right thing the easy thing: a
-   problem eliminated in code never needs to be thought about again.
-2. **Static analysis** — lint rules, tests, CI, verification commands.
-   Cheap, token-efficient ways to catch issues before they ship.
-3. **Prose rules** — comments, AGENTS.md, skills: anything that cannot be
-   enforced and depends on the model choosing to comply. Use sparingly,
-   and only for judgment calls a machine cannot express.
-4. **Human review** — the hardest to scale. Spend it on designing the
-   environment, not on reading every diff.
+   wrong move that the code no longer allows never needs to be thought
+   about again.
+2. **Let the machine check** — lint rules, tests, CI, verification
+   commands. Cheap, token-efficient ways to catch issues before they ship,
+   running identically every time.
+3. **Say it in words** — comments, AGENTS.md, skills: anything that cannot
+   be enforced and depends on the model choosing to comply. Words are the
+   weakest material in the stack; use them only for judgment calls a
+   machine cannot express.
+4. **Spend a human** — review and judgment, the scarcest resource in the
+   loop. Spend it on designing the environment, not on reading every diff.
 
-This framework is that pyramid, built out: the enforcement ladder in
-`docs/rule-inheritance.md` is the pyramid as an operating procedure (fix
-each failure class at the highest level that works), the verification
-gates and the commit veto are level 2 made mechanical, and the honest
-statement of what remains unprovable is the boundary where level 4
-begins. The framework's claim is not "we review harder" — it is "we put
-the effort where the pyramid says it compounds."
+This framework is the principle, built out: the enforcement ladder in
+`docs/rule-inheritance.md` turns the ordering into an operating procedure
+(fix each failure class at the highest ground level that works), the
+verification gates and the commit veto are level 2 made mechanical, and
+the honest statement of what remains unprovable is the boundary where
+level 4 begins. The framework's claim is not "we review harder" — it is
+"the effort is spent where it compounds."
 
 ## Rule inheritance
 
