@@ -79,6 +79,26 @@ const check = (label, cond, detail = '') => {
       check('B10 copilot marketplace lists trust-no-agent', !!entry);
     }
   }
+  // ---- B11+. The official Copilot CLI marketplace manifest (.github/plugin/) ----
+  // `copilot plugin marketplace add nadiwerk/trust-no-agent` looks for
+  // marketplace.json in .github/plugin/ first (docs: cli-plugin-reference).
+  const ghMp = join(ROOT, '.github', 'plugin', 'marketplace.json');
+  check('B11 .github/plugin/marketplace.json exists (the marketplace add target)', existsSync(ghMp));
+  if (existsSync(ghMp)) {
+    let g = null;
+    try { g = JSON.parse(readFileSync(ghMp, 'utf8')); } catch (e) { check('B12 the GitHub marketplace manifest parses', false, e.message); }
+    if (g) {
+      check('B12 the GitHub marketplace manifest parses', true);
+      check('B13 marketplace name is trust-no-agent', g.name === 'trust-no-agent');
+      const entry = (g.plugins ?? []).find((p) => p.name === 'trust-no-agent');
+      check('B14 lists the trust-no-agent plugin', !!entry);
+      check('B15 the plugin source resolves on disk', entry && existsSync(join(ROOT, entry.source)), JSON.stringify(entry?.source ?? null));
+      const listed = entry?.version;
+      const pluginManifest = existsSync(manifest) ? JSON.parse(readFileSync(manifest, 'utf8')) : {};
+      check('B16 the listed version matches the payload manifest version',
+        listed === pluginManifest.version, `listed=${listed} payload=${pluginManifest.version}`);
+    }
+  }
 }
 
 // ---- C. The Cursor plugin manifest carries a version matching the release ----

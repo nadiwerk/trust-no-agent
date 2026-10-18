@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Copilot marketplace manifest** —
+  `.github/plugin/marketplace.json` (the location `copilot plugin
+  marketplace add nadiwerk/trust-no-agent` looks for first) lists the
+  trust-no-agent plugin with source `./plugin` and a version matching the
+  payload manifest; the README Copilot install block now mirrors the
+  Claude Code / Codex two-command shape (`marketplace add` +
+  `plugin install`). New pins B11–B16 in marketplace-copilot.test.mjs
+  (manifest exists, parses, lists the plugin, source resolves on disk,
+  listed version == payload version).
+
 ## [0.1.41] - 2026-10-18
 
 ### Added

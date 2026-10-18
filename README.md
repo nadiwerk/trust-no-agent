@@ -55,10 +55,14 @@ contract. Also register the router by pointing Cursor at the project's
 
 **GitHub Copilot**
 
-The Copilot coding agent reads the repo's `AGENTS.md` natively — point it
-at a checkout and the router is live. The 12 skills ride the Agent Skills
-standard (`.agents/skills/`); payload manifest:
-[plugin/copilot/plugin.json](plugin/copilot/plugin.json).
+```bash
+copilot plugin marketplace add nadiwerk/trust-no-agent
+copilot plugin install trust-no-agent@trust-no-agent
+```
+
+Installs the router (AGENTS.md, read natively by the Copilot coding agent),
+the 12 skills via the Agent Skills standard, and the veto-hooks adapters.
+Marketplace listing: [.github/plugin/marketplace.json](.github/plugin/marketplace.json).
 
 **Any other harness**
 
