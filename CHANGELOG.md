@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.39] - 2026-10-18
+
 ### Fixed
 
 - **Veto adapters resolve cwd per-command** (origin: omp user deny-path
@@ -915,7 +917,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.38...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.39...HEAD
+[0.1.39]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.38...v0.1.39
 [0.1.38]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.35...v0.1.36 
