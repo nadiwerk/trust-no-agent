@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/scripts/gate-hook-shim.mjs",
+        "timeout": 15
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/scripts/gate-hook-shim.mjs",
+        "timeout": 15
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "node .cursor/scripts/gate-hook-shim.mjs",
+        "timeout": 15
+      }
+    ]
+  }
+}

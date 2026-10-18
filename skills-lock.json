@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "skills": {
+    "breakpoint": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/breakpoint/SKILL.md",
+      "computedHash": "a0830a34b95bed007d5bbfaa17782fbb7caeff8d090dfa3ff325066b74073ee7"
+    },
+    "expect-fail": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/expect-fail/SKILL.md",
+      "computedHash": "1fa08b12b2ef24956367d93816bed021e8f3e66cfea23d065de45140aa52babd"
+    },
+    "fork-it": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/fork-it/SKILL.md",
+      "computedHash": "2b0e66f8db9cde710be44d3a7dca6ae091957be1bf1845593e328d9b76594756"
+    },
+    "make-it-so": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/make-it-so/SKILL.md",
+      "computedHash": "6191a577a49fbf9c6e4c52a8999223882508e3ceff708e1b61d3a32849a78bf1"
+    },
+    "no-thanks": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/discipline/no-thanks/SKILL.md",
+      "computedHash": "30f1300041eda6507d19f42787dcbe826a82f56bfc281cf97706a920b6569d6a"
+    },
+    "receipts": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/discipline/receipts/SKILL.md",
+      "computedHash": "b849911d5f121f69e665cc3d51c3a4c3b53dec9f2eb13d649fbed5441a591bd5"
+    },
+    "roast-my-code": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/roast-my-code/SKILL.md",
+      "computedHash": "d053a969c1deb60f943bf64c86a6aae4a18656275f7174bb9a404055ce706d8c"
+    },
+    "root-cause": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/root-cause/SKILL.md",
+      "computedHash": "34d76e7c82bfb4b689c5dec8db8480286a88074f28aa31285d2d590f1862a280"
+    },
+    "save-as": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/save-as/SKILL.md",
+      "computedHash": "699f8827d1e8902ab9a40497a36d7069c0755f6f8a1ffea33379d13c65f21ed6"
+    },
+    "scribe": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/scribe/SKILL.md",
+      "computedHash": "96c6adaf0bcfb8e81c1a1cd3aa126b7075a973093e82aba4fb032d36052b35d2"
+    },
+    "setup-tna": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/meta/setup-tna/SKILL.md",
+      "computedHash": "ac6dce166da5e5d350c9a4f70ed560de2768772da3c8822aba6df728f903f57a"
+    },
+    "ship-log": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/meta/ship-log/SKILL.md",
+      "computedHash": "fd829b764958c8f6958bbde1148be6f4ef1e787b5f648381b4fd3e096a737bd8"
+    }
+  }
+}

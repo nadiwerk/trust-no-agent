@@ -1,0 +1,5 @@
+interface:
+  display_name: "Scribe"
+  short_description: "Interview + domain docs as you go"
+policy:
+  allow_implicit_invocation: false

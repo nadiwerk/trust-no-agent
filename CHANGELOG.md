@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cursor plugin payload: the veto layer reaches Cursor** — a Cursor
+  Plugin manifest (`.cursor-plugin/plugin.json` declaring skills,
+  commands, hooks), a `hooks/hooks.json` wiring `beforeShellExecution`,
+  `sessionStart`, and `preCompact` through a thin event-name shim
+  (`.cursor/scripts/gate-hook-shim.mjs`) onto the shared gate-hook brain —
+  the same classifier Claude Code and Codex use, exit-2 block contract.
+  New fail-first guard: `scripts/cursor-plugin.test.mjs` (manifest shape,
+  hook wiring, shim thinness — no pattern duplication, block-contract
+  forwarding, honesty of the compatibility row), registered in CI.
+  Compatibility row updated honestly: doc-first WARN until a live deny
+  fires on a real Cursor session (documented Cursor caveats: malformed
+  hook JSON fails open, `ask` decision not enforced on
+  beforeShellExecution).
+
 ## [0.1.39] - 2026-10-18
 
 ### Fixed
