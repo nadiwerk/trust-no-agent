@@ -1,0 +1,13 @@
+{
+  "name": "trust-no-agent",
+  "owner": {
+    "name": "nadiwerk"
+  },
+  "plugins": [
+    {
+      "name": "trust-no-agent",
+      "source": "./plugin",
+      "description": "Trust over speed: a discipline framework for coding agents â€” four Iron Laws, 12 skills, and a mechanical enforcement layer (evidence-gated commit veto) that does not rely on the model choosing to load anything."
+    }
+  ]
+}

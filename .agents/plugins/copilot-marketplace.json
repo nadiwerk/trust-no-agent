@@ -1,0 +1,13 @@
+{
+  "name": "trust-no-agent-copilot",
+  "owner": {
+    "name": "nadiwerk"
+  },
+  "plugins": [
+    {
+      "name": "trust-no-agent",
+      "source": "../../plugin/copilot",
+      "description": "Trust over speed: a discipline framework for GitHub Copilot coding agent — the AGENTS.md router (read natively by Copilot) plus the 12 skills via the Agent Skills standard."
+    }
+  ]
+}

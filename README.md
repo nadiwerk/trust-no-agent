@@ -50,7 +50,15 @@ Installs all 12 skills plus the mechanical veto: `beforeShellExecution`
 hooks route `git commit` / `git push` / `npm publish` / `rm -rf` through
 the shared gate — blocked without fresh test evidence, exit-2 block
 contract. Also register the router by pointing Cursor at the project's
-`AGENTS.md` (read natively).
+`AGENTS.md` (read natively). Marketplace listing:
+[.cursor-plugin/marketplace.json](.cursor-plugin/marketplace.json).
+
+**GitHub Copilot**
+
+The Copilot coding agent reads the repo's `AGENTS.md` natively — point it
+at a checkout and the router is live. The 12 skills ride the Agent Skills
+standard (`.agents/skills/`); payload manifest:
+[plugin/copilot/plugin.json](plugin/copilot/plugin.json).
 
 **Any other harness**
 

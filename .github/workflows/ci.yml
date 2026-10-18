@@ -102,6 +102,8 @@ jobs:
         run: node scripts/codex-plugin.test.mjs
       - name: Cursor plugin payload
         run: node scripts/cursor-plugin.test.mjs
+      - name: Marketplace + Copilot payload
+        run: node scripts/marketplace-copilot.test.mjs
 
       - name: Changelog structure guard
         run: node scripts/changelog-guard.test.mjs

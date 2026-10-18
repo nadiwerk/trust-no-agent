@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cursor marketplace listing** — `.cursor-plugin/marketplace.json` lists
+  the trust-no-agent plugin (source `./plugin`), mirroring the
+  `.claude-plugin/marketplace.json` pattern: the plugin is now
+  marketplace-installable, not just checkout-installable.
+- **GitHub Copilot payload** — `plugin/copilot/` ships the AGENTS.md router
+  (Copilot's coding agent reads it natively), the 12 skills via the Agent
+  Skills standard (`.agents/skills/`), and the veto-hooks adapters;
+  manifest + marketplace listing (`.agents/plugins/copilot-marketplace.json`)
+  mirror the claude/codex pattern. New fail-first guard:
+  `scripts/marketplace-copilot.test.mjs` (manifest shape, byte-identity of
+  payload copies, marketplace listings), registered in CI.
+- **README: Copilot install block** — the Install section covers Copilot:
+  point the coding agent at a checkout, AGENTS.md router live, skills via
+  the standard path.
+
+### Added
+
 - **Cursor install in the README** — the Install section gains a Cursor
   block (plugin install from the repo checkout, what the veto hooks cover,
   AGENTS.md natively read) and the harness counts are updated: the veto
