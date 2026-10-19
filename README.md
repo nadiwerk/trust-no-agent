@@ -39,6 +39,13 @@ codex plugin marketplace add nadiwerk/trust-no-agent
 codex plugin add trust-no-agent@trust-no-agent
 ```
 
+**GitHub Copilot**
+
+```bash
+copilot plugin marketplace add nadiwerk/trust-no-agent
+copilot plugin install trust-no-agent@trust-no-agent
+```
+
 **Cursor**
 
 ```bash
@@ -52,13 +59,6 @@ Point Cursor at the checkout's `plugin/` folder via Customize if you prefer
 a marketplace-style install; restart Cursor after either path. The
 `.cursor-plugin/marketplace.json` listing is for the official marketplace
 submission, not a CLI command.
-
-**GitHub Copilot**
-
-```bash
-copilot plugin marketplace add nadiwerk/trust-no-agent
-copilot plugin install trust-no-agent@trust-no-agent
-```
 
 **Any other harness**
 

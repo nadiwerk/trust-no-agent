@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.44] - 2026-10-19
+
 ### Fixed
 
 - **Shipped-plugin import closure (the omp failure class, generalized)** —
@@ -25,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- README: the Cursor install block moved below GitHub Copilot — the
+  marketplace-CLI harnesses lead; the local-folder path follows.
 - skills-lock.json: refreshed the stale `setup-tna` computedHash from a
   live `npx skills add` probe (fresh-vs-committed lock now 12/12
   identical); pin J1 guards every locked path's existence (CI-stable).
@@ -1062,7 +1066,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...HEAD
+[0.1.44]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...v0.1.44
 [0.1.43]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...v0.1.43
 [0.1.42]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...v0.1.42
 [0.1.41]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.40...v0.1.41
