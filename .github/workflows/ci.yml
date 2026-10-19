@@ -104,6 +104,8 @@ jobs:
         run: node scripts/cursor-plugin.test.mjs
       - name: Marketplace + Copilot payload
         run: node scripts/marketplace-copilot.test.mjs
+      - name: File token budget guard
+        run: node scripts/file-budget.test.mjs
 
       - name: Changelog structure guard
         run: node scripts/changelog-guard.test.mjs

@@ -408,6 +408,33 @@ maps external skills as overlays while keeping the chain available.
 Either way the enforcement layer is identical: gates never depend on
 which workflow chose them.
 
+## File token budget guard (opt-in)
+
+Agent-authored files grow silently — a module that reads in one sitting
+today is 20,000 tokens of context tax next month. The framework ships an
+opt-in pre-commit guard that blocks any staged file over a token budget
+(tokens ≈ bytes/4), ignores lockfiles, minified bundles, binary content,
+and anything listed in a `.filebudgetignore` file at your repo root, and
+states the split instructions in the block message itself:
+
+```bash
+node /path/to/trust-no-agent/scripts/file-budget.mjs            # staged files only
+node /path/to/trust-no-agent/scripts/file-budget.mjs --all      # audit the whole index
+node /path/to/trust-no-agent/scripts/file-budget.mjs --limit=6000   # raise the budget
+```
+
+Wire it into your pre-commit hook (before other lines is fine — it
+fails fast and exits 0 when everything is within budget):
+
+```sh
+node "$root/scripts/file-budget.mjs" || exit 1
+```
+
+`CHANGELOG.md` is ignored by default (append-only release history grows
+by design). To exempt a legitimately large file, add its exact path or a
+`dir/` prefix to `.filebudgetignore`, one per line. The guard never runs
+unless you wire it in — it is style enforcement, not the evidence veto.
+
 ## Onboarding (first run)
 
 After the install, type **`/setup-tna`** in your chat session — the agent

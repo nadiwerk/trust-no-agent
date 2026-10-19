@@ -80,8 +80,7 @@ the enforcement. ([docs/design.md](docs/design.md))
 
 The trust layer works with **any** workflow — the built-in chain is one
 option, not a requirement. Already using skills from another repo
-([mattpocock/skills](https://github.com/mattpocock/skills),
-[obra/superpowers](https://github.com/obra/superpowers),
+([obra/superpowers](https://github.com/obra/superpowers),
 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills),
 [pstack](https://github.com/cursor/plugins/tree/main/pstack)) — and yours?
 Any skill you already have installs alongside TNA: the onboarding detects

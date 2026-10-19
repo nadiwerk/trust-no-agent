@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **File token budget guard (opt-in)** — `scripts/file-budget.mjs`
+  blocks any staged file over a token budget (tokens ≈ bytes/4, default
+  5,000), ignoring lockfiles, minified bundles, binary content, and
+  `.filebudgetignore` entries; the block message carries the split
+  instructions. Flags: `--all` (audit the whole index), `--limit=N`.
+  Ships in every setup-tna skill payload (nine byte-identical copies,
+  pinned by N-series checks in `scripts/file-budget.test.mjs`) and is
+  registered in CI. Docs: the new "File token budget guard (opt-in)"
+  section in docs/installation.md.
+
 ## [0.1.42] - 2026-10-19
 
 ### Added
