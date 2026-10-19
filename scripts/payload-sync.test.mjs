@@ -45,11 +45,47 @@ const run = (args, cwd = ROOT) => {
     /plugin[/\\]copilot[/\\]\.agents[/\\]skills[/\\]setup-tna/.test(r.out), r.out.slice(0, 400));
   check('D4 discovery never walks .trust (the overlay workspace is user state)',
     !/^payload root: [^\n]*\.trust[^\n]*$/im.test(r.out), r.out.slice(0, 400));
-  check('D5 junctioned install state is never a mirror (local state, not distribution)',
-    !/^payload root: \.claude[/\\]/im.test(r.out), r.out.slice(0, 400));
+  // D5 is proven structurally in the fixture below (D5-fixture): a junctioned
+  // setup-tna root must be skipped by structure. It cannot be asserted against
+  // the real tree — on this dev machine .claude/skills/setup-tna is a junction,
+  // on a Linux CI checkout it is a real directory (git does not store
+  // junctions); both are valid repo states.
   check('D6 router mirrors are discovered by structure (plugin copy + the canonical payload references copy)',
     /^router mirror: plugin[/\\]AGENTS\.md$/im.test(r.out) &&
     /router mirror: skills[/\\]meta[/\\]setup-tna[/\\]references[/\\]AGENTS\.md/im.test(r.out), r.out.slice(0, 600));
+}
+
+// ---- D5f. Junction skip is structural (portable proof via fixture) ----
+{
+  // Build a fixture with a REAL root and a JUNCTIONED root; only the real one
+  // may be discovered. Junction = dir junction on win32, symlink on POSIX
+  // (no privilege needed for either).
+  const home = mkdtempSync(join(tmpdir(), 'sync-junc-'));
+  const realRoot = join(home, 'real', 'setup-tna');
+  const junctionRoot = join(home, 'linkdir', 'setup-tna');
+  mkdirSync(realRoot, { recursive: true });
+  writeFileSync(join(realRoot, 'SKILL.md'), 'real root\\n');
+  mkdirSync(join(home, 'linkdir'), { recursive: true });
+  let linkOk = true;
+  try {
+    if (process.platform === 'win32') {
+      const r = spawnSync('cmd', ['/c', 'mklink', '/J', junctionRoot, realRoot], { encoding: 'utf8' });
+      linkOk = r.status === 0 && existsSync(junctionRoot);
+    } else {
+      const { symlinkSync } = await import('node:fs');
+      symlinkSync(realRoot, junctionRoot, 'dir');
+    }
+  } catch { linkOk = false; }
+  if (!linkOk) {
+    console.log('skip - D5f junction fixture (link creation unavailable)');
+  } else {
+    const rl = run(['--list'], home);
+    const rootsFound = rl.out.split(/\\r?\\n/).filter((l) => l.startsWith('payload root:'));
+    check('D5f the real fixture root is discovered', rootsFound.some((l) => l.includes('real')), rl.out.slice(0, 300));
+    check('D5f the junctioned root is NEVER a mirror (skip by structure)',
+      !rootsFound.some((l) => l.includes('linkdir')), rl.out.slice(0, 300));
+  }
+  rmSync(home, { recursive: true, force: true });
 }
 
 // ---- Z. Zero drift (the contract; RED until --write repairs) ----
