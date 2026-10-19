@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.42] - 2026-10-19
+
 ### Added
 
 - **GitHub Copilot marketplace manifest** —
@@ -18,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `plugin install`). New pins B11–B16 in marketplace-copilot.test.mjs
   (manifest exists, parses, lists the plugin, source resolves on disk,
   listed version == payload version).
+- **README: uniform two-command install blocks** — the Cursor and
+  GitHub Copilot install blocks now mirror the Claude Code / Codex shape
+  (`<tool> plugin marketplace add nadiwerk/trust-no-agent` +
+  `install trust-no-agent@trust-no-agent`), and the per-block explanation
+  paragraphs are folded into the single shared explanation after
+  "Any other harness".
 
 ## [0.1.41] - 2026-10-18
 
@@ -1012,7 +1020,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...HEAD
+[0.1.42]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...v0.1.42
 [0.1.41]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.40...v0.1.41
 [0.1.40]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.39...v0.1.40
 [0.1.39]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.38...v0.1.39
