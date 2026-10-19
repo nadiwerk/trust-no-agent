@@ -42,16 +42,9 @@ codex plugin add trust-no-agent@trust-no-agent
 **Cursor**
 
 ```bash
-# from a checkout of this repo
-cursor plugin install ./plugin
+cursor plugin marketplace add nadiwerk/trust-no-agent
+cursor plugin install trust-no-agent@trust-no-agent
 ```
-
-Installs all 12 skills plus the mechanical veto: `beforeShellExecution`
-hooks route `git commit` / `git push` / `npm publish` / `rm -rf` through
-the shared gate — blocked without fresh test evidence, exit-2 block
-contract. Also register the router by pointing Cursor at the project's
-`AGENTS.md` (read natively). Marketplace listing:
-[.cursor-plugin/marketplace.json](.cursor-plugin/marketplace.json).
 
 **GitHub Copilot**
 
@@ -59,10 +52,6 @@ contract. Also register the router by pointing Cursor at the project's
 copilot plugin marketplace add nadiwerk/trust-no-agent
 copilot plugin install trust-no-agent@trust-no-agent
 ```
-
-Installs the router (AGENTS.md, read natively by the Copilot coding agent),
-the 12 skills via the Agent Skills standard, and the veto-hooks adapters.
-Marketplace listing: [.github/plugin/marketplace.json](.github/plugin/marketplace.json).
 
 **Any other harness**
 
