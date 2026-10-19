@@ -92,16 +92,21 @@ const check = (label, cond, detail = '') => {
 }
 
 // ---- E. The README Cursor install path is REAL (origin: install-path audit
-// 2026-10-19). The shipped `cursor plugin marketplace add` + `cursor plugin
-// install` block was a Claude/Codex-shaped fiction: the cursor CLI (probed
-// 3.24.12, --help) has NO plugin subcommand; official docs give the UI
-// (Customize / /add-plugin), the interactive cursor-agent /plugin flow, or
-// the local folder ~/.cursor/plugins/local. This pin forbids the fictional
-// CLI shape from returning and requires the documented real path.
+// 2026-10-19). The shipped `cursor plugin marketplace add` + `install` block
+// was a Claude/Codex-shaped fiction: the cursor CLI (probed 3.24.12, --help)
+// has NO plugin subcommand. `​/add-plugin` exists only as an in-editor chat
+// command and searches the CURATED marketplace — it finds nothing until the
+// plugin is actually listed. Until that submission is approved, the honest
+// README carries NO Cursor install block at all; users ride the universal
+// path below. Flip E2 the day the listing goes live: then require the real
+// marketplace install shape instead of forbidding the block.
 {
   const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
   check('E1 README carries no fictional "cursor plugin" CLI command', !/^\s*cursor\s+plugin\s+(install|marketplace|add)/im.test(readme));
-  check('E2 README names the real local-plugin install path', /plugins[/\\]local/i.test(readme));
+  const installSection = readme.split(/^## /m).find((s) => s.startsWith('Install'));
+  check('E2 README carries no Cursor install block (no listing yet - see the flip note above)',
+    !installSection || !/^Cursor$/m.test(installSection.replace(/\*\*/g, '')) && !installSection.includes('**Cursor**'),
+    'a Cursor block exists while the marketplace listing does not - remove it or wire the real listing first');
 }
 
 console.log(failures === 0 ? '\nAll cursor-plugin expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);

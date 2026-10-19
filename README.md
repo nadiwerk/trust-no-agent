@@ -46,20 +46,6 @@ copilot plugin marketplace add nadiwerk/trust-no-agent
 copilot plugin install trust-no-agent@trust-no-agent
 ```
 
-**Cursor**
-
-```bash
-# no plugin subcommand exists in the cursor CLI - use the local-plugin folder
-# (UI alternative: Customize in the sidebar, or /add-plugin in chat)
-mkdir -p ~/.cursor/plugins/local
-git clone https://github.com/nadiwerk/trust-no-agent ~/.cursor/plugins/local/trust-no-agent
-```
-
-Point Cursor at the checkout's `plugin/` folder via Customize if you prefer
-a marketplace-style install; restart Cursor after either path. The
-`.cursor-plugin/marketplace.json` listing is for the official marketplace
-submission, not a CLI command.
-
 **Any other harness**
 
 ```bash

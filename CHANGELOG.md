@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- README: the Cursor install block — no marketplace listing exists yet
+  (submission pending), and every command-shaped path was fiction or
+  premature: the cursor CLI has no plugin subcommand (probed), and
+  `/add-plugin` only searches the curated marketplace. The block returns
+  with the real marketplace install shape once the listing is approved;
+  pin E1/E2 in cursor-plugin.test.mjs now enforces the absence (and the
+  comment carries the flip instructions).
+
 ## [0.1.44] - 2026-10-19
 
 ### Fixed
