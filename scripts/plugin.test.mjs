@@ -237,5 +237,45 @@ const skills = canonicalSkills();
     plugin.version === released, `plugin.json says ${plugin.version}`);
 }
 
+// ---- I. Import closure (origin: install-path audit 2026-10-19, the omp
+// failure class on the claude/codex path). gate-hook.mjs imports 6 local
+// modules; onboarding.mjs and receipt-enforcement.mjs were NOT in
+// plugin/scripts/ — every real claude/codex install crashed at import time
+// (ERR_MODULE_NOT_FOUND, exit 1 per session prompt) while every in-repo test
+// stayed green because the files exist beside the scripts here. G2 only pins
+// files someone remembered to list; this pin walks the imports instead.
+{
+  const required = new Set(['reinject.mjs', 'mandatory-gate.mjs', 'gate-hook.mjs', 'tna-gate.mjs', 'tna-store.mjs', 'action-gate.mjs', 'overlay-registry.mjs', 'floor-composer.mjs']);
+  const localImport = (src) => [...src.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)].map((m) => m[1]);
+  for (const f of required) {
+    const p = join(PLUGIN, 'scripts', f);
+    if (!existsSync(p)) { check(`I1 plugin/scripts/${f} exists (import closure)`, false, 'missing'); continue; }
+    const missing = localImport(readFileSync(p, 'utf8')).filter((d) => !existsSync(join(PLUGIN, 'scripts', d)));
+    check(`I1 plugin/scripts/${f} import closure complete`, missing.length === 0, `missing: ${missing.join(', ')}`);
+  }
+  const srcHook = readFileSync(join(ROOT, 'scripts', 'gate-hook.mjs'), 'utf8');
+  const hookDeps = localImport(srcHook);
+  check('I2 gate-hook.mjs local imports are all shipped in plugin/scripts/',
+    hookDeps.every((d) => existsSync(join(PLUGIN, 'scripts', d))),
+    `imports: ${hookDeps.join(', ')} | missing: ${hookDeps.filter((d) => !existsSync(join(PLUGIN, 'scripts', d))).join(', ')}`);
+}
+
+// ---- J. skills-lock integrity (origin: install-path audit 2026-10-19).
+// The lock's setup-tna hash went stale when the SKILL.md was rewritten after
+// 6e744c3 and nobody regenerated the lock. Probed with the LIVE tool: the
+// staleness does NOT break installs (the tool regenerates its own lock per
+// machine — exit 0, 12/12 skills landed), and the hash algorithm is sha256
+// over the RAW CHECKED-OUT bytes, so it is checkout-EOL-dependent and cannot
+// be pinned CI-stable (a Linux runner reads LF, this tree checks out CRLF).
+// The CI-stable pin is therefore EXISTENCE of every locked path (the omp
+// class: entry ships but the file is gone); hash currency stays a
+// maintainer-time record, refreshed by running the tool.
+{
+  const lock = JSON.parse(readFileSync(join(ROOT, 'skills-lock.json'), 'utf8'));
+  for (const [name, e] of Object.entries(lock.skills || {})) {
+    check(`J1 lock entry ${name} points at an existing file`, existsSync(join(ROOT, e.skillPath)), e.skillPath);
+  }
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll plugin-mirror expectations hold.');
 process.exit(failures ? 1 : 0);

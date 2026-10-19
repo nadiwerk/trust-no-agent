@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Shipped-plugin import closure (the omp failure class, generalized)** —
+  `plugin/scripts/` shipped `gate-hook.mjs` but not the `onboarding.mjs`
+  and `receipt-enforcement.mjs` it imports: every real Claude Code / Codex
+  install crashed at import time (exit 1 per session prompt, floor never
+  injected) while in-repo tests stayed green. Both modules now ship in the
+  payload; new pins I1/I2 in plugin.test.mjs walk the plugin import
+  closure mechanically instead of trusting a remembered file list.
+- **README: the Cursor install path is real** — the `cursor plugin
+  marketplace add` / `install` block was a Claude/Codex-shaped fiction
+  (probed: the cursor CLI has no plugin subcommand). The README now gives
+  the documented local-plugin folder (`~/.cursor/plugins/local`) and the
+  UI paths; pin E1/E2 in cursor-plugin.test.mjs forbids the fictional
+  CLI shape from returning.
+
+### Changed
+
+- skills-lock.json: refreshed the stale `setup-tna` computedHash from a
+  live `npx skills add` probe (fresh-vs-committed lock now 12/12
+  identical); pin J1 guards every locked path's existence (CI-stable).
+
 ## [0.1.43] - 2026-10-19
 
 ### Added
