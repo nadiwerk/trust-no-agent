@@ -106,6 +106,8 @@ jobs:
         run: node scripts/marketplace-copilot.test.mjs
       - name: File token budget guard
         run: node scripts/file-budget.test.mjs
+      - name: Payload sync (zero drift by discovery)
+        run: node scripts/payload-sync.test.mjs
 
       - name: Changelog structure guard
         run: node scripts/changelog-guard.test.mjs

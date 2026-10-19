@@ -26,7 +26,11 @@ export function composeFloor({ canonicalFloor, overlays = [], budget = 4000 }) {
     .sort((a, b) => a.extends.localeCompare(b.extends) || a.name.localeCompare(b.name))
     .map((o) => ({
       name: o.name,
-      line: `- user:${o.name} — extends ${o.extends} (${o.role}) — ${o.triggers && o.triggers.length ? `load when: ${o.triggers.join(', ')}` : 'explicit invocation only'}`,
+      line: [
+        `- user:${o.name}`,
+        o.extends ? `extends ${o.extends}${o.role ? ` (${o.role})` : ''}` : 'no anchor (explicit-only)',
+        o.triggers && o.triggers.length ? `load when: ${o.triggers.join(', ')}` : null,
+      ].filter(Boolean).join(' — '),
     }));
 
   let text = canonicalFloor;

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Payload sync generator (`scripts/sync-payloads.mjs`)** — mirror
+  consistency by DISCOVERY, not by remembered lists. Walks the tree for
+  every real `setup-tna` payload root plus every `AGENTS.md`/`WORKFLOW.md`
+  outside the repo root (router mirrors by constitution) and same-name
+  `scripts/*.mjs` mirrors; default mode exits 1 naming any drift,
+  `--write` repairs. New fail-first guard `scripts/payload-sync.test.mjs`
+  (CI step added); junction/symlink install state (local `.claude/`-style
+  installs) is excluded by structure, never followed.
+
+### Fixed
+
+- **Real drift the remembered lists had missed** — the zero-drift sweep
+  found and repaired 12 stale mirror files: pre-0.1.39 veto adapters
+  (`veto-hooks/{omp,pi}/tna-veto.ts`, missing the per-command cwd fix) in
+  the `.agents/` install surface and the entire copilot payload, plus
+  pre-hardening `overlay-registry.mjs`/`floor-composer.mjs` in
+  `plugin/scripts/`. Every prior byte-sync pin stayed green through this
+  drift because each pin enumerated its own partial list of mirrors —
+  the generator replaces the lists.
+
+### Changed
+
+- **Router slim (AGENTS.md 21.6 KB → 15.6 KB, −28%)** — origin stories,
+  probe narratives, and duplicated explanations removed; every rule
+  statement and every eval-pinned phrase kept verbatim. Provenance
+  (origin, rationale, undo) lives in `docs/rule-inheritance.md`, which
+  already carried it — the router now carries rules, not stories.
+  All 7 distributed router copies re-synced byte-identical.
+
 ### Removed
 
 - README: the Cursor install block — no marketplace listing exists yet
