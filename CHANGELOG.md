@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.43] - 2026-10-19
+
 ### Added
 
 - **File token budget guard (opt-in)** — `scripts/file-budget.mjs`
@@ -18,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pinned by N-series checks in `scripts/file-budget.test.mjs`) and is
   registered in CI. Docs: the new "File token budget guard (opt-in)"
   section in docs/installation.md.
+
+### Changed
+
+- README: removed an external repository example from the
+  bring-your-own-workflow list — no external attributions in tracked
+  files; the other examples stay.
 
 ## [0.1.42] - 2026-10-19
 
@@ -1032,7 +1040,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...HEAD
+[0.1.43]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...v0.1.43
 [0.1.42]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...v0.1.42
 [0.1.41]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.40...v0.1.41
 [0.1.40]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.39...v0.1.40
