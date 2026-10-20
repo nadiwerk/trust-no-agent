@@ -39,8 +39,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skill descriptions sharpened** (found by the new trigger-eval floor):
   `fork-it` and `ship-log` now carry their trigger vocabulary and "Use
   when" clause in the description; mirrors byte-synced.
+- **README install blocks corrected against fresh probes** — the Copilot
+  block now teaches the real path (`npx skills add` → `~/.copilot/skills`;
+  the `copilot` CLI has no plugin subcommand), and an update note teaches
+  `claude plugin update` for installs pinned to an older recorded version.
+- **README diagrams as transparent PNGs** — both Mermaid blocks replaced
+  with `<picture>` elements (light + dark variants, 2× scale) because the
+  GitHub mobile app does not render Mermaid; sources (`.mmd`) and the
+  puppeteer config are committed under `assets/` for regeneration.
 
-## [0.1.45] - 2026-10-20
+## [0.1.46] - 2026-10-20
+
+### Added
+
+- **Trigger-eval floor (`scripts/trigger-eval.mjs`)** — the deterministic
+  description check for the framework's own 12 skills: a vocabulary floor
+  (each description carries the trigger words users actually say), a
+  pairwise collision check (error >= 75%, warn >= 50% lexical similarity),
+  and a "Use when" clause requirement on model-invoked skills. Keyless and
+  CI-safe; wired into both CI jobs. First run found 3 real description
+  defects (fixed: fork-it, ship-log).
+- **Impractical-test valve for Iron Law 2** — `expect-fail` §The
+  impractical-test valve: the law's only documented exit is the
+  missing-seam finding plus a `Ruling:` with its cost — never a silent
+  skip. Closes the collision with pstack's and mattpocock's documented
+  fail-first escape hatches. Enforced by eval check #50 (HARD).
+- **Adoption recipes (`docs/adoption-recipes.md`)** — concrete
+  wrap-recipes for the four top-starred external workflows (superpowers,
+  agent-skills, pstack, mattpocock/skills): universal core unchanged,
+  external skills as add-only overlays, the trust machinery covering what
+  each workflow lacks; pointer added from `docs/installation.md`.
+- **Primary-source research (`docs/research-external-workflows.md`)** —
+  the trust layer compared against the four top-starred agent-workflow
+  repos, 66 citations, cross-validation section (self-trigger
+  unreliability independently replicated by two external repos), and the
+  ranked two-way improvement candidates.
+
+### Changed
+
+- **Skill descriptions sharpened** (found by the new trigger-eval floor):
+  `fork-it` and `ship-log` now carry their trigger vocabulary and "Use
+  when" clause in the description; mirrors byte-synced.
+- **README install blocks corrected against fresh probes** — the Copilot
+  block now teaches the real path (`npx skills add` → `~/.copilot/skills`;
+  the `copilot` CLI has no plugin subcommand), and an update note teaches
+  `claude plugin update` for installs pinned to an older recorded version.
+- **README diagrams as transparent PNGs** — both Mermaid blocks replaced
+  with `<picture>` elements (light + dark variants, 2× scale) because the
+  GitHub mobile app does not render Mermaid; sources (`.mmd`) and the
+  puppeteer config are committed under `assets/` for regeneration.
 
 ## [0.1.45] - 2026-10-20
 
@@ -1144,7 +1191,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...HEAD
+[0.1.46]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...v0.1.46
 [0.1.45]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...v0.1.45
 [0.1.44]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...v0.1.44
 [0.1.43]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...v0.1.43
