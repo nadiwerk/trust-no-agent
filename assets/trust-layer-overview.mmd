@@ -1,0 +1,14 @@
+%% trust-layer overview — regenerate:
+%%   npx -y @mermaid-js/mermaid-cli -i trust-layer-overview.mmd -o trust-layer-overview.light.png -t default -b "#ffffff" -s 2 -p mmdc-puppeteer.json
+%%   npx -y @mermaid-js/mermaid-cli -i trust-layer-overview.mmd -o trust-layer-overview.dark.png  -t dark    -b "#0d1117" -s 2 -p mmdc-puppeteer.json
+flowchart TD
+    W["Any workflow<br/>built-in or yours"] --> E["Engagement<br/>count, never mood"]
+    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
+    M --> C["Claim: done"]
+    C --> R["Receipt enforcement<br/>fresh evidence<br/>or nothing"]
+    R -->|"receipt valid"| V["TNA gates<br/>+ veto"]
+    V -->|"evidence fresh"| OK["Landed"]
+    V -->|"no evidence"| D["Denied<br/>run the proof"]
+    D --> M
+    R -.->|"append Loaded:"| MEM["Discipline memory<br/>ledger, hooks<br/>doctor, CI"]
+    MEM -.->|"rules return<br/>next session"| E

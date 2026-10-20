@@ -1,0 +1,16 @@
+%% enforcement-layer map — regenerate:
+%%   npx -y @mermaid-js/mermaid-cli -i trust-layer-enforcement.mmd -o trust-layer-enforcement.light.png -t default -b "#ffffff" -s 2 -p mmdc-puppeteer.json
+%%   npx -y @mermaid-js/mermaid-cli -i trust-layer-enforcement.mmd -o trust-layer-enforcement.dark.png  -t dark    -b "#0d1117" -s 2 -p mmdc-puppeteer.json
+flowchart TD
+    W["Incoming work"] --> E["Engagement<br/>count, never mood"]
+    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
+    M --> R["Receipt enforcement<br/>5 booleans, 4 blocks<br/>stale after 14 days"]
+    R -->|"valid receipt"| G["TNA gates<br/>tna-gate<br/>action-gate"]
+    G -->|"evidence fresh"| OK["Landed"]
+    G -->|"no evidence"| X["Denied<br/>not discouraged"]
+    X -->|"re-verify"| M
+    R -.->|"append Loaded:"| L["Ledger<br/>append-only"]
+    H["Hooks<br/>re-inject,<br/>classify"] -.->|"floor re-injected"| W
+    CI["CI gate suite<br/>encode-twice<br/>pins"] -.->|"every rule pinned"| E
+    DOC["Doctor<br/>wired, not<br/>recited"] -.->|"veto wired"| G
+    S["sync-payloads<br/>zero-drift<br/>mirrors"] -.->|"adapters fresh"| G

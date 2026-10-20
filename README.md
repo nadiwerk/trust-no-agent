@@ -81,19 +81,10 @@ Any skill you already have installs alongside TNA: the onboarding detects
 and maps them as overlays, and the receipts, the veto, and the consent gate
 apply to every action regardless of which workflow produced the code.
 
-```mermaid
-flowchart TD
-    W["Any workflow<br/>built-in or yours"] --> E["Engagement<br/>count, never mood"]
-    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
-    M --> C["Claim: done"]
-    C --> R["Receipt enforcement<br/>fresh evidence<br/>or nothing"]
-    R -->|"receipt valid"| V["TNA gates<br/>+ veto"]
-    V -->|"evidence fresh"| OK["Landed"]
-    V -->|"no evidence"| D["Denied<br/>run the proof"]
-    D --> M
-    R -.->|"append Loaded:"| MEM["Discipline memory<br/>ledger, hooks<br/>doctor, CI"]
-    MEM -.->|"rules return<br/>next session"| E
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/trust-layer-overview.dark.png">
+  <img src="assets/trust-layer-overview.light.png" alt="Trust layer overview: any workflow passes engagement criteria, mandatory skills, receipt enforcement, and the TNA gates plus veto before landing; denied claims loop back to re-verify">
+</picture>
 
 ## The core
 
@@ -160,21 +151,10 @@ fix → `receipts`. Small work skips the chain but never the gates.
 
 The parts that never depend on the model choosing to comply:
 
-```mermaid
-flowchart TD
-    W["Incoming work"] --> E["Engagement<br/>count, never mood"]
-    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
-    M --> R["Receipt enforcement<br/>5 booleans, 4 blocks<br/>stale after 14 days"]
-    R -->|"valid receipt"| G["TNA gates<br/>tna-gate<br/>action-gate"]
-    G -->|"evidence fresh"| OK["Landed"]
-    G -->|"no evidence"| X["Denied<br/>not discouraged"]
-    X -->|"re-verify"| M
-    R -.->|"append Loaded:"| L["Ledger<br/>append-only"]
-    H["Hooks<br/>re-inject,<br/>classify"] -.->|"floor re-injected"| W
-    CI["CI gate suite<br/>encode-twice<br/>pins"] -.->|"every rule pinned"| E
-    DOC["Doctor<br/>wired, not<br/>recited"] -.->|"veto wired"| G
-    S["sync-payloads<br/>zero-drift<br/>mirrors"] -.->|"adapters fresh"| G
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/trust-layer-enforcement.dark.png">
+  <img src="assets/trust-layer-enforcement.light.png" alt="Enforcement layer map: incoming work through engagement criteria, mandatory skills, receipt enforcement, and TNA gates; ledger, hooks, CI, doctor, and sync-payloads feed back into the gates">
+</picture>
 
 - **Receipt enforcement** — a "done" claim without a valid receipt is rejected
   at commit time; the receipt shape is validated (each verification claim
