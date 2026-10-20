@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.45] - 2026-10-20
+
+## [0.1.45] - 2026-10-20
+
 ### Added
 
 - **Payload sync generator (`scripts/sync-payloads.mjs`)** — mirror
@@ -1107,7 +1111,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...HEAD
+[0.1.45]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...v0.1.45
 [0.1.44]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...v0.1.44
 [0.1.43]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.42...v0.1.43
 [0.1.42]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.41...v0.1.42
