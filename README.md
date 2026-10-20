@@ -39,12 +39,20 @@ codex plugin marketplace add nadiwerk/trust-no-agent
 codex plugin add trust-no-agent@trust-no-agent
 ```
 
+Already installed an older TNA? Re-record the version after pulling:
+
+```bash
+claude plugin update trust-no-agent@trust-no-agent
+```
+
 **GitHub Copilot**
 
 ```bash
-copilot plugin marketplace add nadiwerk/trust-no-agent
-copilot plugin install trust-no-agent@trust-no-agent
+npx skills add nadiwerk/trust-no-agent
 ```
+
+Installs to `~/.copilot/skills` (probed against the skills CLI agent registry;
+the `copilot` CLI has no plugin subcommand).
 
 **Any other harness**
 
