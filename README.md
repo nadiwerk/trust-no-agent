@@ -82,16 +82,16 @@ apply to every action regardless of which workflow produced the code.
 
 ```mermaid
 flowchart TD
-    W["Any workflow — built-in chain, yours, or none"] --> E["Engagement criteria — count, never mood"]
-    E --> M["Mandatory skills — expect-fail · root-cause · receipts"]
+    W["Any workflow<br/>built-in or yours"] --> E["Engagement<br/>count, never mood"]
+    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
     M --> C["Claim: done"]
-    C --> R["Receipt enforcement — fresh evidence or nothing"]
-    R -->|"receipt valid"| V["TNA gates + veto"]
+    C --> R["Receipt enforcement<br/>fresh evidence<br/>or nothing"]
+    R -->|"receipt valid"| V["TNA gates<br/>+ veto"]
     V -->|"evidence fresh"| OK["Landed"]
-    V -->|"no evidence"| DENY["Denied — run the proof"]
-    DENY --> M
-    R -.->|"append Loaded: / Ruling:"| MEM["Discipline memory — ledger · hooks · doctor · CI"]
-    MEM -.->|"rules return next session"| E
+    V -->|"no evidence"| D["Denied<br/>run the proof"]
+    D --> M
+    R -.->|"append Loaded:"| MEM["Discipline memory<br/>ledger, hooks<br/>doctor, CI"]
+    MEM -.->|"rules return<br/>next session"| E
 ```
 
 ## The core
@@ -161,19 +161,18 @@ The parts that never depend on the model choosing to comply:
 
 ```mermaid
 flowchart TD
-    W["Incoming work"] --> E["Engagement criteria<br/>count, never mood"]
-    E --> M["Mandatory skills<br/>expect-fail · root-cause · receipts"]
-    M --> R["Receipt enforcement<br/>5 booleans · 4 blocks<br/>stale after 14 days"]
-    R -->|"valid receipt"| G["TNA gates<br/>tna-gate · action-gate"]
+    W["Incoming work"] --> E["Engagement<br/>count, never mood"]
+    E --> M["Mandatory skills<br/>expect-fail<br/>root-cause<br/>receipts"]
+    M --> R["Receipt enforcement<br/>5 booleans, 4 blocks<br/>stale after 14 days"]
+    R -->|"valid receipt"| G["TNA gates<br/>tna-gate<br/>action-gate"]
     G -->|"evidence fresh"| OK["Landed"]
-    G -->|"no evidence"| X["Denied — not discouraged"]
+    G -->|"no evidence"| X["Denied<br/>not discouraged"]
     X -->|"re-verify"| M
-    R -.->|"append Loaded: / Ruling:"| L["Ledger<br/>append-only"]
-    CI["CI gate suite<br/>encode-twice pins"] -.->|"every rule pinned"| E
-    H["Hooks<br/>re-inject · classify · sign-off"] -.->|"floor re-injected"| W
-    DOC["Doctor<br/>wired, not recited"] -.->|"veto actually wired"| G
-    SYNC["sync-payloads<br/>zero-drift mirrors"] -.->|"adapters zero-drift"| G
-    L ~~~ H ~~~ CI ~~~ DOC ~~~ SYNC
+    R -.->|"append Loaded:"| L["Ledger<br/>append-only"]
+    H["Hooks<br/>re-inject,<br/>classify"] -.->|"floor re-injected"| W
+    CI["CI gate suite<br/>encode-twice<br/>pins"] -.->|"every rule pinned"| E
+    DOC["Doctor<br/>wired, not<br/>recited"] -.->|"veto wired"| G
+    S["sync-payloads<br/>zero-drift<br/>mirrors"] -.->|"adapters fresh"| G
 ```
 
 - **Receipt enforcement** — a "done" claim without a valid receipt is rejected
