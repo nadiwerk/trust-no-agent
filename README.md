@@ -80,10 +80,6 @@ Any skill you already have installs alongside TNA: the onboarding detects
 and maps them as overlays, and the receipts, the veto, and the consent gate
 apply to every action regardless of which workflow produced the code.
 
-## The core
-
-The whole machine at a glance — every workflow funnels through the same gates:
-
 ```mermaid
 flowchart TD
     W["Any workflow — built-in chain, yours, or none"] --> E["Engagement criteria — count, never mood"]
@@ -97,6 +93,8 @@ flowchart TD
     R -.->|"append Loaded: / Ruling:"| MEM["Discipline memory — ledger · hooks · doctor · CI"]
     MEM -.->|"rules return next session"| E
 ```
+
+## The core
 
 Most agent workflows stop at output. This one stops at a **proof boundary**:
 the router makes the next action explicit, asks for decisions when the request
@@ -163,29 +161,19 @@ The parts that never depend on the model choosing to comply:
 
 ```mermaid
 flowchart TD
-    subgraph RUNTIME["Runtime gates — every session, every workflow"]
-        direction TB
-        W["Incoming work"] --> E["Engagement criteria<br/>count, never mood"]
-        E --> M["Mandatory skills<br/>expect-fail · root-cause · receipts"]
-        M --> R["Receipt enforcement<br/>5 booleans · 4 blocks<br/>stale after 14 days"]
-        R -->|"valid receipt"| G["TNA gates<br/>tna-gate · action-gate"]
-        G -->|"evidence fresh"| OK["Landed"]
-        G -->|"no evidence"| X["Denied — not discouraged"]
-        X -->|"re-verify"| M
-    end
-    subgraph MEM["Discipline memory — survives compaction"]
-        direction LR
-        L["Ledger<br/>append-only"]
-        H["Hooks<br/>re-inject · classify · sign-off"]
-        CI["CI gate suite<br/>encode-twice pins"]
-        DOC["Doctor<br/>wired, not recited"]
-        SYNC["sync-payloads<br/>zero-drift mirrors"]
-    end
-    R -.->|"append Loaded: / Ruling:"| L
-    CI -.->|"every rule pinned"| E
-    H -.->|"floor re-injected"| W
-    DOC -.->|"veto actually wired"| G
-    SYNC -.->|"adapters zero-drift"| G
+    W["Incoming work"] --> E["Engagement criteria<br/>count, never mood"]
+    E --> M["Mandatory skills<br/>expect-fail · root-cause · receipts"]
+    M --> R["Receipt enforcement<br/>5 booleans · 4 blocks<br/>stale after 14 days"]
+    R -->|"valid receipt"| G["TNA gates<br/>tna-gate · action-gate"]
+    G -->|"evidence fresh"| OK["Landed"]
+    G -->|"no evidence"| X["Denied — not discouraged"]
+    X -->|"re-verify"| M
+    R -.->|"append Loaded: / Ruling:"| L["Ledger<br/>append-only"]
+    CI["CI gate suite<br/>encode-twice pins"] -.->|"every rule pinned"| E
+    H["Hooks<br/>re-inject · classify · sign-off"] -.->|"floor re-injected"| W
+    DOC["Doctor<br/>wired, not recited"] -.->|"veto actually wired"| G
+    SYNC["sync-payloads<br/>zero-drift mirrors"] -.->|"adapters zero-drift"| G
+    L ~~~ H ~~~ CI ~~~ DOC ~~~ SYNC
 ```
 
 - **Receipt enforcement** — a "done" claim without a valid receipt is rejected
