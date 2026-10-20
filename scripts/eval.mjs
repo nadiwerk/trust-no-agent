@@ -1219,6 +1219,30 @@ if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
     err('AGENTS.md §6: missing the reply-shape bullet (no preamble/recap/closers, lists capped at 5, matter-of-fact errors)');
 }
 
+// ---- 50. Iron Law 2 carries the impractical-test valve (HARD) ----
+// Origin: research-external-workflows (2026-10-20, Master adoption ruling
+// "jalankan semua 3 jalur"): pstack ("Prefer no new test over a bad test")
+// and mattpocock diagnosing-bugs ("If no correct seam exists, that itself
+// is the finding") both document an escape valve for fail-first; Iron Law 2
+// had none, so wrapping those workflows collided with a silently-skipped
+// law. The valve is narrow by design: the only exit is the MISSING-SEAM
+// FINDING + a Ruling: — never a mood-based skip. Encode twice: prose in
+// expect-fail (## The impractical-test valve + rationalization row), this
+// mechanical check for the boundary.
+{
+  const ef50 = readFileSync(join(SKILLS, 'engineering', 'expect-fail', 'SKILL.md'), 'utf8');
+  for (const marker of [
+    /## The impractical-test valve/,
+    /no correct seam exists/,
+    /that itself is the finding/i,
+    /Ruling:/,
+  ])
+    if (!marker.test(ef50))
+      err(`expect-fail: missing impractical-test valve marker ${marker} (Iron Law 2's only documented exit: missing-seam finding + Ruling — never a silent skip)`);
+  if (!new RegExp('^\\| "No correct seam exists[^|]*\\|', 'm').test(ef50))
+    err('expect-fail: rationalization table missing the "No correct seam exists" row (valve must be in the table, not just prose)');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);

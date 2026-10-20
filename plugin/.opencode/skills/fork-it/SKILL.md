@@ -1,6 +1,6 @@
 ---
 name: fork-it
-description: Use when a spec is ready and work needs to be broken down — forks it into tracer-bullet tickets (vertical slices), each declaring its blocking edges.
+description: Use when a spec is ready and needs a work breakdown — forks it into tracer-bullet tickets (vertical slices), each declaring its blocking edges.
 disable-model-invocation: true
 ---
 

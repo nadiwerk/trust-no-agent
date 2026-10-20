@@ -27,6 +27,9 @@ jobs:
       - name: Eval consistency
         run: node scripts/eval.mjs
 
+      - name: Trigger-eval floor (skill descriptions)
+        run: node scripts/trigger-eval.mjs
+
       - name: Ticket-graph validator self-test
         run: node scripts/tickets.test.mjs
 

@@ -1,6 +1,6 @@
 ---
 name: ship-log
-description: Append a log entry of completed work to the private project ledger (typically .trust/progress.txt, gitignored). Use after finishing any file change, refactor, task, or bug fix, before moving to the next item.
+description: Use when work is finished and should be logged — append a log entry of completed work to the private project ledger (typically .trust/progress.txt, gitignored) after any file change, refactor, task, or bug fix, before moving to the next item.
 ---
 
 # Ship Log

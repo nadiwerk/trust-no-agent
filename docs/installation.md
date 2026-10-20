@@ -402,6 +402,8 @@ option, not the identity — the trust layer is. Two supported postures:
   external skills as overlays (previous section) so they ride the floor
   instead of competing with it.
 
+Concrete per-workflow recipes (superpowers, agent-skills, pstack, mattpocock/skills) live in docs/adoption-recipes.md.
+
 The onboarding workflow-choice question records which posture you chose
 (`tna-chain` / `bring-your-own` / `both`) in the consent stamp — `both`
 maps external skills as overlays while keeping the chain available.

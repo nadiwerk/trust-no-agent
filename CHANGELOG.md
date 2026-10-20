@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Trigger-eval floor (`scripts/trigger-eval.mjs`)** — the deterministic
+  description check for the framework's own 12 skills (origin: adoption
+  research 2026-10-20, candidate #6): a vocabulary floor (each description
+  carries the trigger words users actually say), a pairwise collision check
+  (error >= 75%, warn >= 50% lexical similarity), and a "Use when" clause
+  requirement on model-invoked skills. Keyless and CI-safe; wired into both
+  CI jobs. First run found 3 real description defects (fixed: fork-it,
+  ship-log).
+- **Impractical-test valve for Iron Law 2** — `expect-fail` §The
+  impractical-test valve (origin: adoption research 2026-10-20, candidate
+  #5): the law's only documented exit is the missing-seam finding plus a
+  `Ruling:` with its cost — never a silent skip. Closes the collision with
+  pstack's and mattpocock's documented fail-first escape hatches. Enforced
+  by eval check #50 (HARD).
+- **Adoption recipes (`docs/adoption-recipes.md`)** — concrete
+  wrap-recipes for the four top-starred external workflows (superpowers,
+  agent-skills, pstack, mattpocock/skills): universal core unchanged,
+  external skills as add-only overlays, the trust machinery covering what
+  each workflow lacks; pointer added from `docs/installation.md`.
+- **Primary-source research (`docs/research-external-workflows.md`)** —
+  the trust layer compared against the four top-starred agent-workflow
+  repos, 66 citations, cross-validation section (self-trigger
+  unreliability independently replicated by two external repos), and the
+  ranked two-way improvement candidates.
+
+### Changed
+
+- **Skill descriptions sharpened** (found by the new trigger-eval floor):
+  `fork-it` and `ship-log` now carry their trigger vocabulary and "Use
+  when" clause in the description; mirrors byte-synced.
+
 ## [0.1.45] - 2026-10-20
 
 ## [0.1.45] - 2026-10-20
