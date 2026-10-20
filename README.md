@@ -82,6 +82,22 @@ apply to every action regardless of which workflow produced the code.
 
 ## The core
 
+The whole machine at a glance — every workflow funnels through the same gates:
+
+```mermaid
+flowchart TD
+    W["Any workflow — built-in chain, yours, or none"] --> E["Engagement criteria — count, never mood"]
+    E --> M["Mandatory skills — expect-fail · root-cause · receipts"]
+    M --> C["Claim: done"]
+    C --> R["Receipt enforcement — fresh evidence or nothing"]
+    R -->|"receipt valid"| V["TNA gates + veto"]
+    V -->|"evidence fresh"| OK["Landed"]
+    V -->|"no evidence"| DENY["Denied — run the proof"]
+    DENY --> M
+    R -.->|"append Loaded: / Ruling:"| MEM["Discipline memory — ledger · hooks · doctor · CI"]
+    MEM -.->|"rules return next session"| E
+```
+
 Most agent workflows stop at output. This one stops at a **proof boundary**:
 the router makes the next action explicit, asks for decisions when the request
 is underspecified, and rejects a completion claim that has no fresh evidence
@@ -144,6 +160,33 @@ fix → `receipts`. Small work skips the chain but never the gates.
 ## The enforcement layer
 
 The parts that never depend on the model choosing to comply:
+
+```mermaid
+flowchart TD
+    subgraph RUNTIME["Runtime gates — every session, every workflow"]
+        direction TB
+        W["Incoming work"] --> E["Engagement criteria<br/>count, never mood"]
+        E --> M["Mandatory skills<br/>expect-fail · root-cause · receipts"]
+        M --> R["Receipt enforcement<br/>5 booleans · 4 blocks<br/>stale after 14 days"]
+        R -->|"valid receipt"| G["TNA gates<br/>tna-gate · action-gate"]
+        G -->|"evidence fresh"| OK["Landed"]
+        G -->|"no evidence"| X["Denied — not discouraged"]
+        X -->|"re-verify"| M
+    end
+    subgraph MEM["Discipline memory — survives compaction"]
+        direction LR
+        L["Ledger<br/>append-only"]
+        H["Hooks<br/>re-inject · classify · sign-off"]
+        CI["CI gate suite<br/>encode-twice pins"]
+        DOC["Doctor<br/>wired, not recited"]
+        SYNC["sync-payloads<br/>zero-drift mirrors"]
+    end
+    R -.->|"append Loaded: / Ruling:"| L
+    CI -.->|"every rule pinned"| E
+    H -.->|"floor re-injected"| W
+    DOC -.->|"veto actually wired"| G
+    SYNC -.->|"adapters zero-drift"| G
+```
 
 - **Receipt enforcement** — a "done" claim without a valid receipt is rejected
   at commit time; the receipt shape is validated (each verification claim
