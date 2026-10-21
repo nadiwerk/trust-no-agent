@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`tickets.mjs` gates on tickets validated, not directories found** (F2 residual): an existing-but-empty `.trust/<slug>/issues/` directory produced `OK: ticket graph valid in 1 directory.` and exit 0 — a green receipt for a graph that was never written, the same "silent OK over nothing" class F2 exists to kill. The CLI now counts the tickets `validateDir` actually parsed and exits 1 with `validated zero tickets` when that count is zero. An explicitly named issue directory that does not exist is rejected up front (it previously validated a phantom dir and exited 0), and the OK line reports the ticket count.
 - **The CI ticket-graph smoke step validates a committed fixture**: a bare `node scripts/tickets.mjs` cannot pass on a fresh checkout, because `.trust/` is gitignored and no graph can be committed there. The step now runs against `scripts/tickets-fixture/issues`, which proves the happy path end-to-end; the negative contracts (no `.trust/`, empty graph dir, missing explicit dir) are covered by `scripts/tickets.test.mjs`, which now spawns the real CLI instead of only importing `validateDir` — the gap that let 35 green suites coexist with a red CI.
 
-## [0.1.48] - 2026-10-22
+## [0.1.47] - 2026-10-22
 
 ### Fixed
 
@@ -1253,7 +1253,7 @@ is pinned by a test that was observed failing before the fix.
   compatibility, rule-inheritance, per-skill pages).
 
 [Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...HEAD
-[0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.48
+[0.1.47]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.47
 [0.1.46]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...v0.1.46
 [0.1.45]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...v0.1.45
 [0.1.44]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...v0.1.44
