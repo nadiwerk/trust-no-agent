@@ -51,7 +51,7 @@ export const SHELL_TOOLS = new Set(['bash', 'shell']);
  * A write/edit targeting it is gated REGARDLESS of evidence: fresh test
  * evidence cannot restore lost history. State files and everything else
  * stay fail-open (the framework itself writes tna-gate-state.json and
- * onboarding.json via non-ledger paths). Matched on a path суффикс after
+ * onboarding.json via non-ledger paths). Matched on a path suffix after
  * backslash normalization, so absolute and relative forms both hit — and
  * a cultivated `notes-on-progress.txt`-style sibling never matches.
  */
@@ -77,9 +77,92 @@ function isLedgerPath(p) {
 }
 
 function matchesAnyCommand(command) {
-  for (const p of IRREVERSIBLE_PATTERNS) {
-    const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (new RegExp(`\\b${esc}\\b`, 'i').test(command)) return p;
+  return matchAtExecution(command);
+}
+
+/**
+ * Text that the shell EXECUTES, as opposed to text that merely mentions a
+ * phrase. A pattern counts only at an execution position: the start of a
+ * segment (the command string itself, or the text right after `&&`, `||`,
+ * `;`, `|`, a newline, or a subshell opener), optionally behind an executing
+ * wrapper (`sudo git commit …`). Anything else — a phrase inside a quoted
+ * sentence, a heredoc body line, a word after `echo` — is data, and gating it
+ * graded shell syntax instead of the action (F4, observed live 2026-10-21).
+ *
+ * Two things this deliberately does NOT do: recurse into arbitrary quoted
+ * arguments (that would re-create the whole-string match), and skip
+ * interpreter payloads — `bash -c "git push"` hands the quoted text to a
+ * shell, so that one is followed.
+ */
+const EXEC_WRAPPERS = new Set(['sudo', 'env', 'command', 'nohup', 'time', 'exec', 'doas', 'builtin']);
+const INTERPRETERS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'pwsh', 'powershell', 'cmd', 'eval']);
+
+/** Heredoc bodies are data. Drop everything between `<<EOF` and its terminator. */
+function stripHeredocBodies(command) {
+  const out = [];
+  let terminator = null;
+  for (const line of String(command ?? '').split(/\r?\n/)) {
+    if (terminator !== null) {
+      if (line.trim() === terminator) terminator = null;
+      continue;
+    }
+    out.push(line);
+    const m = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/.exec(line);
+    if (m) terminator = m[2];
+  }
+  return out.join('\n');
+}
+
+/** Split into segments at separators the shell acts on, never inside quotes. */
+function splitSegments(command) {
+  const segments = [];
+  let current = '';
+  let quote = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      current += ch;
+      if (ch === quote) quote = null;
+      else if (ch === '\\' && quote === '"' && i + 1 < command.length) current += command[++i];
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; current += ch; continue; }
+    if (ch === '\\' && i + 1 < command.length) { current += ch + command[++i]; continue; }
+    if (ch === '\n' || ch === ';' || ch === '(' || ch === '`') { segments.push(current); current = ''; continue; }
+    if (ch === '&' && command[i + 1] === '&') { segments.push(current); current = ''; i++; continue; }
+    if (ch === '|') { segments.push(current); current = ''; if (command[i + 1] === '|') i++; continue; }
+    current += ch;
+  }
+  segments.push(current);
+  return segments;
+}
+
+function matchAtExecution(command, depth = 0) {
+  if (depth > 3) return null;
+  for (const raw of splitSegments(stripHeredocBodies(command))) {
+    const segment = raw.trim().replace(/[)`]+$/, '');
+    if (!segment) continue;
+    const words = segment.split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < words.length && EXEC_WRAPPERS.has(words[i].toLowerCase())) {
+      i++;
+      while (i < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i])) i++;  // env assignments
+      while (i < words.length && words[i].startsWith('-')) i++;                    // wrapper flags
+    }
+    if (i >= words.length) continue;
+    const head = words.slice(i).join(' ').toLowerCase();
+    for (const p of IRREVERSIBLE_PATTERNS) {
+      const needle = String(p).toLowerCase();
+      if (head === needle || head.startsWith(`${needle} `)) return p;
+    }
+    const prog = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '');
+    if (INTERPRETERS.has(prog)) {
+      const payload = /['"]([\s\S]*)['"]/.exec(segment);
+      if (payload) {
+        const nested = matchAtExecution(payload[1], depth + 1);
+        if (nested) return nested;
+      }
+    }
   }
   return null;
 }
@@ -112,8 +195,14 @@ export function classifyAction({ tool = '', args = {}, evidence = {} } = {}) {
   }
   // Bash overwrite/truncate forms naming the ledger path are gated (doubt
   // blocks, same AC7 principle as unknown-shell). Append (>>) stays open.
+  //
+  // NAMING the ledger is not overwriting it: the gate keys on a matched WRITE
+  // form, never on the absence of `>>`. Keying on `!command.includes('>>')`
+  // vetoed every read-only audit command (`wc -l .trust/progress.txt`, a
+  // validator run, `grep -n` over the headings) — i.e. exactly the activity
+  // this framework exists to encourage (F5, observed live 2026-10-21).
   if (SHELL_TOOLS.has(name) && command && /\.trust[\\/]progress\.txt/i.test(command) && !LEDGER_APPEND_SAFE.test(command)) {
-    const overwriting = LEDGER_OVERWRITE_PATTERNS.some((r) => r.test(command)) || !command.includes('>>');
+    const overwriting = LEDGER_OVERWRITE_PATTERNS.some((r) => r.test(command));
     if (overwriting) {
       return { gated: true, reason: `a shell command overwriting the private ledger (${LEDGER_PATH}) is vetoed — the ledger is append-only; use >> to append (ledger-overwrite incident 2026-10-18)` };
     }

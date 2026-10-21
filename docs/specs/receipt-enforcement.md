@@ -32,8 +32,9 @@ receipt in the ledger — but that receipt is now **shape-validated**: five
 booleans (constraints satisfied / evidence fresh / scope held / subject
 verified / fail-first proven), each of which MUST carry its own evidence
 (a blanket "all-yes" verdict is rejected), and the cited verification
-commands must be literal and among the repo gates (an allowlist derived
-from ci.yml — "tests pass" is not evidence, and non-repo commands are
+commands must be literal and among the repo gates the project declares as its
+proof (its `AGENTS.md` `proof-commands` block, else its own CI workflow —
+"tests pass" is not evidence, and non-repo commands are
 rejected as proof). Ledger-audit (already running in CI + pre-commit)
 checks every entry: a done-claim without a valid receipt is a HARD
 finding. The commit veto is extended: the NEWEST ledger entry must carry a
@@ -57,7 +58,8 @@ at the start of a session.
    (each of the five booleans justified, not one blanket sentence), so that a
    blanket-yes verdict cannot pass as a receipt.
 2. As the maintainer, I want cited verification commands to be literal repo gates
-   (an allowlist derived from the CI workflow), so that "tests pass" is not
+   (the allowlist the project declares — `AGENTS.md` `proof-commands`, else its
+   own CI workflow), so that "tests pass" is not
    evidence and agent-authored commands cannot become proof.
 3. As the maintainer, I want a done-claim without a valid receipt to hard-fail the
    audit, so that skipping the receipt is a visible defect, not a silent choice.
@@ -105,11 +107,15 @@ at the start of a session.
 - **Staleness**: a claim older than 14 days (RECEIPT_STALE_DAYS, between the
   lessons' 21 and the ladder's 30) is stale by computation and must be
   re-verified before it may gate anything. (Round 1 Q4, round 3 Q10)
-- **Commands**: only repo gates (the `node scripts/*` references in the CI
-  workflow) may be cited as evidence or re-run; anything else is rejected as
-  proof. The allowlist derives from the FRAMEWORK repo's CI workflow (vendored
-  beside the validator), not from the adopter's tree — an adopter without a
-  workflow file of their own still gets the same gates. (Round 1 Q5)
+- **Commands**: only repo gates (the commands the PROJECT declares as its
+  proof) may be cited as evidence or re-run; anything else is rejected as
+  proof. The allowlist belongs to the project being graded and is resolved
+  from the project root at call time — a `proof-commands` fenced block in its
+  `AGENTS.md` first, else the run steps of its own `.github/workflows/*.yml`,
+  else EMPTY with a named reason. Reading it from the framework's own tree
+  was a silent no-op for adopters: the published payload ships no `.github/`,
+  so the set came back empty and every adopter claim resolved unverifiable
+  (F1, 2026-10-21). (Round 1 Q5, amended)
 - **Re-verification**: the audit re-runs the cited gate commands through the
   hardened runner (no shell, allowlist, timeout — the stale-probe pattern);
   a re-run that passes marks the claim re-verified, a failing re-run marks it
@@ -168,7 +174,8 @@ at the start of a session.
 ## Constraints
 
 1. Zero new runtime dependencies; keyless; no network; the runner is plain Node.
-2. Cited commands must be repo gates (allowlist derived from the CI workflow);
+2. Cited commands must be repo gates (the allowlist the project itself declares
+   in `AGENTS.md` or its CI workflow, resolved from the project root);
    non-allowlisted commands are rejected as evidence.
 3. Re-runs execute only for stale claims (> RECEIPT_STALE_DAYS = 14), through the
    hardened runner (no shell, allowlist, timeout).
@@ -193,7 +200,8 @@ at the start of a session.
 2. (US1) A receipt with each of the five booleans carrying its own evidence line
    validates. — automated test (receipt validator seam).
 3. (US2) A receipt citing a non-allowlisted command (e.g. `rm -rf x`) as evidence
-   is rejected; a receipt citing a repo gate from the CI workflow passes the
+   is rejected; a receipt citing a gate the project itself declares (its
+   `AGENTS.md` `proof-commands` block or its own CI workflow) passes the
    allowlist. — automated test.
 4. (US3) A ledger entry claiming done with no receipt block is a hard audit
    finding. — automated test (audit over a fixture ledger).

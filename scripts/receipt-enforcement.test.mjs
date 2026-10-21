@@ -165,7 +165,11 @@ const VALID_RECEIPT = [
 // (allowed), and the newest-entry linkage both directions.
 {
   const { auditLedgerReceipts, vetoVerdict } = await import('./receipt-enforcement.mjs');
-  const today = new Date('2026-10-14T00:00:00Z');
+  // `today` must be at or after every "fresh" fixture date below: a claim
+  // dated after today is a defect, never fresh (suite G). Before F6 these
+  // fixtures used today=2026-10-14 with entries dated 2026-10-20 — a future
+  // claim passing as fresh, which is the bug G1 now pins.
+  const today = new Date('2026-10-21T00:00:00Z');
   const ledger = [
     '## 2026-09-01',
     '',
@@ -218,6 +222,218 @@ const VALID_RECEIPT = [
     (() => { const v = vetoVerdict({ ledgerText: mixed, today }); return v.allow === false; })(), JSON.stringify(vetoVerdict({ ledgerText: mixed, today })));
   check('F7 no ledger at all returns null (the evidence precondition owns that case)',
     vetoVerdict({ ledgerText: '', today }) === null, 'null');
+}
+
+// ---- G. The anchor is a claim, not a heading (F6, 2026-10-21) ----
+// Observed live: a ledger whose last `## <date>` heading reads 2026-11-02 — a
+// date in the future — became the veto's staleness anchor. Because the
+// staleness rule is `age < RECEIPT_STALE_DAYS`, a future date yields a
+// NEGATIVE age, so that entry can never go stale and the veto opens forever.
+// A heading is a label someone typed; the claim is what has to be verified.
+//
+// Spec under test: the anchor entry is the newest by POSITION (the ledger is
+// append-only, so position is newest), its date is the nearest `## <date>`
+// heading above it, a date after `today` is a LEDGER DEFECT (reported, and it
+// cannot gate), and a `#### Receipt` block is the claim record — prose above
+// it is not part of the receipt.
+{
+  const { newestEntry, auditLedgerReceipts, vetoVerdict } = await import('./receipt-enforcement.mjs');
+  const today = new Date('2026-10-21T00:00:00Z');
+
+  const validReceiptLines = [
+    '**Verdict** — the receipt holds',
+    'constraints satisfied — the shape + allowlist checked',
+    'evidence fresh — node scripts/eval.mjs → 37/37 green',
+    'scope held — 1 file in, 0 out',
+    'subject verified — the receipt-enforcement seam',
+    'fail-first proven — RED: blanket rejected first',
+    '**Evidence** — the validator output',
+    '**Open** — none',
+    '**Next** — none',
+  ];
+
+  // The ads-tracker shape: a future-dated heading whose entry carries a
+  // perfectly valid receipt. Nothing about the receipt is wrong — the DATE is.
+  const futureLedger = [
+    '## 2026-10-16',
+    '',
+    '### Session Summary - earlier work',
+    ...validReceiptLines,
+    '',
+    '## 2026-11-02',
+    '',
+    '### Session Summary - future-dated heading',
+    '',
+    '#### Receipt',
+    ...validReceiptLines,
+  ].join('\n');
+
+  const futureVeto = vetoVerdict({ ledgerText: futureLedger, today });
+  check('G1 a claim dated after today cannot gate (a future date is never fresh)',
+    futureVeto.allow === false && /future/i.test(futureVeto.reason), JSON.stringify(futureVeto));
+
+  const futureAudit = auditLedgerReceipts({ ledgerText: futureLedger, today });
+  check('G2 the future-dated heading is reported as a ledger defect',
+    futureAudit.findings.some((f) => f.date === '2026-11-02' && /future/i.test(f.message)),
+    JSON.stringify(futureAudit.findings));
+
+  // The receipt is the claim record. A summary line above it that happens to
+  // cite a command is prose, not evidence, and must not be graded as a receipt.
+  const scopedLedger = [
+    '## 2026-10-16',
+    '',
+    '### Session Summary - prose above the receipt',
+    'The install step ran `npm install left-pad` outside the gate.',
+    '',
+    '#### Receipt',
+    ...validReceiptLines,
+  ].join('\n');
+  const scopedVeto = vetoVerdict({ ledgerText: scopedLedger, today });
+  check('G3 a `#### Receipt` block is the claim record (prose above it is not graded as evidence)',
+    scopedVeto.allow === true, JSON.stringify(scopedVeto));
+
+  // Preservation guard: ledgers that never adopted the `#### Receipt` heading
+  // (every fixture in suite F, and the pre-heading entries in real ledgers)
+  // still anchor on the last `## <date>` partition.
+  const plainLedger = [
+    '## 2026-10-16',
+    '',
+    '### Session Summary - inline receipt, no heading',
+    ...validReceiptLines,
+  ].join('\n');
+  const plain = newestEntry(plainLedger);
+  check('G4 without a `#### Receipt` heading the anchor is the last `## <date>` partition',
+    plain !== null && plain.date === '2026-10-16' && /inline receipt/.test(plain.text),
+    JSON.stringify(plain));
+  check('G5 the fallback still gates: an inline receipt on a fresh date is allowed',
+    vetoVerdict({ ledgerText: plainLedger, today }).allow === true,
+    JSON.stringify(vetoVerdict({ ledgerText: plainLedger, today })));
+}
+
+// ---- H. The allowlist belongs to the PROJECT, not to the framework (F1, 2026-10-21) ----
+// Observed live: the shipped payload carries no `.github/`, so
+// `repoGateCommands()` — hardwired to the framework ROOT's ci.yml — returns an
+// EMPTY set for every adopter, and `validateReceipt` only ever extracts
+// `node scripts/*.mjs` citations. An adopter citing `npm test` therefore gets
+// `commands: []` -> `unverifiable` -> the veto denies every commit, forever,
+// with no reason a human can act on. The framework's own allowlist is non-empty
+// precisely because the framework's CI happens to be written in `node scripts/*`.
+//
+// Spec under test: the allowlist is read from the PROJECT root, in order —
+// (1) a `proof-commands` fenced block declared in the project's AGENTS.md,
+// (2) the project's `.github/workflows/*.yml` run steps (a generalized parser:
+// any gate runner, block scalars included, setup/install lines excluded),
+// (3) empty WITH AN EXPLICIT REASON — never a silent empty set.
+{
+  const { repoGateCommands, resolveGateCommands, validateReceipt: vr, vetoVerdict: vv } =
+    await import('./receipt-enforcement.mjs');
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { join: jH } = await import('node:path');
+  const { tmpdir: osTmpH } = await import('node:os');
+
+  const project = (agentsMd, ciYml) => {
+    const dir = mkdtempSync(jH(osTmpH(), 'adopter-'));
+    if (agentsMd !== null) writeFileSync(jH(dir, 'AGENTS.md'), agentsMd);
+    if (ciYml !== null) {
+      mkdirSync(jH(dir, '.github', 'workflows'), { recursive: true });
+      writeFileSync(jH(dir, '.github', 'workflows', 'ci.yml'), ciYml);
+    }
+    return dir;
+  };
+  const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
+  const show = (s) => JSON.stringify([...s].sort());
+
+  // (1) A declaration in the project's own AGENTS.md is authoritative.
+  const declared = project(
+    ['# Project', '', '## 6. Verification commands', '', '```proof-commands', 'npm run typecheck', 'npm test', '```', ''].join('\n'),
+    null,
+  );
+  const h1 = repoGateCommands({ root: declared });
+  check('H1 an AGENTS.md `proof-commands` block is the project allowlist',
+    sameSet(h1, new Set(['npm run typecheck', 'npm test'])), show(h1));
+
+  // (2) No declaration -> the project's own CI workflow, parsed generally.
+  //     A block scalar's setup lines (mkdir/printf/chmod) are NOT gates; the
+  //     npm/npx lines are.
+  const ciOnly = project(null, [
+    'jobs:',
+    '  test:',
+    '    steps:',
+    '      - run: npm ci',
+    '      - run: npm run lint',
+    '      - run: npm test',
+    '      - run: npx vitest run src/test/unit/migration-journal.test.ts',
+    '      - name: Siapkan SSH',
+    '        run: |',
+    '          mkdir -p ~/.ssh',
+    "          printf '%s\\n' \"$KEY\" > ~/.ssh/id_ci",
+    '          chmod 600 ~/.ssh/id_ci',
+    '          npm run typecheck',
+    '',
+  ].join('\n'));
+  const h2 = repoGateCommands({ root: ciOnly });
+  check('H2 the project CI workflow yields its gates, block scalars included',
+    h2.has('npm test') && h2.has('npm run lint') && h2.has('npm run typecheck')
+    && h2.has('npx vitest run src/test/unit/migration-journal.test.ts'), show(h2));
+  check('H2b setup and install steps are not gates',
+    !h2.has('npm ci') && ![...h2].some((c) => /^(mkdir|printf|chmod)\b/.test(c)), show(h2));
+
+  // (3) Neither source -> empty, and the emptiness is EXPLAINED.
+  const bare = project(null, null);
+  const h3res = resolveGateCommands({ root: bare });
+  check('H3 a project declaring no gates resolves empty',
+    h3res.gates.size === 0 && h3res.source === 'none', JSON.stringify({ source: h3res.source, size: h3res.gates.size }));
+  check('H3b the empty resolution carries an explicit reason naming both places it looked',
+    typeof h3res.reason === 'string' && /AGENTS\.md/.test(h3res.reason) && /workflow/i.test(h3res.reason),
+    JSON.stringify(h3res.reason));
+
+  // (4) Citation extraction follows the allowlist, not a hardwired shape.
+  const npmReceipt = [
+    '**Verdict** — the receipt holds',
+    'constraints satisfied — the shape + allowlist checked',
+    'evidence fresh — npm test → 42/42 green, this turn',
+    'scope held — 1 file in, 0 out',
+    'subject verified — the adopter project',
+    'fail-first proven — RED: npm citation rejected before the parser',
+    '**Evidence** — the run above',
+    '**Open** — none',
+    '**Next** — none',
+  ].join('\n');
+  const h4 = vr(npmReceipt, { gates: repoGateCommands({ root: ciOnly }) });
+  check('H4 a receipt citing a project gate is accepted and its command extracted',
+    h4.commands.includes('npm test') && !h4.errors.some((e) => /allowlist/i.test(e)),
+    JSON.stringify({ commands: h4.commands, errors: h4.errors.slice(0, 2) }));
+
+  // (5) A project with no declared gates gets a reason a human can act on.
+  const h5 = vv({ ledgerText: `## 2026-10-20\n\n${npmReceipt}`, today: new Date('2026-10-21T00:00:00Z'), root: bare });
+  check('H5 the veto names the missing declaration instead of a silent empty allowlist',
+    h5.allow === false && /declar|AGENTS\.md/i.test(h5.reason), JSON.stringify(h5));
+
+  // (6) A declaration outranks CI when both exist.
+  const both = project(
+    ['```proof-commands', 'npm run typecheck', '```', ''].join('\n'),
+    ['jobs:', '  t:', '    steps:', '      - run: npm test', ''].join('\n'),
+  );
+  const h6 = repoGateCommands({ root: both });
+  check('H6 the AGENTS.md declaration wins over the CI workflow',
+    sameSet(h6, new Set(['npm run typecheck'])), show(h6));
+
+  // (7) Preservation guard: the framework's own allowlist still resolves.
+  const h7 = repoGateCommands();
+  check('H7 the framework repo still resolves its own gates (node scripts/eval.mjs present)',
+    h7.has('node scripts/eval.mjs') && h7.size >= 30, String(h7.size));
+
+  // (8) A declared-but-empty block is an error, not a silent fallback to CI.
+  const emptyBlock = project(
+    ['```proof-commands', '```', ''].join('\n'),
+    ['jobs:', '  t:', '    steps:', '      - run: npm test', ''].join('\n'),
+  );
+  const h8 = resolveGateCommands({ root: emptyBlock });
+  check('H8 a `proof-commands` block that declares nothing is reported, not silently replaced',
+    h8.gates.size === 0 && h8.source === 'agents-md-empty' && /empty/i.test(h8.reason),
+    JSON.stringify({ source: h8.source, reason: h8.reason }));
+
+  for (const d of [declared, ciOnly, bare, both, emptyBlock]) rmSync(d, { recursive: true, force: true });
 }
 
 console.log(failures === 0 ? '\nAll receipt-enforcement seam expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);

@@ -302,7 +302,7 @@ const CHURN_THRESHOLD = 2;
  *            gaps: Array<{date: null, kind: 'coverage-gap', reason: string}>,
  *            stats: object}}
  */
-export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, lessonsText = null }) {
+export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, lessonsText = null, root }) {
   const findings = [];
   if (!ledgerText.trim()) return { findings, gaps: [], stats: emptyStats() };
 
@@ -516,7 +516,10 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
 // it rides the doctor's session-start surface (RS), not the audit findings,
 // so it never pollutes a "no findings" reading of an old fixture.
 {
-  const rr = auditLedgerReceipts({ ledgerText, today });
+  // The allowlist belongs to the audited project, not to this checkout (F1,
+  // 2026-10-21). `root` is optional so embedders and fixtures that only supply
+  // text keep resolving against this repo's own tree.
+  const rr = auditLedgerReceipts({ ledgerText, today, root });
   for (const f of rr.findings) findings.push(f);
 }
 

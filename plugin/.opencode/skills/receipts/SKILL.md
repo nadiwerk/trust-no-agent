@@ -80,7 +80,7 @@ fail-first proven — <RED evidence cited, or n/a with the reason>
 
 Rules the validator enforces:
 
-- **The repo-gate allowlist**: a cited verification command must be a repo gate (the `node scripts/*` references in the CI workflow); "tests pass" without a command is not evidence, and a non-allowlisted command is rejected.
+- **The repo-gate allowlist**: a cited verification command must be a repo gate the PROJECT declares as its proof — a proof-commands fenced block in its AGENTS.md, else the run steps of its own `.github/workflows/*.yml`. The allowlist resolves from the project being graded, never from this framework's tree: a project that declares nothing gets an explicit "no proof commands declared" refusal, not a silent empty set. "tests pass" without a command is not evidence, and a non-allowlisted command is rejected.
 - **The fast one-line receipt**: a `fast` unit still carries a receipt — one line: claim, one allowlisted command, its result. Nothing truly skips.
 - **The staleness window**: a claim older than 14 days (RECEIPT_STALE_DAYS) is stale by computation and must be re-verified — its cited gates re-run through the hardened runner — before it may gate anything. Statuses: fresh / re-verified / stale / unverifiable; only fresh and re-verified may gate.
 - **The veto**: the commit veto denies when the newest ledger entry lacks a valid receipt, or its claim is stale — bypassing the receipt cannot land.

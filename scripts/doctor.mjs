@@ -294,7 +294,7 @@ if (ledgerPath) {
     // the same absence into a per-entry finding (one defect, one signal).
     let lessonsText = null;
     try { lessonsText = readFileSync(lessonsPath, 'utf8'); } catch { lessonsText = null; }
-    const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date(), lessonsText });
+    const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date(), lessonsText, root: cwd });
     const verdict = ledgerVerdict({ findings, gaps });
     if (verdict.level === 'clean') pass(`${verdict.message} — ${ledgerRel}`);
     // Findings present: the rollup line REPLACES the verdict wall (A+C, Master
@@ -434,7 +434,7 @@ if (ledgerPath) {
   try {
     const ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8');
     const { auditLedgerReceipts } = await import('./receipt-enforcement.mjs');
-    const rr = auditLedgerReceipts({ ledgerText, today: new Date() });
+    const rr = auditLedgerReceipts({ ledgerText, today: new Date(), root: cwd });
     for (const w of rr.warns) warn(w);
     if (rr.stale.length)
       warn(`receipt staleness: ${rr.stale.length} ledger claim(s) older than the window await re-verification (re-run their cited gates before gating)`);

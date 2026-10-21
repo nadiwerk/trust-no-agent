@@ -368,7 +368,9 @@ function receiptVerdict(payload) {
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
   let ledgerText = '';
   try { ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8'); } catch { /* no ledger */ }
-  return vetoVerdict({ ledgerText, today: new Date() });
+  // The allowlist is the PROJECT's, resolved from the same cwd the ledger came
+  // from (F1, 2026-10-21): the framework's own gates graded an adopter's claim.
+  return vetoVerdict({ ledgerText, today: new Date(), root: cwd });
 }
 
 // Self-execute only when run directly (the repo-wide guard pattern: every

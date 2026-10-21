@@ -117,6 +117,20 @@ const check = (label, cond, detail = '') => {
   check('H5 bash APPEND to the ledger is allowed (append is the contract)', bashAppend.gated === false, JSON.stringify(bashAppend));
   const bashTruncate = classifyAction({ tool: 'bash', args: { command: 'Set-Content .trust/progress.txt -Value x' }, evidence: {} });
   check('H6 bash overwrite/truncate of the ledger is gated (doubt blocks)', bashTruncate.gated === true, JSON.stringify(bashTruncate));
+  // NAMING the ledger is not OVERWRITING it. Audit is the activity the
+  // framework wants to encourage, so read-only forms must stay open; only a
+  // matched write form (Set-Content / > / tee) may gate. Observed live: three
+  // read-only audit commands vetoed in one session (F5, 2026-10-21).
+  const readOnly = [
+    'wc -l .trust/progress.txt',
+    'node scripts/validate.mjs .trust/progress.txt',
+    'ls -la .trust/ && node scripts/validate.mjs .trust/progress.txt',
+    'grep -n "^## 20" .trust/progress.txt',
+  ];
+  for (const cmd of readOnly) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`H7 a read-only command naming the ledger is allowed (${cmd})`, v.gated === false, JSON.stringify(v));
+  }
 }
 
 // ---- E. Ordinary writes stay fail-open (Constraints: irreversible only) ----
@@ -144,6 +158,44 @@ const check = (label, cond, detail = '') => {
     untested.length === 0, `untested: ${untested.join(', ')}`);
   check('F2 the pattern table is non-empty',
     Array.isArray(IRREVERSIBLE_PATTERNS) && IRREVERSIBLE_PATTERNS.length > 0);
+}
+
+// ---- I. Prose naming an irreversible action is not that action (F4, 2026-10-21) ----
+// Observed live: writing a ledger entry through a heredoc whose text said
+// "before you git commit, ..." tripped the irreversible gate, then fell into
+// the receipt veto. The gate exists to catch EXECUTION, so a pattern only
+// counts at an execution position (start of the command string or right after
+// a shell separator, wrappers aside). Anything merely mentioning the phrase
+// mid-sentence must stay open — otherwise the gate grades shell syntax, and
+// the workaround (stage to a temp file, then cat >>) defeats its own purpose.
+{
+  const prose = [
+    { cmd: 'echo "note: git commit is gated here"', label: 'echo, phrase inside a quoted sentence' },
+    { cmd: 'cat <<\'EOF\' >> .trust/progress.txt\n- sebelum commit, jalankan git commit dengan bukti\nEOF', label: 'heredoc body line mentioning the phrase' },
+    { cmd: 'echo "- the rule says: never git push without sign-off"', label: 'prose about push' },
+    { cmd: 'node scripts/eval.mjs && echo "npm publish is what CI does, not us"', label: 'phrase after a separator but inside quotes' },
+  ];
+  for (const { cmd, label } of prose) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`I1 prose never gates (${label})`, v.gated === false, JSON.stringify(v));
+  }
+  // ...while the same phrase at an execution position still gates.
+  const executing = [
+    { cmd: 'cd repo && git commit -m "feat: x"', label: 'after &&' },
+    { cmd: 'node scripts/eval.mjs; git push origin master', label: 'after ;' },
+    { cmd: 'cd repo\ngit commit -m "feat: x"', label: 'start of the next line' },
+    { cmd: 'sudo git commit -m "feat: x"', label: 'after an executing wrapper' },
+    { cmd: 'npm publish', label: 'at the start of the string' },
+    // Preservation guard, not new behavior: the pre-F4 whole-string match
+    // caught these, so quote-stripping must not silently lose them. Text
+    // handed to an interpreter is a command, not prose.
+    { cmd: 'bash -c "git push origin master"', label: 'inside a bash -c payload' },
+    { cmd: 'pwsh -Command "git commit -m x"', label: 'inside a pwsh -Command payload' },
+  ];
+  for (const { cmd, label } of executing) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`I2 execution position still gates (${label})`, v.gated === true, JSON.stringify(v));
+  }
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

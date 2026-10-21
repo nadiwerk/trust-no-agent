@@ -223,6 +223,30 @@ const passedDir = () => {
   check('I4 the codex entry calls gate-hook',
     JSON.stringify(pre).includes('gate-hook.mjs'), JSON.stringify(pre).slice(0, 200));
 }
+{
+  // F3 (observed live 2026-10-21): the Claude Code manifest wired the veto to
+  // the Bash tool only. On Windows the primary shell is PowerShell, so a
+  // `git commit` run there never reached gate-hook.mjs — the gate was
+  // installed, the hole stayed open, and an A/B in one session showed the same
+  // command vetoed via Bash and allowed via PowerShell. The hook itself already
+  // reads tool_input.command for any tool name, so the defect was purely the
+  // matcher.
+  //
+  // The matcher is a regex over the tool name, so the check is behavioural:
+  // does a WIRED entry (one that calls gate-hook) match the tool name? An
+  // absent matcher means "every tool", which also covers it.
+  const hooks = JSON.parse(readFileSync(join(HERE, '..', 'plugin', 'hooks', 'hooks.json'), 'utf8'));
+  const wired = (hooks?.hooks?.PreToolUse ?? []).filter((e) => JSON.stringify(e?.hooks ?? []).includes('gate-hook.mjs'));
+  const reaches = (tool) => wired.some((e) => {
+    const m = e?.matcher;
+    if (m === undefined || m === null || m === '' || m === '*') return true;
+    try { return new RegExp(`^(?:${m})$`).test(tool); } catch { return false; }
+  });
+  const matchers = JSON.stringify(wired.map((e) => e.matcher ?? '(all)'));
+  check('I5 the PreToolUse veto reaches the PowerShell tool (the Windows primary shell)',
+    reaches('PowerShell'), matchers);
+  check('I6 the PreToolUse veto still reaches the Bash tool', reaches('Bash'), matchers);
+}
 
 // ---- F. Overlay composition in the live floor (decision-composition 03) ----
 // Live derivation against a temp cwd with a fixture overlay: the pure seams
@@ -324,6 +348,10 @@ const passedDir = () => {
     mkdirSync(join(dir, '.trust'), { recursive: true });
     writeFileSync(join(dir, '.trust', 'progress.txt'), ledgerBody);
     writeFileSync(join(dir, '.trust', 'tna-gate-state.json'), JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: new Date().toISOString() }));
+    // The allowlist belongs to the project (F1, 2026-10-21), so the fixture
+    // must declare one — otherwise these cases would measure "no gates
+    // declared" instead of the receipt rule they are named for.
+    writeFileSync(join(dir, 'AGENTS.md'), '# fixture\n\n```proof-commands\nnode scripts/eval.mjs\n```\n');
   };
   const GOOD_NEWEST = [
     '## 2026-10-20',
