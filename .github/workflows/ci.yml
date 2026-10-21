@@ -91,7 +91,12 @@ jobs:
         run: node scripts/ledger-audit.test.mjs
 
       - name: Ticket-graph validator smoke
-        run: node scripts/tickets.mjs
+        # The CLI gates on tickets validated, not directories found: a run over
+        # zero tickets exits 1. A fresh checkout has no .trust/ (gitignored), so
+        # a bare invocation would always fail here — validate the committed
+        # fixture instead, which also proves the happy path end-to-end. The
+        # negative contracts live in scripts/tickets.test.mjs (step above).
+        run: node scripts/tickets.mjs scripts/tickets-fixture/issues
 
       - name: Site acceptance contract
         run: node scripts/site.test.mjs

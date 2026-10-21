@@ -121,7 +121,7 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 12. `node scripts/gate-meter.test.mjs` — gate-effectiveness meter self-test.
 13. `node scripts/first-run.test.mjs` — first-run gate self-test.
 14. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
-15. `node scripts/tickets.mjs` — ticket-graph smoke run.
+15. `node scripts/tickets.mjs scripts/tickets-fixture/issues` — ticket-graph smoke run against the committed fixture.
 16. `node scripts/site.test.mjs` — site acceptance contract.
 17. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
 18. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
@@ -166,6 +166,7 @@ trust-no-agent/
 │   ├── eval.mjs         # static evals, HARD checks (exit 0 or rejected)
 │   ├── tickets.mjs      # ticket-graph validator: blockers resolve, numbered blockers-first, acyclic
 │   ├── tickets.test.mjs # fail-first self-test for tickets.mjs (exit 0 or rejected)
+│   ├── tickets-fixture/ # committed valid ticket graph the CI smoke step validates
 │   ├── corrective-tier.mjs # doctor decision logic: C5 lesson grace + C6 version-stamp staleness
 │   ├── doctor-checks.mjs # doctor decision logic: C2 hook verdicts, C4 ledger path, C7b M4 blind spots
 │   ├── doctor.test.mjs  # fail-first self-test for the C2/C4/C5/C6/C7b logic (exit 0 or rejected)

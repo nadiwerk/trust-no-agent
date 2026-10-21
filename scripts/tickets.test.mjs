@@ -9,8 +9,13 @@
  */
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { validateDir } from './tickets.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CLI = join(HERE, 'tickets.mjs');
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -153,6 +158,70 @@ const cleanup = (root) => rmSync(root, { recursive: true, force: true });
   });
   const res = validateDir(dir);
   check('ticket with real criteria has no errors', res.errors.length === 0, JSON.stringify(res.errors));
+  cleanup(root);
+}
+
+// --- CLI seam -------------------------------------------------------------
+// Everything above exercises validateDir, which is why 35 suites stayed green
+// while CI went red: the CLI's exit code was never under test. These blocks
+// spawn the real CLI, because the CI gate runs the CLI, not the function.
+const runCli = (cwd, args = []) =>
+  spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', timeout: 60000 });
+
+const tree = (layout) => {
+  const root = mkdtempSync(join(tmpdir(), 'tickets-cli-'));
+  for (const rel of layout) mkdirSync(join(root, rel), { recursive: true });
+  return root;
+};
+
+{ // 9. no .trust/ at all: exit 1, and say what to do about it
+  const root = tree([]);
+  const res = runCli(root);
+  check('CLI exits 1 when the project has no ticket graphs',
+    res.status === 1, `status=${res.status} out=${res.stdout} err=${res.stderr}`);
+  check('CLI names the directory it looked in',
+    res.stderr.includes(root), `err=${res.stderr}`);
+  cleanup(root);
+}
+
+{ // 10. .trust/<slug>/issues/ exists but holds no tickets
+  // The F2 fix replaced "no .trust -> silent OK" with "no .trust -> exit 1",
+  // but the exit code was still driven by DIRECTORY existence, not by tickets
+  // validated. An empty issues/ dir therefore printed
+  // "OK: ticket graph valid in 1 directory." and exited 0 — a green receipt
+  // for a graph that was never written. Intent, per F2: a check that validated
+  // zero tickets must never report success.
+  const root = tree([join('.trust', 'demo', 'issues')]);
+  const res = runCli(root);
+  check('CLI does not report OK when zero tickets were validated',
+    res.status !== 0, `status=${res.status} out=${res.stdout} err=${res.stderr}`);
+  check('CLI does not print a green OK line for an empty graph dir',
+    !/^OK:/m.test(res.stdout), `out=${res.stdout}`);
+  cleanup(root);
+}
+
+{ // 11. an explicitly named directory that does not exist
+  // `dirs` was built from argv without an existence check on that path, so
+  // `node scripts/tickets.mjs /nowhere` validated a phantom dir, found no
+  // errors in it, and exited 0.
+  const root = tree([]);
+  const res = runCli(root, [join(root, 'nowhere')]);
+  check('CLI exits 1 when an explicit issue dir does not exist',
+    res.status === 1, `status=${res.status} out=${res.stdout} err=${res.stderr}`);
+  cleanup(root);
+}
+
+{ // 12. a real graph found through .trust/<slug>/issues/ still exits 0
+  // Guards against "make everything fail" as the fix: the happy path must stay
+  // green through the same seam the failing cases use.
+  const root = tree([join('.trust', 'demo', 'issues')]);
+  writeFileSync(join(root, '.trust', 'demo', 'issues', '01-first.md'),
+    ticket('01', 'first', 'None — can start immediately'));
+  const res = runCli(root);
+  check('CLI exits 0 for a valid graph discovered under .trust/',
+    res.status === 0, `status=${res.status} out=${res.stdout} err=${res.stderr}`);
+  check('CLI reports OK for a valid graph discovered under .trust/',
+    /^OK:/m.test(res.stdout), `out=${res.stdout}`);
   cleanup(root);
 }
 

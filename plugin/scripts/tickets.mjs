@@ -94,7 +94,11 @@ export const validateDir = (dir) => {
   }
   const cyclic = [...tickets.keys()].filter((nn) => !seen.has(nn));
   if (cyclic.length) errors.push(`cycle detected among tickets: ${cyclic.sort().join(', ')}`);
-  return { errors };
+  // `count` is what the CLI gates on. Existence of the directory proves nothing:
+  // an empty issues/ dir has no errors to report, and a validator that reports
+  // "OK" over zero tickets is a check that cannot fail (F2's own defect class,
+  // surviving inside the F2 fix).
+  return { errors, count: tickets.size };
 };
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
@@ -104,22 +108,44 @@ if (isMain) {
   // resolves its tree from import.meta.url audits its plugin copy, not the
   // adopter's project (ticket F2 — the wrong-tree "OK" bug).
   const ROOT = process.cwd();
-  let dirs = process.argv.slice(2);
-  if (!dirs.length) {
+  const explicit = process.argv.slice(2);
+  let dirs;
+  if (explicit.length) {
+    // An explicitly named dir that does not exist used to reach validateDir,
+    // which reads a missing dir as "no files, no errors" — a phantom graph
+    // validating green.
+    const missing = explicit.filter((d) => !existsSync(d) || !statSync(d).isDirectory());
+    if (missing.length) {
+      console.error(`FAIL: issue dir not found — ${missing.join(', ')}. Pass a directory that exists and holds <NN>-<slug>.md tickets.`);
+      process.exit(1);
+    }
+    dirs = explicit;
+  } else {
     const trust = join(ROOT, '.trust');
     dirs = existsSync(trust)
       ? readdirSync(trust).map((d) => join(trust, d, 'issues')).filter((p) => existsSync(p) && statSync(p).isDirectory())
       : [];
   }
   if (!dirs.length) {
-    const fromCwd = !process.argv.slice(2).length;
-    console.error(fromCwd
-      ? `FAIL: no ticket graphs found — no .trust/*/issues/ under ${ROOT}. Run this from the project root whose tickets you want validated (or pass issue dirs explicitly).`
-      : 'FAIL: none of the given directories exist or contain a ticket graph.');
+    console.error(explicit.length
+      ? 'FAIL: none of the given directories exist or contain a ticket graph.'
+      : `FAIL: no ticket graphs found — no .trust/*/issues/ under ${ROOT}. Run this from the project root whose tickets you want validated (or pass issue dirs explicitly).`);
     process.exit(1);
   }
   let all = [];
-  for (const d of dirs) { const { errors } = validateDir(d); all.push(...errors.map((e) => `${d}: ${e}`)); }
+  let validated = 0;
+  for (const d of dirs) {
+    const { errors, count } = validateDir(d);
+    validated += count;
+    all.push(...errors.map((e) => `${d}: ${e}`));
+  }
   if (all.length) { for (const e of all) console.log('ERROR ' + e); console.error(`\nFAIL: ${all.length} ticket-graph error(s).`); process.exit(1); }
-  console.log(`OK: ticket graph valid in ${dirs.length} director${dirs.length === 1 ? 'y' : 'ies'}.`);
+  // Gate on tickets validated, not on directories found. An empty issues/ dir
+  // has nothing to complain about, so reporting OK there is a check that cannot
+  // fail — the exact defect class F2 was meant to end.
+  if (!validated) {
+    console.error(`FAIL: validated zero tickets — ${dirs.length} issue director${dirs.length === 1 ? 'y' : 'ies'} exist${dirs.length === 1 ? 's' : ''} but hold no <NN>-<slug>.md ticket. Nothing was validated, so nothing may report OK.`);
+    process.exit(1);
+  }
+  console.log(`OK: ticket graph valid — ${validated} ticket${validated === 1 ? '' : 's'} in ${dirs.length} director${dirs.length === 1 ? 'y' : 'ies'}.`);
 }
