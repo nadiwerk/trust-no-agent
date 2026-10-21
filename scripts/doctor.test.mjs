@@ -14,6 +14,15 @@ import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
 import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict } from './doctor-checks.mjs';
 
+// Pin the zone. A ledger heading is a CALENDAR DAY and `today` is an instant;
+// leaving the zone ambient makes every starvation fixture host-dependent, and
+// on a UTC host it hides the off-by-one at the grace edge entirely (offset 0
+// can never disagree). Asia/Jakarta is UTC+7 — east of UTC, where the
+// unnormalised frame reports a starved ledger as still inside grace. Every
+// existing fixture's `today` is a UTC-midnight instant, which lands at 07:00
+// local on the same calendar day, so fixtures 1–7 are unchanged.
+process.env.TZ = 'Asia/Jakarta';
+
 let failures = 0;
 const check = (label, cond, detail = '') => {
   if (cond) console.log(`ok - ${label}`);
@@ -87,6 +96,23 @@ const ledgerWithDate = (dateStr) =>
     graceDays: 14,
   });
   check('age-at-grace-exact is fail', res.level === 'fail', JSON.stringify(res));
+}
+
+// 6b. Grace boundary measured in CALENDAR DAYS, not raw instants
+// A heading dated 2026-09-24 is 14 days old on 2026-10-08, whatever the hour.
+// 2026-10-07T18:00Z is 2026-10-08 01:00 in Asia/Jakarta: the local calendar
+// says the grace is spent, a raw-instant subtraction says 13.5 days and floors
+// to 13 — so an unnormalised frame reports a starved ledger as still inside
+// grace. Starvation must not be an accident of the host's timezone.
+{
+  const res = checkStarve({
+    ledgerText: ledgerWithDate('2026-09-24'),
+    lessonsExists: false,
+    today: new Date('2026-10-07T18:00:00Z'),
+    graceDays: 14,
+  });
+  check('age-at-grace-exact holds across the day boundary (calendar day, any hour)',
+    res.level === 'fail', JSON.stringify(res));
 }
 
 // 7. Empty ledger text → OK (no entries to starve)

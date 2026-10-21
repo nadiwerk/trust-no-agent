@@ -41,6 +41,29 @@ export const RECENCY_DAYS = 14;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * A `## YYYY-MM-DD` header is a CALENDAR DAY; `today` is a raw instant.
+ * Subtracting a UTC-midnight parse from an instant shifts the recency window's
+ * edge by the host's UTC offset — east of UTC the day count floors UP, so an
+ * entry the calendar still counts inside the window reads as 14.6 days old and
+ * is dropped. A dropped entry is not a gap: the audit reports a clean ledger
+ * for a day it never read, which is exactly the blind-vs-clean confusion the
+ * coverage-gap kind exists to prevent. Both sides live in one frame. Measured
+ * 2026-10-22 on a UTC+7 host.
+ */
+const localDayOf = (instant) => {
+  const d = new Date(instant);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/** Calendar days between a `YYYY-MM-DD` date and an instant, or NaN. */
+const ageInDays = (date, now) => {
+  const [y, m, d] = String(date).split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const start = new Date(y, m - 1, d);
+  if (start.getFullYear() !== y || start.getMonth() !== m - 1 || start.getDate() !== d) return NaN;
+  return Math.round((localDayOf(now) - start.getTime()) / DAY_MS);
+};
+
 // Literal markers (evals lesson: loose regex matched a cousin phrase and the
 // RED test stayed green — checks use literal phrases, not loose patterns).
 // Literal phrases that place an entry in a MANDATORY skill's domain.
@@ -237,7 +260,11 @@ function dateFromHeadingLabel(heading, prevDate, today) {
     const year = month < pm - 1 ? py + 1 : py;
     return `${year}-${pad2(month + 1)}-${pad2(day)}`;
   }
-  return `${today.getUTCFullYear()}-${pad2(month + 1)}-${pad2(day)}`;
+  // The audit's own calendar year — the LOCAL one. `today` is an instant, and
+  // near a year boundary getUTCFullYear() names the wrong year: east of UTC on
+  // 2026-01-01 the UTC year is still 2025, so a January label resolves twelve
+  // months stale and the recency window drops the entry without a finding.
+  return `${new Date(today).getFullYear()}-${pad2(month + 1)}-${pad2(day)}`;
 }
 
 /**
@@ -307,7 +334,6 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
   if (!ledgerText.trim()) return { findings, gaps: [], stats: emptyStats() };
 
   const entries = splitEntries(ledgerText, today);
-  const windowStart = today.getTime() - recencyDays * DAY_MS;
 
   // M8's tier text, read ONCE and used by both the tier-level L11 check below
   // and the per-entry M8 comparison: the reader needs the same text for both,
@@ -367,9 +393,8 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
       continue;
     }
 
-    const start = new Date(`${date}T00:00:00Z`);
-    const age = (today.getTime() - start.getTime()) / DAY_MS;
-    if (!Number.isFinite(age) || age > recencyDays || start.getTime() < windowStart) continue;
+    const age = ageInDays(date, today);
+    if (!Number.isFinite(age) || age > recencyDays) continue;
 
     for (const skill of parseLoadedTokens(body)) {
       loadedCounts[skill] = (loadedCounts[skill] || 0) + 1;

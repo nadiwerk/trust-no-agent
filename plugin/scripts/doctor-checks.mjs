@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+/**
+ * Doctor decision logic, extracted so the fail-first test can import it
+ * without running doctor's CLI side effects (same pattern as
+ * corrective-tier.mjs, which holds C5/C6).
+ *
+ * Contract: these are the checks that decide whether an ADOPTER's installation
+ * is healthy. Two of them were wrong in a way that only a real adopter could
+ * reveal (2026-09-19 stress test against a 6-day, 71-commit project):
+ *
+ *  - C2 assumed the adopter sets `core.hooksPath` to the framework's own hooks
+ *    dir. The documented install copies skills, not scripts — so the check
+ *    FAILED on a correctly-installed project and taught the adopter to ignore
+ *    doctor.
+ *  - C7 hardcoded `.trust/progress.txt`; the adopter convention is
+ *    `progress.txt` at the project root, so the audit never ran on the ledger
+ *    it exists to check.
+ *  - M4 (`mandatoryMentions`) was computed by auditLedger and consumed by
+ *    nobody: the component built to expose the blind spot was itself dead.
+ */
+
+/**
+ * C2 — are git hooks wired for this project's mode?
+ *
+ * repo mode: the project IS a trust-no-agent checkout, so the strict contract
+ *   holds (hooksPath set, dir complete, matching the tracked copies).
+ * adopter mode: the project copied skills only. The contract is weaker and
+ *   honest about it — SOME hook must exist (any custom guard counts), and
+ *   nothing here is an installation defect, so the level never reaches `fail`.
+ *
+ * @returns {{level: 'pass'|'warn'|'fail', message: string}}
+ */
+export function hookVerdict({ mode, hooksPath, hasPre, hasMsg, customHookExists }) {
+  if (mode === 'repo') {
+    if (!hooksPath)
+      return { level: 'fail', message: 'core.hooksPath not set — enforcement inactive. Run: git config core.hooksPath scripts/hooks' };
+    if (!hasPre || !hasMsg)
+      return { level: 'fail', message: `hooks dir "${hooksPath}" lacks ${hasPre ? '' : 'pre-commit '}${hasMsg ? '' : 'commit-msg'}` };
+    return { level: 'pass', message: `git hooks active (core.hooksPath=${hooksPath})` };
+  }
+  // adopter mode. A SET hooksPath is still a claim about enforcement, so it is
+  // held to the same completeness bar — reporting PASS for a path pointing at an
+  // empty dir is the false green this whole review pass exists to remove
+  // (roast finding 2026-09-19).
+  if (hooksPath) {
+    if (hasPre || hasMsg) return { level: 'pass', message: `git hooks active (core.hooksPath=${hooksPath})` };
+    return {
+      level: 'warn',
+      message: `core.hooksPath is set to "${hooksPath}" but that dir holds no pre-commit/commit-msg hook — the path claims enforcement it does not provide`,
+    };
+  }
+  if (customHookExists) return { level: 'pass', message: 'project carries its own git hook(s)' };
+  return {
+    level: 'warn',
+    message: 'no git hook found — nothing runs before a commit in this project; add one if you want the repo rules enforced mechanically (see docs/installation.md)',
+  };
+}
+
+/**
+ * C4 — which ledger does this project actually keep?
+ * Upstream convention is `.trust/progress.txt` (private, gitignored); the
+ * adopter router's convention is `progress.txt` at the root (tracked). Both are
+ * legitimate writers; the audit must read whichever exists.
+ *
+ * When BOTH exist the choice is not neutral: a reader that silently prefers one
+ * lets a second, emptier file shadow the real ledger and report "clean" — the
+ * audited party selecting what the audit reads. `shadowed` is returned so the
+ * caller can say so out loud (roast finding 2026-09-19).
+ *
+ * @returns {{path: string|null, shadowed: string|null}}
+ */
+export function pickLedgerPath({ hasTrustLedger, hasRootLedger }) {
+  if (hasTrustLedger && hasRootLedger) return { path: '.trust/progress.txt', shadowed: 'progress.txt' };
+  if (hasTrustLedger) return { path: '.trust/progress.txt', shadowed: null };
+  if (hasRootLedger) return { path: 'progress.txt', shadowed: null };
+  return { path: null, shadowed: null };
+}
+
+/**
+ * C7b — M4 blind spot: a MANDATORY skill with ZERO `Loaded:` mentions while
+ * entries in its domain were audited. This is the 47-receipts-vs-0 signal the
+ * audit computes; surfacing it is what makes the audit's own finding real to a
+ * reader instead of a number in a JSON blob nobody opens.
+ *
+ * `mandatoryMentions` carries domain hits ledger-wide, so this reports the
+ * skills that are never named — it cannot claim a specific skill's domain went
+ * untouched (the marker scan is shared across the three). The message says what
+ * is actually known (roast finding 2026-09-19).
+ *
+ * @param {{mandatoryMentions?: Array<{skill: string, count: number, domainTouched: boolean}>}} input
+ * @returns {string[]} one message per blind-spotted skill
+ */
+export function blindSpotWarning({ mandatoryMentions = [] } = {}) {
+  return mandatoryMentions
+    .filter((m) => m.count === 0 && m.domainTouched)
+    .map(
+      (m) =>
+        `${m.skill} is never named in a "Loaded:" line in this ledger, while entries here do touch the MANDATORY-skill domains — either it never loads in this project, or the trail is unwritten; both are worth a look (AGENTS.md §2)`,
+    );
+}
+
+/**
+ * C8 — mandatory-gate: is the mechanical pre-gate classifier installed and
+ * passing? (docs/specs/mandatory-gate.md, ticket 03.) The gate is the
+ * mechanical boundary of MANDATORY skill routing (AGENTS.md §2); a broken or
+ * missing gate means the boundary is prose-only again.
+ *
+ * Two strictness levels, the C2 lesson applied: repo mode (this IS a
+ * trust-no-agent checkout) gets the strict contract — a missing or failing
+ * gate is a FAIL-level installation defect. Adopter mode (skills copied,
+ * scripts not) gets WARN — the gate is not part of the documented adopter
+ * install, so its absence is not a defect, only a lost capability.
+ *
+ * @returns {{level: 'pass'|'warn'|'fail', message: string}}
+ */
+export function gateVerdict({ gateExists, gateSelfTestPasses, mode }) {
+  if (!gateExists) {
+    if (mode === 'repo')
+      return { level: 'fail', message: 'mandatory-gate script missing — MANDATORY routing has no mechanical boundary. Restore scripts/mandatory-gate.mjs (spec: docs/specs/mandatory-gate.md)' };
+    return { level: 'warn', message: 'mandatory-gate script not installed (adopter mode) — MANDATORY routing runs on the router prose and the ledger Loaded: trail alone' };
+  }
+  if (!gateSelfTestPasses)
+    return { level: 'fail', message: 'mandatory-gate self-test fails — the classifier drifts from its keyword tables; run node scripts/mandatory-gate.test.mjs and reconcile before trusting the audit gate findings' };
+  return { level: 'pass', message: 'mandatory-gate active — mechanical boundary check for MANDATORY skill routing (keyword signal, not proof)' };
+}
+
+/**
+ * C9 — does the plugin manifest's version agree with the install stamp?
+ *
+ * The stamp (.trust/tna-version) records what an install path wrote; the plugin
+ * manifest records what the Claude Code plugin advertises. They are two writers
+ * of one fact, so a disagreement means one of them is lying — and until this
+ * check existed, only the stamp was ever read. Observed 2026-09-27: the stamp
+ * said 0.1.20 while the installed plugin.json said 0.1.16, and doctor reported
+ * the install healthy.
+ *
+ * Warn-level, never fail: a stale manifest breaks no gate, it misreports a
+ * version. And the repair is a user decision (Iron Law 4 territory — it is a
+ * write to an installed artifact), so the message points at the documented
+ * update path rather than prescribing an edit.
+ *
+ * Degrades to `pass` when either side is absent: a non-plugin install legitimately
+ * has no manifest, and C6 already owns the unstamped case.
+ *
+ * @returns {{level: 'pass'|'warn', message: string}}
+ */
+export function manifestVerdict({ stampVersion = '', manifestVersion = '', manifestPath = 'plugin.json' } = {}) {
+  if (!stampVersion || !manifestVersion) return { level: 'pass', message: '' };
+  if (stampVersion === manifestVersion) return { level: 'pass', message: '' };
+  return {
+    level: 'warn',
+    message:
+      `plugin manifest version disagrees with the install stamp: ${manifestPath} says v${manifestVersion}, ` +
+      `.trust/tna-version says v${stampVersion} — two writers of one fact, so one is stale. Compare the ` +
+      `manifest against the upstream release and update it through the documented path (docs/installation.md ` +
+      `"Updating"); the update is a user decision, and this is a write to an installed artifact.`,
+  };
+}
+
+/**
+ * C8b — adopter-mode gate OVERLAP note (audit 2026-09-29, corrected the same day).
+ *
+ * First design: suppress the gate findings when they duplicate M1. Measurement
+ * killed it. On the real adopter ledger the gate flagged 33 trail-less entries,
+ * of which only 11 also tripped a literal marker — 22 findings the literal audit
+ * cannot see at all, which is the gate doing exactly its job. A filter that
+ * removed 'duplicates' would have deleted two thirds of the real signal. The
+ * design was wrong, the check that would have shipped it was wrong in the same
+ * direction, and the numbers are what caught it.
+ *
+ * So the verdict annotates instead of filtering: the reader sees how many of the
+ * gate findings overlap the literal audit and how many are unique to the gate.
+ * Nothing is hidden, and the duplication that DOES exist (one entry, two lines)
+ * is legible as a number rather than as a repeated paragraph.
+ *
+ * @param {{gateFindings?: number, literalFindings?: number}} input
+ * @returns {{reported: number, overlapping: number, unique: number, message: string}}
+ */
+/**
+ * Ledger-audit display rollup (A, Master 2026-10-14): a developer's dense
+ * ledger turns the doctor into a wall of numbered warnings that reads like a
+ * broken install — "47 findings" on a healthy install (exit 0, all warnings).
+ * One line: the total, the per-kind counts, and the warn-only fact, so the
+ * reader sees at a glance that nothing is broken. Returns null when there is
+ * nothing to summarize.
+ */
+export function rollupLedgerFindings({ findings = [], total = null } = {}) {
+  if (!findings.length) return null;
+  const byKind = new Map();
+  for (const f of findings) byKind.set(f.kind, (byKind.get(f.kind) || 0) + 1);
+  const parts = [...byKind.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} (${n})`);
+  const t = total ?? findings.length;
+  return `${t} finding(s) — ${parts.join(', ')} — all warnings, the install is healthy (exit 0)`;
+}
+
+/**
+ * Grandfather verdict (onboarding ticket 08; spec AC12). A working install
+ * with no consent stamp gets a WARN naming the onboarding CLI — never a
+ * fail, so the update never reddens a machine that already works. A fresh
+ * tree (no stamp, no working signal) is silent.
+ */
+export function grandfatherVerdict({ hooksWired = false, skillsFound = false } = {}) {
+  if (hooksWired || skillsFound)
+    return { level: 'warn', message: 'type /setup-tna in your chat session to onboard (terminal fallback: node scripts/onboarding.mjs) — a working install has no consent stamp yet' };
+  return { level: 'pass', message: 'no onboarding stamp and no working-install signal (fresh tree)' };
+}
+
+export function gateFindingVerdict({ gateFindings = 0, literalFindings = 0 } = {}) {
+  // The module emits gate findings only for trail-less entries, so the overlap is
+  // bounded by the smaller population; the subtraction is an upper bound on
+  // same-entry duplication, which is the honest number to print (never a claim
+  // of exact entry identity — the findings carry dates, not entry ids).
+  const overlapping = Math.min(gateFindings, literalFindings);
+  const unique = gateFindings - overlapping;
+  const message =
+    unique > 0
+      ? `${gateFindings} gate finding(s) — ${unique} unique to the gate (the literal audit could not see these phrasings), ${overlapping} alongside an entry the literal audit already flags`
+      : `${gateFindings} gate finding(s), all on entries the literal audit already flags`;
+  return { reported: gateFindings, overlapping, unique, message };
+}
+
+/**
+ * Overlay registry verdict (decision-composition ticket 04; spec AC9/AC10/AC16).
+ * Pure: takes the registry scan result plus the budget-omission count computed
+ * against the same canonical floor the session receives. Defects are FAIL (the
+ * adopter must fix them); budget omission is WARN carrying a number (never
+ * silent); an absent tier is optional (pass).
+ */
+export function overlayVerdict({ errors = [], entryCount = 0, omittedCount = 0, tierPresent = false }) {
+  if (!tierPresent) return { level: 'pass', lines: ['overlay tier not present (optional — .trust/skills-overlay/)'] };
+  const lines = [];
+  let level = 'pass';
+  for (const e of errors) { lines.push(`overlay defect: ${e}`); level = 'fail'; }
+  if (omittedCount > 0) {
+    lines.push(`overlay budget: ${omittedCount} overlay(s) omitted by the session floor budget (canonical-first — the core floor is unaffected)`);
+    if (level !== 'fail') level = 'warn';
+  }
+  if (!errors.length) lines.push(`${entryCount} overlay(s) validated (add-only; user:-marked in the floor)`);
+  return { level, lines };
+}

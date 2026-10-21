@@ -60,7 +60,7 @@ The fifth boolean exists because "dont trust anyone even themselves" means a con
 - **`no`** when the fail-first cycle was not run or not observed. This is a hard `no` for any new-behavior claim — it cannot be waived by confidence, by "the test is simple", or by a passing run alone.
 - **`n/a`** when the claim is not about new production behavior (a refactor with no behavior change, a docs edit, a config change). `n/a` is a deliberate answer, never a silent skip — state why the claim is not new-behavior.
 
-The `fail-first proven` boolean is the mechanical seam: it is what a pre-commit hook or CI gate can check for (see `scripts/eval.mjs`), so the discipline survives even when the model would rather skip it.
+The `fail-first proven` boolean is the mechanical seam: it is what a pre-commit hook or CI gate can check for, so the discipline survives even when the model would rather skip it.
 
 ## The enforced receipt shape
 
@@ -69,7 +69,7 @@ This repo enforces the receipt's shape, not just its presence (`scripts/receipt-
 ```
 **Verdict** — <one-line summary>
 constraints satisfied — <the constraint list / acceptance criteria checked>
-evidence fresh — <literal repo-gate command + result, e.g. node scripts/eval.mjs → 37/37 green, this turn>
+evidence fresh — <literal repo-gate command + result, e.g. node scripts/doctor.mjs → OK, this turn>
 scope held — <files in / out of scope>
 subject verified — <the artifact checked, not a proxy>
 fail-first proven — <RED evidence cited, or n/a with the reason>
@@ -122,7 +122,7 @@ Class rules:
 
 Every prose claim in a receipt or report carries its evidence or its label in the same sentence: **measured** (you ran it), **inferred** (you reasoned from evidence), or **guess** (you are speculating). An unlabeled assertion is an opinion wearing a receipt's clothes. Examples:
 
-- ✅ "measured: node scripts/eval.mjs → 37/37 green"
+- ✅ "measured: node scripts/doctor.mjs → OK, installation healthy"
 - ✅ "inferred: the drift came from the rebase, because both failing suites touch rebase-touched files"
 - ❌ "the drift came from the rebase" (unlabeled — is it measured or a guess?)
 - ❌ "this should work now" (a guess wearing a verdict's clothes)

@@ -19,6 +19,34 @@ import { spawnSync } from 'node:child_process';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const RECEIPT_STALE_DAYS = 14;
 const DAY = 86400000;
+
+/**
+ * A `## <date>` heading is a CALENDAR DAY typed by hand; `today` is a raw
+ * instant. Both sides of the age subtraction must live in the same frame, or
+ * east of UTC the current local day reads as a NEGATIVE age for the first
+ * hours of that day and `age < 0` reports `future-dated` for a claim written
+ * this morning (observed live 2026-10-22: the veto refused a commit over its
+ * own same-day ledger entry).
+ *
+ * Normalise both to the local calendar day. The heading keeps its own day —
+ * `'2026-10-22'` means the 22nd, not the instant UTC-midnight-on-the-22nd —
+ * and the instant is floored to the day it falls on locally.
+ */
+const localDayOf = (instant) => {
+  const d = new Date(instant);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/** Days between a `YYYY-MM-DD` heading and an instant, measured in local days. */
+const ageInDays = (claimDate, today) => {
+  const [y, m, d] = String(claimDate).split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const claim = new Date(y, m - 1, d);
+  // Reject rollovers the way Date.parse did: `2026-13-45` must stay NaN, not
+  // silently become 2027-02-14.
+  if (claim.getFullYear() !== y || claim.getMonth() !== m - 1 || claim.getDate() !== d) return NaN;
+  return Math.round((localDayOf(today) - claim.getTime()) / DAY);
+};
+
 const BLOCKS = ['Verdict', 'Evidence', 'Open', 'Next'];
 const BOOLEANS = [
   'constraints satisfied',
@@ -241,9 +269,8 @@ export function validateReceipt(text, { gates, root } = {}) {
  */
 export function receiptStatus({ claimDate, today = new Date(), commands = [], reRunResult = null }) {
   if (!commands.length) return 'unverifiable';
-  const t = claimDate ? Date.parse(`${claimDate}T00:00:00Z`) : NaN;
-  if (Number.isNaN(t)) return 'unverifiable';
-  const age = Math.floor((today.getTime() - t) / DAY);
+  const age = ageInDays(claimDate, today);
+  if (Number.isNaN(age)) return 'unverifiable';
   // A claim dated AFTER today is not a fresh claim — it is a defect. Without
   // this branch `age` is negative, `age < RECEIPT_STALE_DAYS` holds forever,
   // and a typo'd heading becomes an anchor that can never go stale (F6,
@@ -281,9 +308,8 @@ export function runGateCommand(cmd, { cwd = ROOT, timeout = 60000, gates } = {})
  */
 export function reVerifyClaim({ claimDate, today = new Date(), commands = [] }, opts = {}) {
   if (!commands.length) return { status: 'unverifiable', results: [] };
-  const t = claimDate ? Date.parse(`${claimDate}T00:00:00Z`) : NaN;
-  if (Number.isNaN(t)) return { status: 'unverifiable', results: [] };
-  const age = Math.floor((today.getTime() - t) / DAY);
+  const age = ageInDays(claimDate, today);
+  if (Number.isNaN(age)) return { status: 'unverifiable', results: [] };
   if (age < 0) return { status: 'future-dated', results: [] };
   if (age < RECEIPT_STALE_DAYS) return { status: 'fresh', results: [] };
   const results = [];

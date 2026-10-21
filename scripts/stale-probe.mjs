@@ -45,10 +45,31 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 export const STALE_DAYS = 21;
 const DAY = 86400000;
+
+/**
+ * A `Lesson:` date is a CALENDAR DAY; `now` is a raw instant. Subtracting a
+ * UTC-midnight parse from an instant shifts the window's edge by the host's
+ * UTC offset, so a lesson exactly at the window's edge reads fresh east of UTC
+ * (day 21 computed as 20) and stale west of it (day 20 computed as 21). Same
+ * root cause as the receipt staleness seam: both sides must live in one frame.
+ * Measured 2026-10-22 on a UTC+7 host.
+ */
+const localDayOf = (instant) => {
+  const d = new Date(instant);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/** Days between a `YYYY-MM-DD` date and an instant, measured in local days. */
+const ageInDays = (date, now) => {
+  const [y, m, d] = String(date).split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const claim = new Date(y, m - 1, d);
+  if (claim.getFullYear() !== y || claim.getMonth() !== m - 1 || claim.getDate() !== d) return NaN;
+  return Math.round((localDayOf(now) - claim.getTime()) / DAY);
+};
 
 /**
  * Parse a lessons file into { rootCause, correction, date, probe } entries.
@@ -83,9 +104,8 @@ export function parseLessons(text) {
  */
 export function classify(lesson, now, runCmd) {
   if (!lesson.date) return 'unverifiable';
-  const t = Date.parse(`${lesson.date}T00:00:00Z`);
-  if (Number.isNaN(t)) return 'unverifiable';
-  const age = Math.floor((now.getTime() - t) / DAY);
+  const age = ageInDays(lesson.date, now);
+  if (Number.isNaN(age)) return 'unverifiable';
   if (age < STALE_DAYS) return 'fresh';
   if (!lesson.probe) return 'unverifiable';
   if (!runCmd) return 'unverifiable'; // execution not requested this run — fail-closed, never silently dead
@@ -107,13 +127,33 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const argOf = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : null);
   const allowExec = args.includes('--allow-exec');
   const nowArg = argOf('--now');
-  const now = nowArg ? new Date(`${nowArg}T00:00:00Z`) : new Date();
-  if (Number.isNaN(now.getTime())) {
+  // `--now <date>` names a CALENDAR DAY. Parsing it as a UTC instant makes it
+  // name the previous local day west of UTC, so a lesson on the window's edge
+  // reads one day younger and comes back `fresh` — the status that keeps its
+  // power to gate live work. Noon is used so the instant lands inside the named
+  // local day under any offset (|offset| < 12h).
+  const parseDay = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+    return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;
+  };
+  const now = nowArg ? parseDay(nowArg) : new Date();
+  if (!now) {
     console.error('FAIL: --now must be YYYY-MM-DD');
     process.exit(1);
   }
-  const file = argOf('--file') || join(dirname(fileURLToPath(import.meta.url)), '..', '.trust', 'lessons.md');
+  // Default lessons file lives in the GRADED project: the working directory,
+  // never this script's own install dir. The plugin payload ships this file;
+  // deriving the tree from import.meta.url would probe the plugin copy's
+  // (nonexistent) lessons while reporting OK over the adopter's real tier —
+  // the wrong-tree green receipt class (ticket F2).
+  const file = argOf('--file') || join(process.cwd(), '.trust', 'lessons.md');
   if (!existsSync(file)) {
+    if (argOf('--file')) {
+      console.error(`FAIL: lessons file not found: ${file}`);
+      process.exit(1);
+    }
     console.log(`no lessons tier at ${file} — nothing to probe.`);
     process.exit(0);
   }
@@ -150,7 +190,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const counts = { fresh: 0, 're-verified': 0, dead: 0, unverifiable: 0 };
   let deadFound = 0;
   let staleProbed = 0;
-  console.log(`Stale-memory probe (window ${STALE_DAYS} days, as of ${now.toISOString().slice(0, 10)}${allowExec ? ', probes executed' : ', probes NOT executed'}):`);
+  // The header names the day the verdicts were computed against, so it renders
+  // from the SAME local frame. `now` is a local-noon instant: west of UTC it is
+  // still the previous day in UTC, and toISOString() would print a day the
+  // classifications never saw.
+  const asOf = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  console.log(`Stale-memory probe (window ${STALE_DAYS} days, as of ${asOf}${allowExec ? ', probes executed' : ', probes NOT executed'}):`);
   for (const l of lessons) {
     const status = classify(l, now, runCmd);
     counts[status]++;

@@ -32,6 +32,15 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 
+// Pin the zone. A proof date is a CALENDAR DAY and `now` is an instant; leaving
+// the zone ambient makes every decay fixture host-dependent, and on a UTC host
+// it hides the off-by-one in G1 entirely (offset 0 can never disagree).
+// Asia/Jakarta is UTC+7 — east of UTC, where the unnormalised frame grants one
+// rung MORE trust than the calendar warrants. Every existing fixture's `now` is
+// a UTC-midnight instant, which lands at 07:00 local on the same calendar day,
+// so the A–F expectations are unchanged.
+process.env.TZ = 'Asia/Jakarta';
+
 const { LADDER, DECAY_DAYS, decay, effectiveFromRow, ladderReport } =
   await import('./autonomy-ladder.mjs');
 
@@ -138,6 +147,43 @@ const iso = (d) => d.toISOString().slice(0, 10);
   check('F4 the same fresh proof decayed 38 days later (read-time decay, no state rewrite)',
     future.status === 0 && /audit-only/.test(opencodeLine),
     `opencode line: ${opencodeLine}`);
+}
+
+// ---- G. The proof date is a CALENDAR DAY, not a UTC instant ----
+// A proof dated `2026-09-14` is 30 calendar days old on `2026-10-14`, whatever
+// the hour. Reading the date as UTC midnight and subtracting a raw instant
+// makes the answer depend on the host's UTC offset — east of UTC it rounds
+// DOWN and the ladder keeps a rung the calendar has already revoked. Trust
+// must never be granted by an accident of the host's timezone.
+{
+  // 2026-10-13T18:00Z is 2026-10-14 01:00 in Asia/Jakarta: the local calendar
+  // says 30 days, the raw instant says 29.75.
+  const lateNight = new Date('2026-10-13T18:00:00Z');
+  check('G1 a 30-calendar-day-old proof has decayed, whatever the hour of `now`',
+    decay('trusted', '2026-09-14', lateNight) === 'veto-proven',
+    `got ${decay('trusted', '2026-09-14', lateNight)} (a raw-instant subtraction floors to 29 and keeps trusted)`);
+  check('G2 the floor still holds at the same instant (no trust invented downward)',
+    decay('veto-proven', '2026-09-14', lateNight) === 'audit-only',
+    decay('veto-proven', '2026-09-14', lateNight));
+  check('G3 one day short of the window still holds the rung',
+    decay('trusted', '2026-09-15', lateNight) === 'trusted',
+    decay('trusted', '2026-09-15', lateNight));
+  // `--now <date>` names a CALENDAR DAY, so the verdict must not depend on the
+  // host's zone. Parsing the argument as a UTC instant makes it name the
+  // PREVIOUS local day west of UTC — the same proof then reads 29 days old and
+  // keeps a rung the calendar has already revoked. opencode's proof is
+  // 2026-10-13; `--now 2026-11-12` is exactly 30 days, so every zone must decay.
+  const verdictIn = (zone) => {
+    const res = spawnSync(process.execPath,
+      [join(HERE, 'autonomy-ladder.mjs'), '--now', '2026-11-12'],
+      { encoding: 'utf8', env: { ...process.env, TZ: zone } });
+    const line = (res.stdout || '').split('\n').find((l) => /opencode V2/i.test(l)) || '';
+    return (line.split('effective:')[1] || '').trim().split(/\s/)[0];
+  };
+  const west = verdictIn('America/Los_Angeles');
+  check('G4 --now names a calendar day: the verdict is zone-independent (30 days decays everywhere)',
+    west === 'audit-only' && verdictIn('Asia/Jakarta') === 'audit-only' && verdictIn('UTC') === 'audit-only',
+    `Los_Angeles=${west} Jakarta=${verdictIn('Asia/Jakarta')} UTC=${verdictIn('UTC')}`);
 }
 
 console.log(`\n${failures === 0 ? 'ALL PASS' : `FAIL: ${failures} expectation(s) broken.`}`);

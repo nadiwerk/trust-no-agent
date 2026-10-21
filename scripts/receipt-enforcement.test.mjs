@@ -11,7 +11,14 @@
  * fresh/stale/re-verified/unverifiable). Fixtures are hand-written receipt
  * literals (independent source of truth).
  */
-import { validateReceipt, receiptStatus, canGateClaim, RECEIPT_STALE_DAYS } from './receipt-enforcement.mjs';
+import { validateReceipt, receiptStatus, canGateClaim, reVerifyClaim, RECEIPT_STALE_DAYS } from './receipt-enforcement.mjs';
+
+// Pin the zone. Every fixture below is a date fixture, so leaving the zone
+// ambient means the suite asserts something different on each host — and it
+// hides the calendar-day defect (D7-D10) entirely on a UTC machine, where the
+// offset is 0 and the heading and the instant can never disagree. Asia/Jakarta
+// is UTC+7: east of UTC is where the defect bites.
+process.env.TZ = 'Asia/Jakarta';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -104,6 +111,45 @@ const VALID_RECEIPT = [
   check('D6 a stale claim with a failing re-run stays stale',
     receiptStatus({ claimDate: '2026-09-01', today, commands: cmds, reRunResult: 1 }) === 'stale',
     receiptStatus({ claimDate: '2026-09-01', today, commands: cmds, reRunResult: 1 }));
+}
+
+// ---- D2. Calendar-day headings vs an instant `now` (F6 follow-up, 2026-10-22) ----
+// A `## <date>` heading is a CALENDAR DAY someone typed by hand. `today` is a
+// raw instant. Comparing them directly parses the heading as UTC midnight and
+// subtracts a real-world timestamp, so east of UTC the current local day reads
+// as NEGATIVE age for the first hours of that day — and `age < 0` is
+// `future-dated`, which cannot gate. Observed live: the veto refused a commit
+// because its own ledger entry, written the same day, was "dated after today".
+//
+// Both sides must be normalised to the SAME calendar-day frame before the
+// subtraction. The zone is pinned at the top of this file (UTC+7), so these
+// fixtures mean the same thing on every host.
+{
+  const cmds = ['node scripts/eval.mjs'];
+  // 18:00Z on the 21st is 01:00 on the 22nd in UTC+7 — the local day has
+  // started, the UTC day has not. This is exactly the window that broke.
+  const now = new Date('2026-10-21T18:00:00Z');
+
+  check('D7 a heading dated the CURRENT LOCAL DAY is fresh, never future-dated',
+    receiptStatus({ claimDate: '2026-10-22', today: now, commands: cmds }) === 'fresh',
+    receiptStatus({ claimDate: '2026-10-22', today: now, commands: cmds }));
+  check('D8 a heading dated the local yesterday is still fresh (age 1)',
+    receiptStatus({ claimDate: '2026-10-21', today: now, commands: cmds }) === 'fresh',
+    receiptStatus({ claimDate: '2026-10-21', today: now, commands: cmds }));
+  // The F6 guard must survive: a heading past the local day is still a defect.
+  check('D9 a heading dated the local TOMORROW is still future-dated (the F6 guard holds)',
+    receiptStatus({ claimDate: '2026-10-23', today: now, commands: cmds }) === 'future-dated',
+    receiptStatus({ claimDate: '2026-10-23', today: now, commands: cmds }));
+  // reVerifyClaim carries its own copy of the arithmetic; a fix to one seam
+  // that leaves the other broken is not a fix.
+  check('D10 reVerifyClaim agrees: the current local day is fresh, not future-dated',
+    reVerifyClaim({ claimDate: '2026-10-22', today: now, commands: [] }).status === 'unverifiable'
+    && reVerifyClaim({ claimDate: '2026-10-22', today: now, commands: cmds }).status === 'fresh'
+    && reVerifyClaim({ claimDate: '2026-10-23', today: now, commands: cmds }).status === 'future-dated',
+    JSON.stringify([
+      reVerifyClaim({ claimDate: '2026-10-22', today: now, commands: cmds }).status,
+      reVerifyClaim({ claimDate: '2026-10-23', today: now, commands: cmds }).status,
+    ]));
 }
 
 // ---- E. The hardened runner + re-verification (spec AC8/AC9) ----

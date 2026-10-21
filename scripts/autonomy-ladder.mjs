@@ -34,6 +34,27 @@ export const DECAY_DAYS = 30;
 const DAY = 86400000;
 
 /**
+ * A proof date is a CALENDAR DAY; `now` is a raw instant. Subtracting a
+ * UTC-midnight parse from an instant shifts the decay boundary by the host's
+ * UTC offset — east of UTC the day count floors DOWN, so the ladder keeps a
+ * rung the calendar has already revoked (measured: a proof 30 calendar days
+ * old still read `trusted`). Trust must never be an accident of the host's
+ * timezone: both sides live in one frame. Measured 2026-10-22 on a UTC+7 host.
+ */
+const localDayOf = (instant) => {
+  const d = new Date(instant);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/** Calendar days between a `YYYY-MM-DD` date and an instant, or NaN. */
+const ageInDays = (date, now) => {
+  const [y, m, d] = String(date).split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const claim = new Date(y, m - 1, d);
+  if (claim.getFullYear() !== y || claim.getMonth() !== m - 1 || claim.getDate() !== d) return NaN;
+  return Math.round((localDayOf(now) - claim.getTime()) / DAY);
+};
+
+/**
  * Resolve the effective rung from (claimed, proofDate, now).
  * Pure. Fail-closed: anything unverifiable → the audit-only floor.
  */
@@ -44,9 +65,8 @@ export function decay(claimed, proofDate, now) {
   if (!proofDate || typeof proofDate !== 'string') return 'audit-only';
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(proofDate);
   if (!m) return 'audit-only';
-  const t = Date.parse(`${m[1]}T00:00:00Z`);
-  if (Number.isNaN(t)) return 'audit-only';
-  const days = Math.floor((now.getTime() - t) / DAY);
+  const days = ageInDays(m[1], now);
+  if (Number.isNaN(days)) return 'audit-only';
   if (days < 0) return 'audit-only'; // future proof = bad data, not trust
   const drops = Math.floor(days / DECAY_DAYS);
   return LADDER[Math.max(0, idx - drops)];
@@ -95,8 +115,18 @@ export function ladderReport(compatText, now) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const args = process.argv.slice(2);
   const nowArg = args.includes('--now') ? args[args.indexOf('--now') + 1] : null;
-  const now = nowArg ? new Date(`${nowArg}T00:00:00Z`) : new Date();
-  if (Number.isNaN(now.getTime())) {
+  // `--now <date>` names a CALENDAR DAY. Parsing it as a UTC instant makes it
+  // name the previous local day west of UTC, so the same argument would decay
+  // a proof differently depending on where it ran. Noon is used so the instant
+  // lands inside the named local day under any offset (|offset| < 12h).
+  const parseDay = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+    return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;
+  };
+  const now = nowArg ? parseDay(nowArg) : new Date();
+  if (!now) {
     console.error('FAIL: --now must be YYYY-MM-DD');
     process.exit(1);
   }
@@ -106,7 +136,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.error('FAIL: no irreversible-action table found in docs/compatibility.md');
     process.exit(1);
   }
-  console.log(`Autonomy ladder (read-time decay, ${DECAY_DAYS}-day window, as of ${now.toISOString().slice(0, 10)}):`);
+  const asOf = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  console.log(`Autonomy ladder (read-time decay, ${DECAY_DAYS}-day window, as of ${asOf}):`);
   for (const r of rows) {
     const proof = r.proofDate || 'NO PROOF DATE';
     const why = r.effective === r.claimed ? ''

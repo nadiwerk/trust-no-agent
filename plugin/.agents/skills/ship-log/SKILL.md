@@ -47,13 +47,13 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - [x] **Security**: no secrets in source, user input validated, no sensitive data in logs
 ```
 
-**The `Loaded:` and `Next:` lines are mandatory, and their absence is a finding.** Both were prose contracts with mechanical readers before the template taught them: a domain-relevant entry with no `Loaded:` line is the silent-drop signal (scripts/ledger-audit.mjs M1, AGENTS.md §2), and an entry with no `Next:` line strands the next session (scripts/ledger-audit.mjs M7, docs/chat-receipt.md rule 4). The template is the writer's surface — when the template dropped these lines, entries written from it inherited the omission and the audit reported gaps for a format no one was taught. `scripts/eval.mjs` check 33 guards the template itself, so the omission cannot silently return.
+**The `Loaded:` and `Next:` lines are mandatory, and their absence is a finding.** Both were prose contracts with mechanical readers before the template taught them: a domain-relevant entry with no `Loaded:` line is the silent-drop signal (scripts/ledger-audit.mjs M1, AGENTS.md §2), and an entry with no `Next:` line strands the next session (scripts/ledger-audit.mjs M7, docs/chat-receipt.md rule 4). The template is the writer's surface — when the template dropped these lines, entries written from it inherited the omission and the audit reported gaps for a format no one was taught. The ledger audit (scripts/ledger-audit.mjs) reports the template's missing lines, so the omission cannot silently return.
 
 **A repair entry carries its lesson inline, in the documented dated form.** When the entry closes a repair (root-cause / done-claim work), the `Lesson:` line belongs in the entry, dated as the entry is — the corrective tier's writer (`.trust/lessons.md`) and its reader (scripts/ledger-audit.mjs M8) are matched by that date. The tier itself has a REQUIRED shape: one `Lesson: root_cause = … | correction = … [YYYY-MM-DD]` line per lesson. A tier of undated prose bullets holds the knowledge and loses the link — the audit reports it once as a lesson-format finding, because a tier that cannot be matched to the repair it taught cannot be fetched by the session that needs it (measured on a real adopter ledger, 2026-09-29: 66 lessons, 0 dated, 0 in the documented form). A repair whose lesson was never recorded is a finding, not a style choice.
 
 **Exit codes are not progress evidence.** The writer contract says every unit closes with what changed; a repair unit closes with what was LEARNED and is therefore complete only when its `Lesson:` line is written together with the fix — not in a later session, where the context that made the lesson writable is gone (2026-09-29: a run's own output showed `hook exit 1`, i.e. no usable evidence, and the ledger entry had to be withdrawn and rewritten).
 
-**The date header is mandatory and load-bearing.** Every entry opens with a `## <YYYY-MM-DD>` date header — same date as the entry's index line. The ledger audit (scripts/ledger-audit.mjs) and the corrective-tier grace check (scripts/corrective-tier.mjs) attach a date to each entry from that header; an entry without one is reported as an unprovable coverage gap, not audited. The date lives in the ledger (self-contained), the `.trust/index.md` one-liner stays the recovery shortcut — the index is not the date authority. The invariant is enforced mechanically by `scripts/eval.mjs` check 27, so it cannot regress to a blind "clean" silently.
+**The date header is mandatory and load-bearing.** Every entry opens with a `## <YYYY-MM-DD>` date header — same date as the entry's index line. The ledger audit (scripts/ledger-audit.mjs) and the corrective-tier grace check (scripts/corrective-tier.mjs) attach a date to each entry from that header; an entry without one is reported as an unprovable coverage gap, not audited. The date lives in the ledger (self-contained), the `.trust/index.md` one-liner stays the recovery shortcut — the index is not the date authority. The invariant is enforced mechanically by the ledger audit (scripts/ledger-audit.mjs), so it cannot regress to a blind "clean" silently.
 
 Mark `[x]` when checked, or `[ ]` + a one-line reason when skipped. Never skip silently. The four checkboxes compose into the verdict: the entry is **loggable only when every dimension is answered** — all `[x]`, or a `[ ]` that carries its one-line reason. A self-review with any unanswered dimension is a claim, not a record.
 
@@ -81,7 +81,7 @@ Recovery after compaction or a fresh session must not require reading every full
 - **Index-first recovery**: on resume, read the index first to see what was done and what is still open, then read only the specific ledger entries that matter. The index answers "where are we?"; the ledger answers "how exactly?".
 - **Rotation trims it in lockstep**: when ledger entries rotate to the archive, their index lines rotate with them (the archive keeps full text; the index keeps only live entries).
 
-The index is redundant by design — it can be rebuilt from the ledger at any time — but redundancy is what makes recovery cheap: a one-line scan instead of a full-ledger read. `scripts/eval.mjs` mechanically guards this contract's markers.
+The index is redundant by design — it can be rebuilt from the ledger at any time — but redundancy is what makes recovery cheap: a one-line scan instead of a full-ledger read. The ledger audit (scripts/ledger-audit.mjs) mechanically guards this contract's markers.
 
 ## Rotation (keeping recovery cheap)
 
@@ -109,7 +109,7 @@ Gitignored files are per-worktree: a ledger written inside a git worktree dies w
 - Canonical path unreachable ⇒ the ticket is **not closed**: keep the provisional ledger alive and report the blocked handoff. A memory that dies with its worktree is the decision made in secret this skill exists to prevent.
 - Shared research notes (`fork-it`) follow the same rule: write to the canonical `.trust/`, outside every worktree, so all writers read one copy.
 
-Provisional logs remain useful mid-ticket (crash recovery inside the worktree); they are simply not durable. Durable = canonical. `scripts/eval.mjs` mechanically guards this contract's markers.
+Provisional logs remain useful mid-ticket (crash recovery inside the worktree); they are simply not durable. Durable = canonical. The ledger audit (scripts/ledger-audit.mjs) mechanically guards this contract's markers.
 
 ## Why append-only
 

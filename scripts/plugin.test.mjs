@@ -190,10 +190,43 @@ const skills = canonicalSkills();
     const b = readFileSync(join(PLUGIN, rel));
     check(`G1 plugin/${rel} is byte-identical to the repo copy`, a.equals(b));
   }
-  for (const rel of ['reinject.mjs', 'mandatory-gate.mjs', 'gate-hook.mjs', 'tna-gate.mjs', 'tna-store.mjs', 'action-gate.mjs']) {
-    const a = readFileSync(join(ROOT, 'scripts', rel));
-    const b = readFileSync(join(PLUGIN, 'scripts', rel));
-    check(`G2 plugin/scripts/${rel} is byte-identical to the repo copy`, a.equals(b));
+  // Derived-citation set, not a memorized list (ticket F2): a hand-pinned
+  // array only pins files someone remembered — corrective-tier.mjs,
+  // ledger-audit.mjs, stale-probe.mjs, tickets.mjs, doctor.mjs were cited by
+  // the payload for releases while plugin/scripts/ never shipped them, and
+  // this loop stayed green. So collect every `scripts/<name>.mjs` the payload
+  // itself cites (markdown prose AND payload .mjs sources, which cite each
+  // other and onboarding.mjs cites doctor.mjs), then require each to resolve
+  // to an existing, byte-identical copy in plugin/scripts/.
+  // `eval.mjs` and `*.test.mjs` are the deliberate exceptions: repo-internal
+  // CI harness, adopted projects do not receive them (eval.mjs citations are
+  // revoked in the same change that ships the other six; the reinject.test.mjs
+  // sentence in the router names the repo's own fail-first proof, not an
+  // adopter deliverable).
+  const cited = new Set();
+  const cite = (text) => {
+    for (const m of text.matchAll(/scripts\/([\w.-]+\.mjs)/g)) cited.add(m[1]);
+    for (const m of text.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)) cited.add(m[1]);
+  };
+  for (const rel of filesUnder(PLUGIN)) {
+    if (!/\.(md|mjs)$/.test(rel)) continue;
+    cite(readFileSync(join(PLUGIN, rel), 'utf8'));
+  }
+  for (const f of [...cited]) if (f === 'eval.mjs' || f.endsWith('.test.mjs')) cited.delete(f);
+  // The owner's explicit ship list is pinned literally alongside the derived
+  // set — a file Master named must ship even if the payload cites it nowhere
+  // (doctor-checks.mjs is cited by no payload file today).
+  const SHIP_LIST = ['corrective-tier.mjs', 'doctor-checks.mjs', 'doctor.mjs', 'ledger-audit.mjs', 'stale-probe.mjs', 'tickets.mjs'];
+  for (const f of SHIP_LIST) cited.add(f);
+  const missing = [...cited].filter((f) => !existsSync(join(PLUGIN, 'scripts', f))).sort();
+  check('G2 every scripts/*.mjs cited by the payload resolves to a shipped file',
+    missing.length === 0, `cited-but-missing: ${missing.join(', ')}`);
+  for (const rel of [...cited].sort()) {
+    const a = join(ROOT, 'scripts', rel);
+    const b = join(PLUGIN, 'scripts', rel);
+    if (!existsSync(b)) continue; // reported above
+    if (!existsSync(a)) { check(`G2 plugin/scripts/${rel} has a canonical source`, false, 'no scripts/ source'); continue; }
+    check(`G2 plugin/scripts/${rel} is byte-identical to the repo copy`, readFileSync(a).equals(readFileSync(b)));
   }
 }
 

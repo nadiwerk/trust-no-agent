@@ -10,7 +10,18 @@
  * deterministic fixtures. Fixtures are hand-written literals (independent
  * source of truth), never copied from implementation output.
  */
-import { auditLedger, formatFindingGroup, formatFindingGroupNextDay } from './ledger-audit.mjs';
+// Pin the zone. A `## YYYY-MM-DD` header is a CALENDAR DAY and `today` is an
+// instant; leaving the zone ambient makes the recency window host-dependent,
+// and on a UTC host it hides the off-by-one at the window edge entirely
+// (offset 0 can never disagree). Asia/Jakarta is UTC+7 — east of UTC, where a
+// UTC-midnight instant lands on the NEXT local calendar day, so an entry the
+// calendar still counts as inside the window reads as 14.6 days old. Every
+// existing fixture's `today` is a UTC-midnight instant, which is 07:00 local on
+// the same calendar day, so A–O are unchanged. The import is dynamic because a
+// static import hoists above this assignment.
+process.env.TZ = 'Asia/Jakarta';
+
+const { auditLedger, formatFindingGroup, formatFindingGroupNextDay } = await import('./ledger-audit.mjs');
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -172,6 +183,21 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
   check('D3 entry older than the window is not audited',
     !res.findings.some((f) => f.kind === 'loaded-gap'),
     JSON.stringify(res));
+}
+
+// D4. The recency window is measured in CALENDAR DAYS, not raw instants.
+// A `## 2026-09-25` entry is 14 calendar days old on 2026-10-09, whatever the
+// hour: 2026-10-09T15:00Z is 2026-10-09 22:00 in Asia/Jakarta, so the local
+// calendar still counts it inside the 14-day window. Reading the header as UTC
+// midnight and subtracting the instant makes it 14.625 days old and drops the
+// entry — the audit then reports a clean ledger for a day it never read, which
+// is the "blind vs clean" confusion the coverage-gap kind exists to prevent.
+{
+  const edge = `## 2026-09-25\n\n### Session Summary - unit\n- Root cause found: selector leaked to sibling blocks\n`;
+  const res = auditLedger({ ledgerText: edge, today: new Date('2026-10-09T15:00:00Z'), recencyDays: 14 });
+  check('D4 an entry exactly 14 calendar days old is inside the window, whatever the hour',
+    res.findings.some((f) => f.kind === 'loaded-gap'),
+    JSON.stringify(res.findings));
 }
 
 // ---- E. Stats (M4) — per-skill Loaded: counts surface the 47-vs-0 blind spot ----
@@ -1079,6 +1105,21 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
   });
   check('G7c a heading with no label stays a coverage gap (no guessed dates)',
     res.gaps.length === 1 && !res.findings.some((f) => f.date === '2026-09-08'),
+    JSON.stringify({ gaps: res.gaps, findings: res.findings }));
+}
+{
+  // G7d. The label's fallback year is the audit's own CALENDAR year, not the UTC
+  // year. `today` is an instant; 2025-12-31T20:00Z is 2026-01-01 03:00 in
+  // Asia/Jakarta, so the audit's local calendar has already turned over while
+  // UTC has not. Reading the year off getUTCFullYear() resolves "(02 Jan)" to
+  // 2025-01-02 — twelve months stale — and the recency window then drops the
+  // entry, so the audit reports a clean ledger for an entry it never read.
+  const res = auditLedger({
+    ledgerText: '### Ringkasan Sesi - tahun baru (02 Jan)\n- Committed abc1234\n- Next: none',
+    today: new Date('2025-12-31T20:00:00Z'),
+  });
+  check("G7d a label-only entry takes the audit's LOCAL calendar year, not the UTC year",
+    res.findings.some((f) => f.date === '2026-01-02'),
     JSON.stringify({ gaps: res.gaps, findings: res.findings }));
 }
 

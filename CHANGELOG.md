@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.48] - 2026-10-22
+
+### Fixed
+
+- **The plugin payload now ships the scripts it cites (F2)** — the payload's
+  skills and hooks cited 7 `scripts/*.mjs` files that `plugin/scripts/` never
+  shipped: an adopter following any citation hit a file that did not exist
+  (ERR_MODULE_NOT_FOUND or a dead reference) while every in-repo test stayed
+  green, because the tests ran against the repo tree that has the files. Now
+  shipped: `corrective-tier.mjs`, `doctor-checks.mjs`, `doctor.mjs`,
+  `ledger-audit.mjs`, `stale-probe.mjs`, `tickets.mjs` (16 files total in
+  `plugin/scripts/`), byte-identical to the repo copies. `eval.mjs` is the
+  deliberate exception — it is the repo's own CI gate, adopted projects do
+  not receive it, and its adopter-facing citations were revoked in the same
+  change (the receipts/ship-log/setup-tna prose now names the shipped
+  scripts, and the AGENTS.md §5 VERIFY example uses `node scripts/doctor.mjs`).
+- **stale-probe.mjs roots its default lessons file at the graded project**
+  (F2): the default is `<cwd>/.trust/lessons.md`, never the script's own
+  install dir — resolving from `import.meta.url` would probe the plugin
+  copy's nonexistent tier while reporting OK over the adopter's real one
+  (the wrong-tree green receipt class). An explicit `--file` that does not
+  exist now fails loudly (exit 1, "not found") instead of reporting OK over
+  silence.
+- **tickets.mjs roots its ticket-graph scan at the graded project** (F2):
+  with no arguments it validates every `.trust/<slug>/issues/` under the
+  CURRENT WORKING DIRECTORY, never the script's own install dir; finding no
+  graphs it exits 1 with an actionable message ("run this from the project
+  root whose tickets you want validated") instead of a silent OK.
+- **Every staleness verdict was measured in a mixed frame, so the window's
+  edge depended on the host's UTC offset.** A ledger heading (`## YYYY-MM-DD`),
+  a lesson date (`[YYYY-MM-DD]`), and a `--now` argument all name a CALENDAR
+  DAY; each was parsed as UTC midnight and subtracted from a raw `now`
+  instant. East of UTC the edge day read one younger (a lesson on day 21
+  classified `fresh`, keeping its power to gate live work); west of UTC it
+  read one older (`ledger-audit` excluded an entry the calendar includes,
+  silently, with zero findings); the `stale-probe` CLI — whose `--now` parse
+  landed on the PREVIOUS local day west of UTC — printed an `as of` day its
+  classifications never saw. Fixed in all six seams by normalising both sides
+  to one local calendar-day frame before subtracting, and by parsing a date
+  argument at local noon so the instant lands inside the named day under any
+  offset: `receipt-enforcement.mjs` (`receiptStatus`, `reVerifyClaim`),
+  `stale-probe.mjs` (`classify`, the CLI `--now`, the `as of` header),
+  `autonomy-ladder.mjs` (`decay` and its CLI parser), `corrective-tier.mjs`
+  (`checkStarve`), `ledger-audit.mjs` (the recency window and the
+  heading-label year). Each seam carries a test that pins the zone and
+  requires the same verdict from `Asia/Jakarta`, `America/Los_Angeles`,
+  `UTC`, and `Pacific/Kiritimati` — the previous suites only ever ran in the
+  host's ambient zone, which is why the defect survived them.
+- **plugin.test.mjs G2 derives its required-file set from the payload's own
+  citations** instead of a hand-pinned list — a file the payload cites must
+  resolve to a shipped, byte-identical copy, so the next forgotten script is
+  caught by construction. The owner's explicit ship list is pinned literally
+  alongside it (a file named for shipping must ship even if nothing cites
+  it); `eval.mjs` and `*.test.mjs` are documented exceptions (repo-internal
+  CI harness).
+
 ### Added
 
 - **Trigger-eval floor (`scripts/trigger-eval.mjs`)** — the deterministic
@@ -1192,6 +1248,7 @@ is pinned by a test that was observed failing before the fix.
   compatibility, rule-inheritance, per-skill pages).
 
 [Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...HEAD
+[0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.48
 [0.1.46]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...v0.1.46
 [0.1.45]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...v0.1.45
 [0.1.44]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.43...v0.1.44

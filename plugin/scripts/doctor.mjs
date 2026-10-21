@@ -1,0 +1,451 @@
+#!/usr/bin/env node
+/**
+ * trust-no-agent doctor — installation self-check for adopters.
+ * Pure Node, zero dependencies. Run: node scripts/doctor.mjs
+ *   (from inside the project whose installation you want to check; the script
+ *   may live in a trust-no-agent clone — canonical skill names are read from
+ *   its own ../skills when present, so a clone can doctor any project.)
+ * Exit 0 = installation healthy. Exit 1 = an enforcement gap found.
+ *
+ * Checks an adopter's installation against the documented install contract:
+ *  C1. Router present (AGENTS.md + WORKFLOW.md) in the current directory.
+ *  C2. Git hooks active: core.hooksPath set to a dir holding pre-commit +
+ *      commit-msg (and, in repo mode, identical to the tracked copies).
+ *  C3. Every canonical skill exists in at least one harness discovery path:
+ *      ./skills (repo / clone-on-demand), project .agents/.opencode/.claude/
+ *      .cursor skills dirs, or ~/.agents/skills (agentskills.io standard).
+ *  C4. Ledger ready: .trust/ either absent-but-creatable on first ship-log
+ *      (warn) or present and confirmed gitignored.
+ *  C5. Corrective tier enforced: a ledger with entries but no .trust/lessons.md
+ *  C7. Ledger audit (M1–M8) — the M8 half is fed the tier text so a repair
+ *      entry with no lesson dated with it is a configurable lead, not silence.
+ *      warns during a 14-day grace period (measured from the oldest dated
+ *      ledger entry, ship-log `## YYYY-MM-DD` headers), then FAILS — after
+ *      grace, lesson capture is mandatory, not optional. Test override:
+ *      TNA_DOCTOR_GRACE_DAYS. Decision logic lives in corrective-tier.mjs.
+ */
+import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict } from './doctor-checks.mjs';
+import { parseStamp } from './onboarding.mjs';
+import { scanSessionOverlays } from './gate-hook.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO_SKILLS = join(ROOT, 'skills');
+// Used only when doctor runs outside a trust-no-agent clone (no ../skills to
+// read). Kept in sync with the repo layout; a clone run reads the filesystem.
+const FALLBACK_SKILLS = [
+  'breakpoint', 'scribe', 'save-as', 'fork-it', 'make-it-so',
+  'expect-fail', 'root-cause', 'roast-my-code', 'receipts', 'no-thanks', 'ship-log',
+];
+
+const cwd = process.cwd();
+const problems = [];
+const notes = [];
+const pass = (m) => console.log('PASS  ' + m);
+const warn = (m) => { notes.push(m); console.log('WARN  ' + m); };
+const fail = (m) => { problems.push(m); console.log('FAIL  ' + m); };
+
+// ---- canonical skill names: filesystem truth in repo mode, fallback list otherwise ----
+let skillNames = FALLBACK_SKILLS;
+if (existsSync(REPO_SKILLS)) {
+  const names = [];
+  for (const cat of readdirSync(REPO_SKILLS)) {
+    const catDir = join(REPO_SKILLS, cat);
+    if (!statSync(catDir).isDirectory()) continue;
+    for (const skill of readdirSync(catDir)) {
+      if (statSync(join(catDir, skill)).isDirectory() && existsSync(join(catDir, skill, 'SKILL.md')))
+        names.push(skill);
+    }
+  }
+  if (names.length) skillNames = names.sort();
+}
+
+console.log(`trust-no-agent doctor — checking ${cwd}`);
+console.log(`expects ${skillNames.length} skills (${skillNames.join(', ')})`);
+
+// ---- C1. router ----
+for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
+  if (existsSync(join(cwd, f))) pass(`router ${f} present`);
+  else fail(`router ${f} missing — copy from the trust-no-agent repo: cp ${f} .`);
+}
+
+// ---- C2. git hooks ----
+// Mode is derived, not configured: a directory carrying the framework's own
+// categorized skill tree IS the framework checkout (repo mode, strict C2); any
+// other project adopted the skills and is held to the adopter contract, which
+// never FAILs here (see doctor-checks.mjs hookVerdict for why).
+const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md')) || cwd === ROOT;
+// Working-install signals for the onboarding grandfather verdict (08).
+let hooksWired = false;
+let skillsFound = false;
+let hooksPath = '';
+try {
+  hooksPath = execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd, encoding: 'utf8' }).trim();
+} catch { /* not set */ }
+{
+  const hp = hooksPath ? join(cwd, hooksPath) : '';
+  const hasPre = hp ? existsSync(join(hp, 'pre-commit')) : false;
+  const hasMsg = hp ? existsSync(join(hp, 'commit-msg')) : false;
+  // Adopter mode: any hook in .git/hooks counts as a deliberate guard.
+  let customHookExists = false;
+  try {
+    const gitDir = execFileSync('git', ['rev-parse', '--git-dir'], { cwd, encoding: 'utf8' }).trim();
+    const hd = join(cwd, gitDir, 'hooks');
+    if (existsSync(hd))
+      customHookExists = readdirSync(hd).some((f) => !f.endsWith('.sample'));
+  } catch { /* not a git repo */ }
+
+  const res = hookVerdict({ mode: repoMode ? 'repo' : 'adopter', hooksPath, hasPre, hasMsg, customHookExists });
+  hooksWired = res.level === 'pass';
+  if (res.level === 'fail') fail(res.message);
+  else if (res.level === 'warn') warn(res.message);
+  else pass(res.message);
+
+  // Repo mode: compare against the tracked copies so a stale hook is caught.
+  if (repoMode && hooksPath && hasPre) {
+    const tracked = join(ROOT, 'scripts', 'hooks');
+    if (existsSync(join(tracked, 'pre-commit'))) {
+      for (const h of ['pre-commit', 'commit-msg']) {
+        if (!existsSync(join(tracked, h))) continue;
+        const a = readFileSync(join(hp, h), 'utf8');
+        const b = readFileSync(join(tracked, h), 'utf8');
+        if (a !== b) warn(`${h} differs from the repo's tracked copy — refresh it`);
+      }
+    }
+  }
+}
+
+// ---- C8. mandatory-gate: the mechanical boundary of MANDATORY routing ----
+// Decision logic in doctor-checks.mjs (gateVerdict) — strict in repo mode,
+// warn in adopter mode (the gate is not part of the documented adopter
+// install). Self-test evidence: the gate's own test file must pass, so the
+// check RUNS it rather than trusting file presence alone. By design this
+// executes code from the audited tree (the test file is the evidence — roast
+// finding 2026-09-20, security axis): only point doctor at checkouts you
+// already trust enough to run its scripts. A missing test file counts as a
+// failed self-test (the gate cannot prove itself), distinct from a missing
+// gate script (which gateVerdict reports separately).
+{
+  const gateScript = join(cwd, 'scripts', 'mandatory-gate.mjs');
+  const gateTest = join(cwd, 'scripts', 'mandatory-gate.test.mjs');
+  const gateExists = existsSync(gateScript);
+  const gateTestExists = existsSync(gateTest);
+  let gateSelfTestPasses = false;
+  if (gateExists && gateTestExists) {
+    try {
+      execFileSync(process.execPath, [gateTest], { cwd, stdio: 'pipe' });
+      gateSelfTestPasses = true;
+    } catch { /* non-zero exit or spawn failure = self-test failed */ }
+  }
+  const res = gateVerdict({ gateExists, gateSelfTestPasses, mode: repoMode ? 'repo' : 'adopter' });
+  if (res.level === 'fail') fail(res.message);
+  else if (res.level === 'warn') warn(res.message);
+  else pass(res.message);
+}
+
+// ---- C3. skills in a discovery location ----
+// A skill root may use either layout: the repo's categorized
+// skills/<cat>/<name>/SKILL.md or an adopter's flattened skills/<name>/SKILL.md
+// (README install: cp -r skills/*/*). A candidate dir counts when either shape
+// holds the skill.
+const candidates = [];
+const pushIfExists = (p) => { if (existsSync(p)) candidates.push(p); };
+const skillPresent = (dir, name) => {
+  if (existsSync(join(dir, name, 'SKILL.md'))) return true; // flattened
+  // categorized: any <cat>/<name>/SKILL.md under the root
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry, name, 'SKILL.md');
+    if (existsSync(p)) return true;
+  }
+  return false;
+};
+pushIfExists(join(cwd, 'skills')); // repo checkout / clone-on-demand layout
+pushIfExists(join(cwd, '.agents', 'skills'));
+pushIfExists(join(cwd, '.opencode', 'skills'));
+pushIfExists(join(cwd, '.claude', 'skills'));
+pushIfExists(join(cwd, '.cursor', 'skills'));
+pushIfExists(join(homedir(), '.agents', 'skills')); // agentskills.io shared path
+const missing = skillNames.filter((name) => !candidates.some((d) => skillPresent(d, name)));
+skillsFound = missing.length === 0;
+if (missing.length)
+  fail(`skills missing from every discovery location: ${missing.join(', ')}`);
+else
+  pass(`${skillNames.length} skills found in harness discovery path(s)`);
+
+// ---- C6. update check (stale skills) ----
+// Detection is mechanical; the update itself is a user decision — see
+// docs/installation.md "Updating" (model proposes, user approves).
+// Installed version: .trust/tna-version, stamped at install/update time.
+// Upstream version: highest [x.y.z] heading in this clone's CHANGELOG.md.
+{
+  const changelog = join(ROOT, 'CHANGELOG.md');
+  const upstreamVersion = existsSync(changelog)
+    ? (readFileSync(changelog, 'utf8').match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || ''
+    : '';
+  const marker = join(cwd, '.trust', 'tna-version');
+  const installedVersion = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : '';
+  const res = checkStale({ installedVersion, upstreamVersion });
+  if (res.level === 'stale') warn(res.message);
+  else if (res.level === 'unstamped') warn(res.message);
+  else if (res.level === 'current' && installedVersion)
+    pass(`skills version current (v${installedVersion})`);
+  // 'unknown' (no upstream changelog or nothing installed) degrades silently
+
+  // ---- C9. plugin manifest agrees with the stamp ----
+  // Two writers of one fact. The stamp is what an install path wrote; the
+  // plugin manifest is what an installed plugin advertises. Until this check
+  // existed only the stamp was ever read, so a manifest could sit releases
+  // behind while every gate reported healthy (2026-09-27 audit: stamp 0.1.20,
+  // installed plugin.json 0.1.16, doctor said "current").
+  //
+  // Both documented manifest locations are probed, because the plugin and the
+  // project are different trees: the project-local `.claude-plugin/` (a repo
+  // that IS the plugin) and the harness install root `~/.claude/plugins/
+  // <name>/` (what docs/installation.md §[Claude Code] CLI describes). The
+  // first wiring of this check read only the project-local path and so reported
+  // nothing about the very manifest that was stale — the check was blind for
+  // the same reason the defect existed.
+  const manifestCandidates = [
+    join(cwd, '.claude-plugin', 'plugin.json'),
+    join(homedir(), '.claude', 'plugins', 'trust-no-agent', '.claude-plugin', 'plugin.json'),
+  ];
+  for (const manifestPath of manifestCandidates) {
+    if (!existsSync(manifestPath)) continue;
+    let manifestVersion = '';
+    try {
+      manifestVersion = String(JSON.parse(readFileSync(manifestPath, 'utf8')).version || '');
+    } catch {
+      warn(`${manifestPath} is not readable as JSON — cannot compare its version against the install stamp`);
+      continue;
+    }
+    const mv = manifestVerdict({ stampVersion: installedVersion, manifestVersion, manifestPath });
+    if (mv.level === 'warn') warn(mv.message);
+  }
+}
+
+// ---- C4. ledger ----
+// Two legitimate ledger locations: the upstream `.trust/progress.txt` (private,
+// gitignored) and the adopter router's `progress.txt` at the project root
+// (tracked, project convention). Doctor must read whichever exists — it used to
+// assume the former, so on a real adopter ledger the audit never ran at all.
+const trust = join(cwd, '.trust');
+const { path: ledgerRel, shadowed } = pickLedgerPath({
+  hasTrustLedger: existsSync(join(trust, 'progress.txt')),
+  hasRootLedger: existsSync(join(cwd, 'progress.txt')),
+});
+const ledgerPath = ledgerRel ? join(cwd, ledgerRel) : null;
+if (shadowed)
+  warn(`two ledgers found: auditing "${ledgerRel}" while "${shadowed}" also exists — the audit reads one file, so say which is canonical or the other will shadow it silently`);
+if (!existsSync(trust)) {
+  warn('.trust/ ledger not created yet — created on first ship-log entry; add .trust/ to .gitignore to keep it private');
+} else {
+  try {
+    const out = execFileSync('git', ['check-ignore', '.trust/progress.txt'], { cwd, encoding: 'utf8' });
+    if (out.trim()) pass('.trust/ confirmed gitignored');
+    else fail('.trust/ exists but is NOT gitignored — add .trust/ to .gitignore (private ledger)');
+  } catch {
+    // exit 1 = not ignored; exit 128 = not a git repo — distinguish
+    try { execFileSync('git', ['rev-parse', '--git-dir'], { cwd, encoding: 'utf8' }); fail('.trust/ exists but is NOT gitignored — add .trust/ to .gitignore (private ledger)'); }
+    catch { warn('not inside a git repo — cannot verify .trust/ is gitignored'); }
+  }
+}
+
+// ---- C5. corrective tier enforced (grace, then hard) ----
+// lessons.md is the corrective memory tier; its writers are the make-it-so
+// repair loop and the receipts lesson capture (see eval.mjs check 18). A
+// ledger that grows while lessons.md never appears means lessons are being
+// skipped. checkStarve (corrective-tier.mjs) turns that drift into a signal:
+// WARN during the grace period, FAIL once grace is exhausted — after grace,
+// lesson capture is mandatory, not optional.
+if (ledgerPath) {
+  const lessonsPath = join(trust, 'lessons.md');
+  let ledgerText = '';
+  try { ledgerText = readFileSync(ledgerPath, 'utf8'); } catch { ledgerText = 'unreadable'; }
+  const graceDays = Number(process.env.TNA_DOCTOR_GRACE_DAYS ?? '') || DEFAULT_GRACE_DAYS;
+  const res = checkStarve({
+    ledgerText,
+    lessonsExists: existsSync(lessonsPath),
+    today: new Date(),
+    graceDays,
+  });
+  if (res.level === 'fail') fail(res.message);
+  else if (res.level === 'warn') warn(res.message);
+  else pass('corrective tier healthy (lessons.md exists)');
+
+  // ---- C7. ledger audit (Loaded:-gap / visual-gate / context-gap) ----
+  // The audit is WARN, not FAIL: the ledger is private working memory and its
+  // format is agent-written, so findings are leads for the next session to fix
+  // (add the missing line or load the skill), not installation defects. The
+  // verdict is three-valued (ledgerVerdict): "clean" and "unprovable" must not
+  // print the same line — a blind audit reported as clean is the false green
+  // this framework exists to prevent. Decision logic lives in ledger-audit.mjs,
+  // tested by ledger-audit.test.mjs + doctor.test.mjs.
+  try {
+    const { auditLedger, ledgerVerdict, formatFindingGroup, formatFindingGroupNextDay } = await import('./ledger-audit.mjs');
+    const { rollupLedgerFindings, gateFindingVerdict } = await import('./doctor-checks.mjs');
+    // M8 needs the corrective tier's text (the L7 seam: omitted means M8 stays
+    // silent). Read next to the ledger, degrade to null when the file is absent
+    // — checkStarve above already reports a missing tier, so M8 must not turn
+    // the same absence into a per-entry finding (one defect, one signal).
+    let lessonsText = null;
+    try { lessonsText = readFileSync(lessonsPath, 'utf8'); } catch { lessonsText = null; }
+    const { findings, gaps, stats } = auditLedger({ ledgerText, today: new Date(), lessonsText, root: cwd });
+    const verdict = ledgerVerdict({ findings, gaps });
+    if (verdict.level === 'clean') pass(`${verdict.message} — ${ledgerRel}`);
+    // Findings present: the rollup line REPLACES the verdict wall (A+C, Master
+    // 2026-10-14) — dev mode collapses to one badge line; adopters get the
+    // rollup + the per-kind detail under the threshold.
+    else if (repoMode)
+      warn(`dev-mode ledger — ${rollupLedgerFindings({ findings, total: findings.length })} — detail: node scripts/ledger-audit.mjs`);
+    else
+      warn(rollupLedgerFindings({ findings, total: findings.length }) + ` — ${ledgerRel}`);
+    // One line per KIND, not per finding: the first live adopter run printed 18
+    // warning lines and buried the two real signals in the wall. A check that
+    // fires on everything is a check nobody reads — so each kind gets a count,
+    // its entry dates, and the producer's own summary line (formatFindingGroup
+    // lives with the messages it formats, not here).
+    const byKind = new Map();
+    for (const f of findings) {
+      if (!byKind.has(f.kind)) byKind.set(f.kind, []);
+      byKind.get(f.kind).push(f);
+    }
+    // C8b — the gate's findings are annotated, never filtered (2026-09-29: the
+    // first design suppressed them as duplicates; measurement showed 22 of 33
+    // are entries the literal audit cannot see, so suppression would have thrown
+    // away real signal). Every gate finding is reported; the count that overlaps
+    // the literal audit is a number in the message.
+    // Kinds that arrive in BULK get the per-day rollup; the rest keep the flat
+    // listing (a handful of findings reads better as dates than as counts). A
+    // threshold rather than a per-kind special case: measured 2026-09-29, the
+    // adopter ledger's next-gap ran to 44 findings and read as a wall, while a
+    // three-finding kind stays legible as-is — a number the reader cannot scan
+    // is the defect, whatever kind produced it.
+    // (A+C, Master 2026-10-14) The rollup line above replaces the wall when
+    // findings are bulk; per-kind lines survive only in ADOPTER mode under the
+    // threshold so a small real signal still shows its dates. Dev mode prints
+    // the rollup only — the framework's own ledger is never an adopter's lead.
+    const BULK_THRESHOLD = 8;
+    if (!repoMode && findings.length > BULK_THRESHOLD) {
+      for (const [kind, list] of byKind) {
+        if (kind === 'gated-loaded-gap') continue; // annotated below
+        warn(formatFindingGroupNextDay(kind, list));
+      }
+    }
+    const gateList = byKind.get('gated-loaded-gap') || [];
+    if (gateList.length && !repoMode && findings.length <= BULK_THRESHOLD) {
+      warn(formatFindingGroup('gated-loaded-gap', gateList));
+      warn(gateFindingVerdict({ gateFindings: gateList.length, literalFindings: (byKind.get('loaded-gap') || []).length }).message);
+    }
+
+    // ---- C10. gate meter (WARN-only, hardening-general 06/AC8) ----
+    // "Kuat" is measured, not asserted: veto fires from the project's
+    // veto-fire log, fake-compliance detections from this audit's own
+    // findings, TRIGGER scores from the evals evidence log. Every source is
+    // optional — an absent source reads as "no data yet" inside the message,
+    // and the verdict is warn-level by Master decision (a missing meter is a
+    // gap in knowledge, never an install defect), so this block cannot fail
+    // the install it reports on.
+    try {
+      const { parseVetoLog, parseTriggerTable, meterVerdict } = await import('./gate-meter.mjs');
+      let vetoFires = 0;
+      try {
+        vetoFires = parseVetoLog(readFileSync(join(cwd, '.trust', 'tna-gate-log.jsonl'), 'utf8')).fires;
+      } catch { /* no log yet = no data yet */ }
+      let triggerRows = [];
+      try {
+        const battery = join(ROOT, 'evals', 'scenarios.md');
+        if (existsSync(battery)) triggerRows = parseTriggerTable(readFileSync(battery, 'utf8'));
+      } catch { /* unreadable table = no data yet */ }
+      const fakeDetects = findings.filter((f) => f.kind === 'fake-compliance').length;
+      warn(meterVerdict({ vetoFires, fakeDetects, triggerRows }).message);
+    } catch (e) {
+      warn(`gate meter could not run — ${e && e.message ? e.message : 'unknown error'}`);
+    }
+
+  } catch (e) {
+    // Name the real failure: this block now covers grouping and the M4 call, so
+    // blaming an unreadable module for any crash here is the confident-false-
+    // signal class the audit exists to kill (roast finding 2026-09-19).
+    warn(`ledger audit could not run — ${e && e.message ? e.message : 'unknown error'}`);
+  }
+
+  // M4 — the anti-blind-spot stat, finally consumed (it was computed and read
+  // by nobody; a component with no consumer fails silently, per AGENTS.md §5).
+  try {
+    const { blindSpotWarning } = await import('./doctor-checks.mjs');
+    const { auditLedger } = await import('./ledger-audit.mjs');
+    const { stats } = auditLedger({ ledgerText, today: new Date() });
+    for (const msg of blindSpotWarning(stats)) warn(msg);
+  } catch { /* the audit's own error above already reported; do not double-warn */ }
+}
+
+// ---- O. Overlay registry (decision composition 04; spec AC9/AC10/AC16) ----
+// Trust COMPUTED at read time: every doctor run re-scans the registry — a
+// mutated file changes the verdict with no cache in between (the
+// computed-verdict culture, never a cached table claim). Deliberately OUTSIDE
+// the ledgerPath block: the overlay tier is independent of the ledger, and
+// the first version nested it inside — a checkout with no ledger saw no
+// overlay verdict at all (the live P-tests caught it). The scan and the
+// budget-omission count run through the SAME seam the session hook uses
+// (scanSessionOverlays), so the number the doctor prints is the number the
+// session would omit. Defects fail by name.
+{
+  const r = scanSessionOverlays(cwd);
+  if (!r) {
+    pass('overlay tier not present (optional — .trust/skills-overlay/)');
+  } else {
+    const ov = overlayVerdict({ errors: r.errors, entryCount: r.entries.length, omittedCount: r.omitted.length, tierPresent: existsSync(join(cwd, '.trust', 'skills-overlay')) });
+    for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
+  }
+}
+
+// ---- ON. Onboarding consent (onboarding spec; AC12/AC13) ----
+// The stamp is read fresh every run (computed at read time). A working
+// install with no stamp is GRANDFATHERED — warn naming the CLI, never
+// fail, so the update never reddens a machine that already works. A stamp
+// that declines a component is recorded by name, loudly: a lighter install
+// is a visible decision, never a silent one.
+{
+  let stamp = null;
+  try { stamp = parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8')); } catch { /* no stamp */ }
+  if (!stamp) {
+    const gv = grandfatherVerdict({ hooksWired, skillsFound });
+    if (gv.level === 'warn') warn(gv.message);
+    else pass(gv.message);
+  } else {
+    const declined = ['floor', 'hooks', 'overlays', 'evidenceGate'].filter((c) => stamp.components[c] === false);
+    if (declined.length)
+      warn(`onboarding consent: declined at onboarding (mechanically OFF): ${declined.join(', ')} — a lighter install is a visible decision`);
+    else
+      pass('onboarding consent: all components consented');
+  }
+}
+
+// ---- RS. Receipt staleness + grandfather (receipt-enforcement 06) ----
+// The doctor surfaces the claims awaiting re-verification and the
+// grandfathered pre-feature count as warns at session start (trust decays
+// with time; the audit carries the hard rule).
+{
+  try {
+    const ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8');
+    const { auditLedgerReceipts } = await import('./receipt-enforcement.mjs');
+    const rr = auditLedgerReceipts({ ledgerText, today: new Date(), root: cwd });
+    for (const w of rr.warns) warn(w);
+    if (rr.stale.length)
+      warn(`receipt staleness: ${rr.stale.length} ledger claim(s) older than the window await re-verification (re-run their cited gates before gating)`);
+  } catch { /* no ledger — nothing to surface */ }
+}
+
+// ---- summary ----
+console.log('');
+if (problems.length) {
+  console.error(`FAIL: ${problems.length} installation gap(s), ${notes.length} warning(s).`);
+  process.exit(1);
+}
+console.log(`OK: installation healthy (${notes.length} warning(s)).`);
+process.exit(0);

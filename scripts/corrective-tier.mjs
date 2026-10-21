@@ -15,6 +15,26 @@
 export const DEFAULT_GRACE_DAYS = 14;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A ledger heading is a CALENDAR DAY; `today` is a raw instant. Subtracting a
+ * UTC-midnight parse from an instant shifts the grace boundary by the host's
+ * UTC offset — east of UTC the day count floors DOWN, so a ledger whose grace
+ * is spent still reads "inside grace" and the corrective tier keeps starving
+ * silently. Both sides live in one frame. Measured 2026-10-22 on a UTC+7 host.
+ */
+const localDayOf = (instant) => {
+  const d = new Date(instant);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/** Calendar days between a `YYYY-MM-DD` date and an instant, or NaN. */
+const ageInDays = (date, now) => {
+  const [y, m, d] = String(date).split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const start = new Date(y, m - 1, d);
+  if (start.getFullYear() !== y || start.getMonth() !== m - 1 || start.getDate() !== d) return NaN;
+  return Math.round((localDayOf(now) - start.getTime()) / DAY_MS);
+};
 const STARVE_MESSAGE =
   '.trust/progress.txt has entries but .trust/lessons.md does not exist — the corrective tier is starving; record a lesson on every repair (receipts lesson capture / make-it-so repair loop)';
 
@@ -35,8 +55,7 @@ export function checkStarve({ ledgerText, lessonsExists, today, graceDays = DEFA
   const dates = [...ledgerText.matchAll(/^##\s*(\d{4}-\d{2}-\d{2})\b/gm)].map((m) => m[1]);
   if (!dates.length) return { level: 'warn', message: STARVE_MESSAGE };
   const oldest = dates.reduce((a, b) => (a < b ? a : b));
-  const start = new Date(`${oldest}T00:00:00Z`);
-  const ageDays = Math.floor((today.getTime() - start.getTime()) / DAY_MS);
+  const ageDays = ageInDays(oldest, today);
   if (!Number.isFinite(ageDays)) return { level: 'warn', message: STARVE_MESSAGE };
   if (ageDays >= graceDays)
     return {

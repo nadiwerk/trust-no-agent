@@ -3,7 +3,10 @@
  * trust-no-agent ticket-graph validator (audit finding 3.1).
  * Pure Node, zero dependencies.
  * Run: node scripts/tickets.mjs [<issues-dir> ...]
- *   No args → validates every .trust/<slug>/issues/ dir found.
+ *   No args → validates every .trust/<slug>/issues/ dir found UNDER THE
+ *   CURRENT WORKING DIRECTORY — the graded project, never this script's own
+ *   repo (F2: the payload copy used its install dir, so an adopter running it
+ *   from their project silently validated the wrong tree or nothing).
  * Exit 0 = graph is well-formed. Exit 1 = malformed graph.
  *
  * A well-formed local ticket graph (fork-it <local-ticket-template> shape):
@@ -16,7 +19,7 @@
  *  - no self-dependency, no cycles (Kahn), blockers numbered first (NN order)
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FILENAME_RE = /^(\d+)-.+\.md$/;
@@ -96,7 +99,11 @@ export const validateDir = (dir) => {
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+  // Root = the graded project = the working directory. Never this script's
+  // own install dir: the plugin payload ships this file, and a script that
+  // resolves its tree from import.meta.url audits its plugin copy, not the
+  // adopter's project (ticket F2 — the wrong-tree "OK" bug).
+  const ROOT = process.cwd();
   let dirs = process.argv.slice(2);
   if (!dirs.length) {
     const trust = join(ROOT, '.trust');
@@ -104,7 +111,13 @@ if (isMain) {
       ? readdirSync(trust).map((d) => join(trust, d, 'issues')).filter((p) => existsSync(p) && statSync(p).isDirectory())
       : [];
   }
-  if (!dirs.length) { console.log('OK: no local ticket graphs found (.trust/*/issues), nothing to validate.'); process.exit(0); }
+  if (!dirs.length) {
+    const fromCwd = !process.argv.slice(2).length;
+    console.error(fromCwd
+      ? `FAIL: no ticket graphs found — no .trust/*/issues/ under ${ROOT}. Run this from the project root whose tickets you want validated (or pass issue dirs explicitly).`
+      : 'FAIL: none of the given directories exist or contain a ticket graph.');
+    process.exit(1);
+  }
   let all = [];
   for (const d of dirs) { const { errors } = validateDir(d); all.push(...errors.map((e) => `${d}: ${e}`)); }
   if (all.length) { for (const e of all) console.log('ERROR ' + e); console.error(`\nFAIL: ${all.length} ticket-graph error(s).`); process.exit(1); }

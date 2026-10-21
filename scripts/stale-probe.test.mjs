@@ -22,13 +22,21 @@
  *                cannot gate either; absence of proof is not proof
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync, mkdirSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+// Pin the zone. `Lesson:` dates are calendar days and `now` is an instant;
+// leaving the zone ambient makes every age fixture host-dependent, and on a
+// UTC host it hides the off-by-one in C3 entirely (offset 0 can never
+// disagree). Asia/Jakarta is UTC+7 — east of UTC is where the window's edge
+// shifts the wrong way.
+process.env.TZ = 'Asia/Jakarta';
+
 const { STALE_DAYS, parseLessons, classify, canGate } =
   await import('./stale-probe.mjs');
 
@@ -76,6 +84,14 @@ const check = (label, cond, detail = '') => {
   const edge = { rootCause: 'x', correction: 'y', date: '2026-09-22', probe: null };
   check('C2 day 21 exactly is stale (the window is inclusive)',
     classify(edge, now, () => 1) !== 'fresh', classify(edge, now, () => 1));
+  // A `Lesson:` date is a CALENDAR DAY; `now` is an instant. Subtracting a
+  // UTC-midnight parse from a raw instant shifts the window's edge by the
+  // host's UTC offset, so east of UTC the 21st day still reads as 20 days old
+  // and a lesson past its window is trusted as fresh. Measured 2026-10-22.
+  const lateNow = new Date('2026-10-13T18:00:00Z'); // 2026-10-14 01:00 in UTC+7
+  const edge2 = { rootCause: 'x', correction: 'y', date: '2026-09-23', probe: null };
+  check('C3 the window edge is measured in calendar days, not UTC offsets (day 21 is stale from any hour)',
+    classify(edge2, lateNow, () => 1) !== 'fresh', classify(edge2, lateNow, () => 1));
 }
 
 // ---- D. Stale lessons are re-verified by running their probe ----
@@ -194,6 +210,103 @@ const check = (label, cond, detail = '') => {
     check('G8 shell metacharacters cannot launder a failing probe (no shell, argv only)',
       chained.status === 1 && /dead/i.test(chained.stdout) && !/harmless/.test(chained.stdout),
       `status=${chained.status} out=${(chained.stdout || '').slice(0, 300)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---- J. Rooting: the default lessons file is the GRADED project's (ticket F2)
+// The payload ships this script into an adopter's plugin dir. Resolving the
+// default file from import.meta.url would probe the plugin copy's tree — the
+// wrong-tree "OK" bug. The default must resolve under process.cwd(), and an
+// EXPLICIT --file that does not exist must fail loudly, not report OK.
+{
+  // J1/J2: run with cwd set to a fake adopter project that HAS a lessons
+  // tier. The default path must find THAT file (provable via the reported
+  // path and the parsed lesson), not the script's own repo tree.
+  const proj = mkdtempSync(join(tmpdir(), 'stale-probe-proj-'));
+  mkdirSync(join(proj, '.trust'), { recursive: true });
+  writeFileSync(join(proj, '.trust', 'lessons.md'), [
+    'Lesson: root_cause = adopter project lesson | correction = probed from the graded tree [2026-10-10]',
+  ].join('\n'));
+  try {
+    const res = spawnSync(process.execPath,
+      [join(HERE, 'stale-probe.mjs'), '--now', '2026-10-13'],
+      { encoding: 'utf8', timeout: 60000, cwd: proj });
+    check('J1 default run resolves the lessons file under the CWD (graded project)',
+      res.status === 0 && /adopter project lesson/.test(res.stdout || ''),
+      `status=${res.status} out=${(res.stdout || '').slice(0, 300)} err=${(res.stderr || '').slice(0, 200)}`);
+    check('J2 the default run never reports the script tree (wrong-tree OK bug)',
+      !(res.stdout || '').includes(HERE) && !(res.stderr || '').includes(HERE),
+      `out=${(res.stdout || '').slice(0, 300)}`);
+
+    // J3: a two-tree experiment — script lives in tree A (copied there, the
+    // way the plugin payload ships it), cwd is tree B. The verdict must come
+    // from tree B's lessons only.
+    const treeA = mkdtempSync(join(tmpdir(), 'stale-probe-treeA-'));
+    mkdirSync(join(treeA, '.trust'), { recursive: true });
+    mkdirSync(join(treeA, 'scripts'), { recursive: true });
+    copyFileSync(join(HERE, 'stale-probe.mjs'), join(treeA, 'scripts', 'stale-probe.mjs'));
+    writeFileSync(join(treeA, '.trust', 'lessons.md'), [
+      'Lesson: root_cause = TREE A lesson that must be ignored | correction = never probed [2026-09-01]',
+    ].join('\n'));
+    try {
+      const res2 = spawnSync(process.execPath,
+        [join(treeA, 'scripts', 'stale-probe.mjs'), '--now', '2026-10-13'],
+        { encoding: 'utf8', timeout: 60000, cwd: proj });
+      check('J3 two-tree run: only the cwd tree\'s lessons are probed',
+        res2.status === 0 && /adopter project lesson/.test(res2.stdout || '') && !/TREE A lesson/.test(res2.stdout || ''),
+        `status=${res2.status} out=${(res2.stdout || '').slice(0, 300)}`);
+    } finally {
+      rmSync(treeA, { recursive: true, force: true });
+    }
+
+    const resMissing = spawnSync(process.execPath,
+      [join(HERE, 'stale-probe.mjs'), '--file', join(proj, 'nope.md'), '--now', '2026-10-13'],
+      { encoding: 'utf8', timeout: 60000 });
+    check('J4 an explicit --file that does not exist fails loudly (never OK over silence)',
+      resMissing.status === 1 && /not found/.test(resMissing.stderr || ''),
+      `status=${resMissing.status} err=${(resMissing.stderr || '').slice(0, 200)}`);
+  } finally {
+    rmSync(proj, { recursive: true, force: true });
+  }
+}
+
+// ---- I. `--now <date>` names a CALENDAR DAY, not a UTC instant ----
+// A lesson dated 2026-09-22 is exactly STALE_DAYS old on 2026-10-13, whatever
+// the hour. Reading the argument as UTC midnight and subtracting makes the
+// answer depend on the host's zone: west of UTC that instant is still the
+// PREVIOUS local day, so the lesson reads 20 days old, comes back `fresh`, and
+// keeps its power to gate live work — the one status the probe exists to
+// withhold. The window is a calendar count; both sides live in one frame.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'stale-probe-now-'));
+  const fixture = join(dir, 'lessons.md');
+  writeFileSync(fixture, 'Lesson: root_cause = edge lesson | correction = history only [2026-09-22]');
+  const runIn = (zone) => {
+    const res = spawnSync(process.execPath,
+      [join(HERE, 'stale-probe.mjs'), '--file', fixture, '--now', '2026-10-13'],
+      { encoding: 'utf8', timeout: 60000, env: { ...process.env, TZ: zone } });
+    const out = res.stdout || '';
+    const line = out.split('\n').find((l) => /edge lesson/.test(l)) || '';
+    const header = /as of (\d{4}-\d{2}-\d{2})/.exec(out);
+    return { status: (line.split('|')[0] || '').trim(), asOf: header ? header[1] : null };
+  };
+  try {
+    const la = runIn('America/Los_Angeles');
+    const jkt = runIn('Asia/Jakarta');
+    const utc = runIn('UTC');
+    check('I1 a lesson exactly STALE_DAYS old is stale in every zone (--now is a calendar day)',
+      la.status === 'unverifiable' && jkt.status === 'unverifiable' && utc.status === 'unverifiable',
+      `Los_Angeles=${la.status} Jakarta=${jkt.status} UTC=${utc.status} (a raw UTC-midnight parse reads 20 days west of UTC and calls it fresh)`);
+    // The header must name the same day the verdict was computed against. Under
+    // Pacific/Kiritimati (UTC+14) noon local is 22:00 the previous day in UTC, so
+    // rendering the header from toISOString() after a local-noon parse would
+    // print the wrong day — this pins the frame on BOTH sides.
+    const kir = runIn('Pacific/Kiritimati');
+    check('I2 the `as of` header names the requested calendar day, not the UTC render of it',
+      kir.asOf === '2026-10-13' && la.asOf === '2026-10-13' && jkt.asOf === '2026-10-13',
+      `Kiritimati=${kir.asOf} Los_Angeles=${la.asOf} Jakarta=${jkt.asOf}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

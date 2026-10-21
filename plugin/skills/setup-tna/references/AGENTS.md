@@ -45,7 +45,7 @@ Three skills are **MANDATORY**, not advisory (self-trigger proven unreliable —
 - **`root-cause`** — load before proposing any fix for a bug, test failure, or unexpected behavior. No fixes without root-cause investigation first.
 - **`receipts`** — load before accepting any "done"/"shipped"/"fixed" claim, before committing, or before creating a PR. No completion claims without fresh verification evidence.
 
-These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." `scripts/eval.mjs` verifies this section stays present; dropping it fails CI.
+These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." `scripts/doctor.mjs` verifies the installation stays intact; the CI eval floor guards this section's presence.
 
 **Mechanical boundary (mandatory-gate).** `scripts/mandatory-gate.mjs` classifies task text (bilingual EN/ID, keyword patterns, binary verdicts) against the three MANDATORY domains — a keyword signal to verify, never proof. Spec and provenance: `docs/specs/mandatory-gate.md`.
 
@@ -94,7 +94,7 @@ PARTIAL: <what to return if the TIMEBOX expires — evidence so far, no new work
 Filled example:
 
 ```
-VERIFY: node scripts/eval.mjs
+VERIFY: node scripts/doctor.mjs
 TIMEBOX: 10 minutes
 PARTIAL: returns the ERROR lines printed so far and stops — no edits beyond the stated scope
 ```
