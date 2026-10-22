@@ -114,10 +114,13 @@ const iso = (d) => d.toISOString().slice(0, 10);
 
 // ---- E. Row parsing over the REAL veto table (docs/compatibility.md) ----
 // Expected values derive from spec intent (fail-closed + honest per-harness
-// claims), not from the implementation's output.
+// claims), not from the implementation's output. The block pins its own
+// `now` (the day the Claude Code proof landed) — the module-level fixture
+// (2026-10-13) predates that proof and would fail-close it as future-dated.
 {
   const compat = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
-  const rows = ladderReport(compat, now);
+  const nowE = new Date('2026-10-22T00:00:00Z');
+  const rows = ladderReport(compat, nowE);
   check('E1 the veto table yields at least 4 harness rows',
     rows.length >= 4, `got ${rows.length}`);
   check('E2 every row resolves to a real rung',
@@ -126,8 +129,8 @@ const iso = (d) => d.toISOString().slice(0, 10);
   check('E3 opencode V2 (proven live 2026-10-13, fresh) → veto-proven',
     opencode && opencode.effective === 'veto-proven', JSON.stringify(opencode));
   const claude = rows.find((r) => /claude/i.test(r.harness));
-  check('E4 Claude Code veto (live check open, no proof date) → audit-only',
-    claude && claude.effective === 'audit-only', JSON.stringify(claude));
+  check('E4 Claude Code veto proven live 2026-10-22 (fresh) → veto-proven',
+    claude && claude.effective === 'veto-proven', JSON.stringify(claude));
   const omp = rows.find((r) => /omp|devin/i.test(r.harness));
   check('E5 doc-first row → audit-only floor',
     omp && omp.effective === 'audit-only', JSON.stringify(omp));
