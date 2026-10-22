@@ -60,13 +60,17 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 | Harness | Irreversible-action guarantee | Level |
 |---|---|---|
 | opencode V2 | `tool.execute.before` deny-by-throw + `execute.after` evidence recorder over `ctx.storage` | veto (proven live 2026-10-13 on v2.0.27: 4 denials + 1 post-evidence allow) |
-| Claude Code | `PreToolUse` exit-2 deny over the shared project state | veto (proven live 2026-10-22 on v0.1.47 plugin payload: 3 denials with reasons logged to `.trust/tna-gate-log.jsonl`, then the same `git commit` allowed once `testPassFresh` was set — dry-run probes, no side effects) |
+| Claude Code | `PreToolUse` exit-2 deny over the shared project state + `PostToolUse` evidence recorder (both wired by `plugin/hooks/hooks.json`) | veto (proven live 2026-10-22 on v0.1.47 plugin payload: 3 denials with reasons logged to `.trust/tna-gate-log.jsonl`, then the same `git commit` allowed once `testPassFresh` was set — dry-run probes, no side effects) |
 | Codex | `PreToolUse` via the hooks file, shared project state | veto (runner forwarding in gate-hook stdin shape assumed; live check open) |
 | OMO | `load_skills` delegation load + ledger audit | audit-only (no tool veto known) |
 | omp / Devin | documented adapter only | doc-first WARN until a live veto proof exists |
 | Current API harness (this session: tool-calling API, subagent without skill-loading, no prompt/tool-hook surface observed) | no veto wired — enforcement falls back to prose + ledger audit | audit-only (live 2026-10-12: veto log empty, meter "no data yet", self-trigger gap applies) |
 
 A veto without a live proof is a proposal, not a guarantee: omp/Devin rows stay doc-first and degrade to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing. Every other harness's install section in docs/installation.md states which of the two levels it wires.
+
+### Known harness contracts (not defects — stated so they are chosen, not discovered)
+
+- **[Claude Code] a deny blocks the WHOLE tool call.** The `PreToolUse` exit-2 contract has no partial-allow API: a compound command (`cat x && git commit`) is denied entire, even when its read-only prefix was harmless (observed live 2026-10-22, denial 01:17:09Z). This is the harness's semantics, not the gate's granularity — the gate classifies the whole command string because that is what executes as one unit. Split read-only inspection from the irreversible step into separate calls.
 
 ### Autonomy ladder (per-harness trust, with decay)
 
