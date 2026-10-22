@@ -203,10 +203,18 @@ const skills = canonicalSkills();
   // revoked in the same change that ships the other six; the reinject.test.mjs
   // sentence in the router names the repo's own fail-first proof, not an
   // adopter deliverable).
+  // Three import shapes, not two. The static pair below missed
+  // `await import('./gate-meter.mjs')` in doctor.mjs, so gate-meter.mjs was
+  // cited by the payload but never shipped — and this loop stayed green for
+  // releases (2026-10-22: every adopter's doctor printed "gate meter could not
+  // run" while `node scripts/plugin.test.mjs` exited 0). A citation the
+  // collector cannot see is indistinguishable from no citation at all, so the
+  // dynamic form is collected here rather than left to the next audit.
   const cited = new Set();
   const cite = (text) => {
     for (const m of text.matchAll(/scripts\/([\w.-]+\.mjs)/g)) cited.add(m[1]);
     for (const m of text.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)) cited.add(m[1]);
+    for (const m of text.matchAll(/import\(\s*['"]\.\/([\w.-]+\.mjs)['"]\s*\)/g)) cited.add(m[1]);
   };
   for (const rel of filesUnder(PLUGIN)) {
     if (!/\.(md|mjs)$/.test(rel)) continue;
@@ -216,7 +224,7 @@ const skills = canonicalSkills();
   // The owner's explicit ship list is pinned literally alongside the derived
   // set — a file Master named must ship even if the payload cites it nowhere
   // (doctor-checks.mjs is cited by no payload file today).
-  const SHIP_LIST = ['corrective-tier.mjs', 'doctor-checks.mjs', 'doctor.mjs', 'ledger-audit.mjs', 'stale-probe.mjs', 'tickets.mjs'];
+  const SHIP_LIST = ['corrective-tier.mjs', 'doctor-checks.mjs', 'doctor.mjs', 'gate-meter.mjs', 'ledger-audit.mjs', 'stale-probe.mjs', 'tickets.mjs'];
   for (const f of SHIP_LIST) cited.add(f);
   const missing = [...cited].filter((f) => !existsSync(join(PLUGIN, 'scripts', f))).sort();
   check('G2 every scripts/*.mjs cited by the payload resolves to a shipped file',
@@ -278,12 +286,19 @@ const skills = canonicalSkills();
 // stayed green because the files exist beside the scripts here. G2 only pins
 // files someone remembered to list; this pin walks the imports instead.
 {
-  const required = new Set(['reinject.mjs', 'mandatory-gate.mjs', 'gate-hook.mjs', 'tna-gate.mjs', 'tna-store.mjs', 'action-gate.mjs', 'overlay-registry.mjs', 'floor-composer.mjs']);
-  const localImport = (src) => [...src.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)].map((m) => m[1]);
-  for (const f of required) {
-    const p = join(PLUGIN, 'scripts', f);
-    if (!existsSync(p)) { check(`I1 plugin/scripts/${f} exists (import closure)`, false, 'missing'); continue; }
-    const missing = localImport(readFileSync(p, 'utf8')).filter((d) => !existsSync(join(PLUGIN, 'scripts', d)));
+  // Derived from the shipped payload, not a remembered list. The hardcoded set
+  // this replaces named eight modules and silently omitted doctor.mjs — the one
+  // file whose import was actually broken — so the check could not see the
+  // defect it exists to catch. A closure guard that enumerates its subjects by
+  // hand is a rubber stamp for the files someone thought of.
+  const shipped = readdirSync(join(PLUGIN, 'scripts')).filter((f) => f.endsWith('.mjs')).sort();
+  check('I0 the payload ships at least one script to close over', shipped.length > 0, shipped.join(','));
+  const localImport = (src) => [
+    ...[...src.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)].map((m) => m[1]),
+    ...[...src.matchAll(/import\(\s*['"]\.\/([\w.-]+\.mjs)['"]\s*\)/g)].map((m) => m[1]),
+  ];
+  for (const f of shipped) {
+    const missing = localImport(readFileSync(join(PLUGIN, 'scripts', f), 'utf8')).filter((d) => !existsSync(join(PLUGIN, 'scripts', d)));
     check(`I1 plugin/scripts/${f} import closure complete`, missing.length === 0, `missing: ${missing.join(', ')}`);
   }
   const srcHook = readFileSync(join(ROOT, 'scripts', 'gate-hook.mjs'), 'utf8');
