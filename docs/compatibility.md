@@ -60,7 +60,7 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 | Harness | Irreversible-action guarantee | Level |
 |---|---|---|
 | opencode V2 | `tool.execute.before` deny-by-throw + `execute.after` evidence recorder over `ctx.storage` | veto (proven live 2026-10-13 on v2.0.27: 4 denials + 1 post-evidence allow) |
-| Claude Code | `PreToolUse` exit-2 deny over the shared project state | veto (blocking contract assumed from harness docs; live check open) |
+| Claude Code | `PreToolUse` exit-2 deny over the shared project state | veto (proven live 2026-10-22 on v0.1.47 plugin payload: 3 denials with reasons logged to `.trust/tna-gate-log.jsonl`, then the same `git commit` allowed once `testPassFresh` was set — dry-run probes, no side effects) |
 | Codex | `PreToolUse` via the hooks file, shared project state | veto (runner forwarding in gate-hook stdin shape assumed; live check open) |
 | OMO | `load_skills` delegation load + ledger audit | audit-only (no tool veto known) |
 | omp / Devin | documented adapter only | doc-first WARN until a live veto proof exists |
