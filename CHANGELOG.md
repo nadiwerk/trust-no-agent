@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.49] - 2026-10-22
+
 ### Fixed
 
 - **`gate-meter.mjs` ships in the payload, and the guards that missed it can now see it** (F2 residual, same class as 0.1.47's entry): `plugin/scripts/doctor.mjs` loads the meter with `await import('./gate-meter.mjs')`, but the payload never carried that file — every adopter's doctor printed "gate meter could not run" while `node scripts/plugin.test.mjs` exited 0. Both discovery mechanisms were structurally blind to it: G2's citation collector matched only `scripts/x.mjs` and `from './x.mjs'`, never `import('./x.mjs')`, and I1 closed over a hardcoded `required` set that did not name `doctor.mjs` at all. G2 now collects the dynamic-import shape and lists `gate-meter.mjs` in `SHIP_LIST`; I1 derives its subjects from the files the payload actually ships (plus a guard that the list is non-empty) and reads dynamic imports too — so the closure check enumerates what is distributed instead of what someone remembered. Proven fail-first: with the payload file removed, G2 and I1 both fail by name; with it shipped, all three run green.
@@ -1278,7 +1280,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...HEAD
+[0.1.49]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...v0.1.49
 [0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.47...v0.1.48
 [0.1.47]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.47
 [0.1.46]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...v0.1.46
