@@ -47,11 +47,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildReinject } from './reinject.mjs';
-import { decideBefore, logVeto } from './tna-gate.mjs';
+import { decideBefore, logVeto, observeAfter } from './tna-gate.mjs';
 import { parseSkillOverlays } from './overlay-registry.mjs';
 import { composeFloor } from './floor-composer.mjs';
 import { parseStamp } from './onboarding.mjs';
 import { vetoVerdict } from './receipt-enforcement.mjs';
+import { matchesAnyCommand } from './action-gate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -343,6 +344,29 @@ function main() {
         process.exit(2); // the harness's blocking contract: deny the tool call
       }
       // Allowed or unjudgeable: silent, exit 0 below.
+    } else if (event === 'PostToolUse') {
+      // Evidence recording (the opencode execute.after mirror): a finished
+      // tool call whose command was a real test-run invocation records
+      // testPassFresh itself — evidence from the session's own runs, not an
+      // out-of-band write. observeAfter's contract keeps the boundaries:
+      // only a matched runner invocation records, an unknown outcome records
+      // nothing, and recording never throws (wrapped like every event here).
+      try {
+        const toolName = String(payload.tool_name ?? payload.tool ?? '');
+        const input = payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input
+          : payload.args && typeof payload.args === 'object' ? payload.args : null;
+        const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+        if (toolName && input && typeof input.command === 'string') {
+          // Claude Code PostToolUse signals failure via tool_response.error
+          // (an object with a message); success is its absence. Map to
+          // observeAfter's output.metadata.error shape.
+          const resp = payload.tool_response && typeof payload.tool_response === 'object' ? payload.tool_response : {};
+          const output = { metadata: { error: resp.error ?? null } };
+          observeAfter(cwd, { tool: toolName, args: { command: input.command } }, output);
+        }
+      } catch {
+        /* recording never breaks the session — fail-open */
+      }
     }
     // Any other event: nothing to say.
   } catch {
@@ -364,7 +388,12 @@ function readConsent(cwd) {
  */
 function receiptVerdict(payload) {
   const cmd = String(payload.tool_input?.command ?? payload.args?.command ?? '');
-  if (!/git\s+commit/.test(cmd)) return null;
+  // Execution-position doctrine (F4, observed live 2026-10-21): the phrase
+  // must be EXECUTED, not mentioned — the whole-string regex denied a pure
+  // ledger append whose heredoc body quoted "git commit" in its receipt text
+  // (veto log 2026-10-22T01:21:48Z). Same matcher the irreversible patterns
+  // use: heredoc bodies are data, segments split at separators, quotes held.
+  if (!matchesAnyCommand(cmd)) return null;
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
   let ledgerText = '';
   try { ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8'); } catch { /* no ledger */ }

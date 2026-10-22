@@ -80,6 +80,8 @@ function matchesAnyCommand(command) {
   return matchAtExecution(command);
 }
 
+export { matchesAnyCommand };
+
 /**
  * Text that the shell EXECUTES, as opposed to text that merely mentions a
  * phrase. A pattern counts only at an execution position: the start of a

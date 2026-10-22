@@ -404,4 +404,111 @@ const passedDir = () => {
   }
 }
 
+// ---- L. PostToolUse records test evidence (finding #1, live proof 2026-10-22) ----
+// The live veto proof showed the evidence state only reached
+// .trust/tna-gate-state.json by OUT-OF-BAND write: hooks.json wires no
+// PostToolUse, so a test run the session itself made was never recorded and
+// the fail-open hole was the model writing its own evidence. The adapter
+// mirrors opencode's execute.after: a PostToolUse payload whose command is a
+// real runner invocation must record testPassFresh itself.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'node scripts/foo.test.mjs' },
+      tool_response: { stdout: 'ALL PASS' },
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  let state = null;
+  try { state = JSON.parse(readFileSync(join(dir, '.trust', 'tna-gate-state.json'), 'utf8')); } catch { /* reported below */ }
+  check('L1 a PostToolUse test run is recorded as fresh evidence', r.status === 0 && state?.testPassFresh === true, `exit=${r.status} state=${JSON.stringify(state)}`);
+  check('L2 the recorded command is the runner invocation', state?.command === 'node scripts/foo.test.mjs', JSON.stringify(state));
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'cat docs/x.md' },
+      tool_response: {},
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  check('L3 a non-test PostToolUse records nothing (no state touched)', r.status === 0 && !existsSync(join(dir, '.trust', 'tna-gate-state.json')), `exit=${r.status}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- M. The receipt rule matches EXECUTION position, not the whole string ----
+// (finding #3, live proof 2026-10-22). receiptVerdict matched /git\s+commit/
+// against the whole command string, so a pure ledger append whose heredoc body
+// QUOTES the phrase (receipt text names the action it receipts) was denied —
+// gating data, the exact F4 failure mode action-gate.mjs already fixed for the
+// irreversible patterns (stripHeredocBodies + matchAtExecution, observed live
+// 2026-10-21). The fixture carries an INVALID newest receipt so the rule would
+// deny if it fired — the only variable is whether the rule fires at all.
+{
+  const runPreCmd = (dir, command) => {
+    const r = spawnSync(process.execPath, [HOOK], {
+      input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir }),
+      encoding: 'utf8', timeout: 30000,
+    });
+    return { status: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
+  };
+  // Same shape the K-suite proved denies (K1): a date heading + blanket verdict,
+  // so vetoVerdict's newest-entry parse finds an entry and the deny path is live.
+  const blanketLedger = '## 2026-10-22\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none';
+  const seedBlanket = (dir) => {
+    mkdirSync(join(dir, '.trust'), { recursive: true });
+    writeFileSync(join(dir, '.trust', 'progress.txt'), blanketLedger);
+    writeFileSync(join(dir, '.trust', 'tna-gate-state.json'), JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: new Date().toISOString() }));
+    writeFileSync(join(dir, 'AGENTS.md'), '# fixture\n\n```proof-commands\nnode scripts/eval.mjs\n```\n');
+  };
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'tna-heredoc-'));
+    seedBlanket(dir);
+    const cmd = [
+      "cat >> .trust/progress.txt <<'EOF'",
+      '## 2026-10-22 — receipt for the next unit',
+      'evidence fresh — git commit stays blocked until the ledger lands',
+      'EOF',
+      'echo appended',
+    ].join('\n');
+    const r = runPreCmd(dir, cmd);
+    check('M1 "git commit" only inside a heredoc body does not fire the receipt veto',
+      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} err=${r.err.slice(0, 160)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'tna-echo-'));
+    seedBlanket(dir);
+    const r = runPreCmd(dir, 'echo "remember to git commit after the evidence lands"');
+    check('M2 "git commit" only inside a quoted echo does not fire the receipt veto',
+      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} err=${r.err.slice(0, 160)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'tna-realcommit-'));
+    seedBlanket(dir);
+    const r = runPreCmd(dir, 'git commit -m "feat: x"');
+    check('M3 a real commit at execution position still fires the receipt veto (control)',
+      r.status === 2 && /receipt/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ---- N. The manifest wires PostToolUse (finding #1, automated half) ----
+{
+  const hooks = JSON.parse(readFileSync(join(HERE, '..', 'plugin', 'hooks', 'hooks.json'), 'utf8'));
+  const post = hooks?.hooks?.PostToolUse ?? [];
+  check('N1 hooks.json carries a PostToolUse entry', Array.isArray(post) && post.length > 0, JSON.stringify(Object.keys(hooks?.hooks ?? {})));
+  check('N2 the PostToolUse entry calls gate-hook', JSON.stringify(post).includes('gate-hook.mjs'), JSON.stringify(post).slice(0, 200));
+}
+
 process.exit(failures ? 1 : 0);

@@ -7,8 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.48] - 2026-10-22
+
 ### Fixed
 
+- **The Claude Code adapter now records test evidence automatically
+  (PostToolUse) and the receipt veto matches commands at execution
+  position.** The live veto proof on 2026-10-22 (v0.1.47 payload: 3
+  denials, 1 allow) exposed three findings, all closed: (1)
+  `plugin/hooks/hooks.json` wired only `PreToolUse`, so `testPassFresh`
+  was never set by the session's own test runs — the veto stayed shut
+  until evidence was entered by hand; the `PostToolUse`
+  (Bash|PowerShell) hook now feeds the same observeAfter seam
+  opencode's `execute.after` uses. (2) `receiptVerdict`
+  whole-string-matched `git commit`, vetoing a read-only compound
+  command whose heredoc body merely mentioned it; matching now runs
+  through `classifyAction`'s execution-position matcher (heredoc
+  bodies and quoted mentions are data, not commands). (3) The deny
+  reason for a compound command named the whole prefix — the reason
+  now names the matched irreversible action. Fail-first: L1/L2
+  (evidence recording), M1/M2 (execution-position match, RED state
+  reproducing the veto log), N1/N2 (hooks.json wiring) all observed
+  RED before the fix; suites `gate-hook.test.mjs` (54 ok),
+  `action-gate.test.mjs`, `tna-portable.test.mjs`, `plugin.test.mjs`
+  green after.
 - **`tickets.mjs` gates on tickets validated, not directories found** (F2 residual): an existing-but-empty `.trust/<slug>/issues/` directory produced `OK: ticket graph valid in 1 directory.` and exit 0 — a green receipt for a graph that was never written, the same "silent OK over nothing" class F2 exists to kill. The CLI now counts the tickets `validateDir` actually parsed and exits 1 with `validated zero tickets` when that count is zero. An explicitly named issue directory that does not exist is rejected up front (it previously validated a phantom dir and exited 0), and the OK line reports the ticket count.
 - **The CI ticket-graph smoke step validates a committed fixture**: a bare `node scripts/tickets.mjs` cannot pass on a fresh checkout, because `.trust/` is gitignored and no graph can be committed there. The step now runs against `scripts/tickets-fixture/issues`, which proves the happy path end-to-end; the negative contracts (no `.trust/`, empty graph dir, missing explicit dir) are covered by `scripts/tickets.test.mjs`, which now spawns the real CLI instead of only importing `validateDir` — the gap that let 35 green suites coexist with a red CI.
 
@@ -1252,7 +1274,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...HEAD
+[0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.47...v0.1.48
 [0.1.47]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.47
 [0.1.46]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.45...v0.1.46
 [0.1.45]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.44...v0.1.45
