@@ -42,7 +42,7 @@
  *     | node gate-hook.mjs
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -293,8 +293,22 @@ function buildPreToolVerdict(payload) {
   return decideBefore({ dir: cwd, tool: toolName, args: input });
 }
 
-function main() {
-  // Opt-in reporting path: the harness never passes --self-check, so this
+/**
+ * PreToolUse deny (the blocking contract, measured live on codex 0.159.2 —
+ * probe14, 2026-10-22): exit 0 + stdout JSON `{"decision":"block","reason"}`.
+ * The older exit-2+stderr path FAILS OPEN there (the exit-2 branch requires
+ * can_apply_control_effects() and falls to the generic "hook exited with code
+ * 2" Failed arm — probes 6-13 every commit landed); the stdout-JSON legacy
+ * decision IS enforced and is also a documented Claude Code PreToolUse deny
+ * shape, so one shape covers both harnesses. Synchronous stdout write so the
+ * payload is flushed before exit on Windows.
+ */
+function denyPreTool(reason) {
+  writeSync(1, JSON.stringify({ decision: 'block', reason: `[trust-no-agent] ${reason}` }) + '\n');
+  process.exit(0);
+}
+
+function main() {  // Opt-in reporting path: the harness never passes --self-check, so this
   // cannot affect a live session.
   if (process.argv.includes('--self-check')) return selfCheck();
   let payload = {};
@@ -335,13 +349,11 @@ function main() {
       const rv = receiptVerdict(payload);
       if (rv && !rv.allow) {
         logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
-        process.stderr.write(`[trust-no-agent] ${rv.reason}\n`);
-        process.exit(2);
+        denyPreTool(rv.reason);
       }
       if (verdict && !verdict.allow) {
         logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
-        process.stderr.write(`[trust-no-agent] ${verdict.reason}\n`);
-        process.exit(2); // the harness's blocking contract: deny the tool call
+        denyPreTool(verdict.reason);
       }
       // Allowed or unjudgeable: silent, exit 0 below.
     } else if (event === 'PostToolUse') {

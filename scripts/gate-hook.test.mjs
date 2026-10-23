@@ -170,15 +170,27 @@ const run = (stdin) => {
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll gate-hook expectations hold.');
 
 // ---- H. PreToolUse veto (hardening-general 04/AC2-AC3) ----
-// The blocking contract (assumed from the harness docs, live verification
-// still open): exit 2 denies the tool call, stderr carries the reason to the
-// model; exit 0 passes silent. Errors and unknown shapes stay fail-open
-// (exit 0) — the veto closes on CLASSIFIED irreversible actions, never on
-// hook confusion. Fixtures drive the REAL CLI with temp cwds, never the repo.
+// The blocking contract (measured live on codex 0.159.2, probe14 2026-10-22):
+// exit 2 + stderr fails open there — the exit-2 branch needs
+// can_apply_control_effects() and falls to the generic "hook exited with code
+// 2" Failed arm, so the commit LANDED. Exit 0 + stdout JSON
+// `{"decision":"block","reason":...}` IS enforced (probe14: model stopped, no
+// commit). That legacy shape is also a documented Claude Code PreToolUse deny
+// path, so one shape covers both harnesses. Exit 0 without a block decision
+// passes silent; errors and unknown shapes stay fail-open (exit 0) — the veto
+// closes on CLASSIFIED irreversible actions, never on hook confusion. Fixtures
+// drive the REAL CLI with temp cwds, never the repo.
 const runPre = (payload) => {
   const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(payload), encoding: 'utf8' });
-  return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? '') };
+  return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? ''), stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 };
+// The deny shape on the new contract: exit 0 + stdout JSON
+// {"decision":"block","reason":"..."} — returns the parsed object or null.
+const parseDeny = (stdout) => {
+  try { const p = JSON.parse(stdout); return p?.decision === 'block' ? p : null; } catch { return null; }
+};
+// Combined-stream variant for runners that merge stdout+stderr into `out`.
+const denyReason = (r) => parseDeny(r.out)?.reason ?? null;
 const bareDir = () => mkdtempSync(join(tmpdir(), 'tna-pre-'));
 const passedDir = () => {
   const d = bareDir();
@@ -189,8 +201,15 @@ const passedDir = () => {
 };
 {
   const d = bareDir();
-  const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: d });
-  check('H1 commit without evidence exits 2 (deny)', code === 2, `exit=${code}`);
+  const { code, stdout, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: d });
+  // H1: deny rides the exit-0 stdout-JSON contract (the one codex 0.159.2
+  // actually enforces — exit-2+stderr failed open there, probes 6-13), parsed
+  // back here to stay honest about the shape, not just "exit 2 happened".
+  let parsed = null;
+  try { parsed = JSON.parse(stdout); } catch {}
+  check('H1 commit without evidence denies via stdout JSON block decision',
+    code === 0 && parsed?.decision === 'block' && typeof parsed?.reason === 'string' && parsed.reason.length > 0,
+    `exit=${code} stdout=${JSON.stringify(stdout.slice(0, 200))}`);
   check('H2 the denial names the missing evidence', /fresh test/i.test(out), out.slice(0, 200));
   check('H6 the denial is logged as one parseable veto-fire line',
     (() => { try { const o = JSON.parse(readFileSync(join(d, '.trust', 'tna-gate-log.jsonl'), 'utf8').trim().split('\n').pop()); return o.tool === 'Bash' && /git commit/.test(o.command); } catch { return false; } })());
@@ -313,8 +332,8 @@ const passedDir = () => {
   const commitPayload = { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' } };
 
   const denied = runWithStamp(ALL, commitPayload);
-  check('J1 with the evidence gate consented, the commit veto still fires',
-    denied.status === 2, `status=${denied.status}`);
+  check('J1 with the evidence gate consented, the commit veto still fires (stdout JSON block)',
+    denied.status === 0 && parseDeny(denied.out) !== null, `status=${denied.status} out=${denied.out.slice(0, 100)}`);
   const allowed = runWithStamp({ ...ALL, evidenceGate: false }, commitPayload);
   check('J2 with the evidence gate declined, the commit veto stops (consent is real)',
     allowed.status === 0 && allowed.out.trim() === '', `status=${allowed.status} out=${allowed.out.slice(0, 100)}`);
@@ -373,7 +392,7 @@ const passedDir = () => {
     seed(dir, '## 2026-10-20\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
     const r = runCommit(dir);
     check('K1 a commit is denied when the newest entry has a blanket verdict, naming the receipt rule',
-      r.status === 2 && /receipt/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+      denyReason(r) !== null && /receipt/i.test(denyReason(r)), `status=${r.status} out=${r.out.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
   {
@@ -390,7 +409,7 @@ const passedDir = () => {
     seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-10-13') + '\n\n## 2026-10-20\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
     const r = runCommit(dir);
     check('K3 the linkage is the newest entry (an older valid receipt does not satisfy it)',
-      r.status === 2 && /receipt/i.test(r.err), `status=${r.status}`);
+      denyReason(r) !== null && /receipt/i.test(denyReason(r)), `status=${r.status}`);
     rmSync(dir, { recursive: true, force: true });
   }
   {
@@ -399,7 +418,7 @@ const passedDir = () => {
     seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-08-01'));
     const r = runCommit(dir);
     check('K4 a stale claim is denied (re-verify before gating)',
-      r.status === 2 && /stale|re-verify/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+      denyReason(r) !== null && /stale|re-verify/i.test(denyReason(r)), `status=${r.status} out=${r.out.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
 }
@@ -497,8 +516,13 @@ const passedDir = () => {
     const dir = mkdtempSync(join(tmpdir(), 'tna-realcommit-'));
     seedBlanket(dir);
     const r = runPreCmd(dir, 'git commit -m "feat: x"');
+    // Deny rides the exit-0 stdout-JSON contract (see section H): the M-suite
+    // asserts the same shape via its combined-stream runner.
+    let parsed = null;
+    try { parsed = JSON.parse(r.out); } catch {}
     check('M3 a real commit at execution position still fires the receipt veto (control)',
-      r.status === 2 && /receipt/i.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
+      r.status === 0 && parsed?.decision === 'block' && /receipt/i.test(String(parsed?.reason)),
+      `status=${r.status} out=${r.out.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
 }
