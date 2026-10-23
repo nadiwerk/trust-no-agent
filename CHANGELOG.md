@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Codex PreToolUse deny now uses the only shape codex actually
+  enforces: exit-0 + stdout JSON `{"decision":"block","reason"}`** (probe
+  14/15/16 on codex 0.159.2, commit 2555907): the previous exit-2+stderr
+  contract FAILS OPEN — codex surfaces it as the generic "hook exited with
+  code 2" Failed arm and lets the call proceed, so every probe commit
+  landed (probes 6-13). The deny shape is the same one documented for
+  Claude Code's PreToolUse, so both harnesses now share one contract;
+  `denyPreTool` writes the JSON via `writeSync(1, …)` (Windows flush).
+  Fail-first: test H1 RED against the exit-2 emitter, then 54 ok after
+  the fix; tests H1/M3/J1/K1/K3/K4 rebound to the new contract. Mirror
+  `plugin/scripts/gate-hook.mjs` synced zero-drift via sync-payloads.
+
 ## [0.1.49] - 2026-10-22
 
 ### Fixed
