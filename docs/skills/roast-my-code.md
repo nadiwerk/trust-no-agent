@@ -21,6 +21,10 @@
 - Accepted findings that recur become permanent router rules — the fix lands as a rule, not as a story in a transcript.
 - Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
+## The review loop is bounded
+
+A review that finds something opens a loop — fix, re-review, new findings, fix again — and an agent author plus an agent reviewer can keep each other busy indefinitely, each round surfacing one more thing. So the skill declares its exit before round 1: a categorical **success condition** (every `Critical`/`Required` fixed or dismissed with a reason, no new `Critical`), a **hard round cap** of 3 (raising it is a human `Ruling:`, never a self-extension), and a **terminal action** (report the still-open findings and hand the decision to the human — there is no "one more round"). Three rules keep it converging: round 2+ re-reviews only the new diff since the last-reviewed SHA, a finding is never posted twice (it is marked *unresolved* instead), and a finding that recurs is fixed as a class at the source rather than one line at a time.
+
 ## Not for
 
 - Uncommitted vibes — the fixed point must resolve and the diff must be non-empty; the skill asks rather than guessing.

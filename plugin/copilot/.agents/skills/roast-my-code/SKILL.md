@@ -99,6 +99,24 @@ Present the three reports under `## Standards`, `## Spec`, and `## Security` hea
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes.
 
+## Review-loop contract
+
+A review that finds something opens a loop: fix, re-review, new findings, fix again. Left unbounded, that loop never closes — an agent author and an agent reviewer can keep each other busy indefinitely, each round surfacing one more thing. So the loop declares its exit **before** round 1, and reaching the cap is a STOP with a report, never a silent continue. Same contract shape as `make-it-so` §Termination contract, applied to review: a loop with no declared exit is a stall wearing a review's clothes.
+
+A **round** is one full three-axis pass over the change. Fixes made between rounds are not rounds.
+
+1. **Success condition** — categorical, checkable in one step: every `Critical` and `Required` finding is either fixed or dismissed with a one-line reason, and the latest round raised no new `Critical`. `Nit`, `Optional`, and `FYI` never block the exit — they are recorded, not chased.
+2. **Hard round cap** — **3 rounds**, where round 1 is the initial full review. The cap is a number, not a suggestion. Raising it is a human decision, recorded in one line (`Ruling: review cap raised to N — why`), never a self-made extension.
+3. **Terminal action** — on the final round, emit the aggregate report plus the findings still open, and hand the decision to the human. There is no "one more round".
+
+Three rules keep the loop converging instead of oscillating:
+
+- **Round 2+ reviews the new diff only** — `git diff <last-reviewed-sha>...HEAD`, not the whole branch. Re-reading unchanged hunks is how a reviewer keeps re-finding old bugs and calls them new ones.
+- **No repeats** — a finding already posted is never posted again. If it is still present, mark it *unresolved* (the fix did not land); restating it inflates the tally and hides that the loop is stuck.
+- **Flag the class, not the instance** — a finding that recurs across rounds, or repeats across several hunks, is a class: name the class and fix it at the source (a rule, a lint check, a test, one shared helper) rather than the single line that got flagged.
+
+Report the round explicitly (`Round 2/3`) so the loop's position is a fact in the record, not a feeling.
+
 ## Why three axes
 
 A single-axis review gives every change one way to look acceptable, which means every change has a way to hide its failure:

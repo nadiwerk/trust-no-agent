@@ -12,7 +12,7 @@ Before implementing, check for in-flight work touching the same area — open PR
 
 1. Use the `expect-fail` skill at pre-agreed seams, wherever possible.
 2. Run typechecking regularly, single test files regularly, and the full test suite once at the end.
-3. When done, run the `roast-my-code` skill to review the work.
+3. When done, run the `roast-my-code` skill to review the work. Its review-loop contract bounds the fix/re-review cycle — cap 3 rounds, then report to the human — so review never becomes an unbounded loop.
 4. Record the work via the `ship-log` skill.
 
 ## Test-refusal gate (Iron Law 2)

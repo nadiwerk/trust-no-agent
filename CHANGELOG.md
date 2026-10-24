@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`roast-my-code` carries a review-loop contract: the fix/re-review cycle is
+  now bounded** (2026-10-24 review-loop audit). A review that finds something
+  opens a loop — fix, re-review, new findings, fix again — and an agent author
+  plus an agent reviewer can keep each other busy indefinitely, each round
+  surfacing one more thing. Nothing in the skill bounded it: the termination
+  contract (success condition / hard cap / terminal action) governed
+  `make-it-so`'s repair rounds, but not the review those rounds run, and the
+  caller entered the loop without naming a cap. The skill now declares its exit
+  before round 1 — categorical success condition (every `Critical`/`Required`
+  fixed or dismissed with a reason, no new `Critical`), **hard cap 3 rounds**
+  (raising it is a human `Ruling:`, never a self-extension), terminal action
+  (report still-open findings, hand the decision to the human). Three
+  convergence rules land with it: round 2+ re-reviews only
+  `git diff <last-reviewed-sha>...HEAD`, a finding is never posted twice (it is
+  marked *unresolved*), and a recurring finding is fixed as a class at the
+  source. `make-it-so` names the cap where the loop is entered, and the
+  `docs/skills/` mirror pages carry the same contract. Encode twice: prose in
+  both skills + eval check 51 (HARD), which failed by name on all eight markers
+  before the prose existed.
+
 ### Fixed
 
 - **The Codex PreToolUse deny now uses the only shape codex actually

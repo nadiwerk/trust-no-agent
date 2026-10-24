@@ -20,7 +20,7 @@
 ## Chaining
 
 - Consumes tickets from **`fork-it`**.
-- Loads **`expect-fail`** while coding; runs **`roast-my-code`** when done; closes with **`ship-log`**. The strongest chaining hub in the framework.
+- Loads **`expect-fail`** while coding; runs **`roast-my-code`** when done; closes with **`ship-log`**. The strongest chaining hub in the framework. The review it hands off to is bounded: cap 3 rounds, round 2+ reviews only the new diff, then report to the human — review never becomes an unbounded loop.
 - Runs inside the main loop: `breakpoint → save-as → fork-it → make-it-so → roast-my-code → ship-log` (canonical chain, WORKFLOW.md rule 2).
 
 ## Not for

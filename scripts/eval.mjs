@@ -1243,6 +1243,33 @@ if (!/proven to fail\s+on a real past mistake/.test(ruleInh46))
     err('expect-fail: rationalization table missing the "No correct seam exists" row (valve must be in the table, not just prose)');
 }
 
+// ---- 51. The review loop is bounded: cap, convergence rules, terminal action (HARD) ----
+// Origin: 2026-10-24 review-loop audit. An agent author and an agent reviewer can
+// keep each other busy indefinitely — each re-review round finds one more thing, so
+// a review with no declared exit is a stall wearing a review's clothes. The
+// termination contract (success condition / hard cap / terminal action) already
+// governs make-it-so's repair rounds; roast-my-code — the skill those rounds run —
+// carried none, and neither did its caller. Encode twice: prose in roast-my-code
+// (## Review-loop contract) plus the caller pointer in make-it-so, this mechanical
+// check for the boundary.
+{
+  const roast51 = readFileSync(join(SKILLS, 'engineering', 'roast-my-code', 'SKILL.md'), 'utf8');
+  for (const marker of [
+    /## Review-loop contract/,
+    /Success condition/,
+    /Hard round cap/,
+    /Terminal action/,
+    /Round 2\+ reviews the new diff only/,
+    /No repeats/,
+    /class, not the instance/,
+  ])
+    if (!marker.test(roast51))
+      err(`roast-my-code: missing review-loop marker ${marker} (a review loop declares its success condition, hard round cap, and terminal action BEFORE round 1, and re-reviews only the new diff)`);
+  const mis51 = readFileSync(join(SKILLS, 'engineering', 'make-it-so', 'SKILL.md'), 'utf8');
+  if (!/cap 3 rounds/.test(mis51))
+    err('make-it-so: the review step must name the review-loop cap (3 rounds) — the caller runs the loop, so the bound has to be visible where the loop is entered');
+}
+
 // ---- summary ----
 if (errors.length) { console.error(`\nFAIL: ${errors.length} consistency error(s), ${warns.length} warning(s).`); process.exit(1); }
 console.log(`OK: ${declared.size} skills, invocation axis consistent (${USER_INVOKED.size} user-invoked, ${declared.size - USER_INVOKED.size} model-invoked), ${warns.length} warning(s).`);
