@@ -39,12 +39,12 @@ export const IRREVERSIBLE_PATTERNS = [
  * Shell-execution tool names, matched case-insensitively. `bash` is the
  * documented name; `shell` is the LIVE name opencode V2 sends (proven
  * 2026-10-12 by the tna-probe: keys=["tool","sessionID","agent","messageID",
- * "id","input"], tool="shell"). Since full-enforcement 04/AC7 the set is
+ * "id","input"], tool="shell"); `exec_command` is the LIVE name bb/Codex sessions send (proven 2026-10-24 by failing G-suite: exec_command test runs recorded null while decideBefore gated them). Since full-enforcement 04/AC7 the set is
  * advisory only: a `command` string matching the irreversible patterns gates
  * under ANY tool name (doubt blocks with its reason shown) — a future
  * harness renaming `shell` must not reopen the hole ticket 08 closed live.
  */
-export const SHELL_TOOLS = new Set(['bash', 'shell']);
+export const SHELL_TOOLS = new Set(['bash', 'shell', 'exec_command']);
 
 /**
  * The private ledger is append-only by contract (`.trust/progress.txt`).

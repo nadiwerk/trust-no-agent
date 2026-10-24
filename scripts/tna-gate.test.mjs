@@ -87,5 +87,29 @@ const freshDir = () => mkdtempSync(join(tmpdir(), 'tna-gate-'));
     logVeto(join(dir, '.trust', 'tna-gate-log.jsonl'), { harness: 't', tool: 'bash', command: 'x' }) === false);
 }
 
+// ---- G. Shell-tool parity — test evidence records under any shell tool (exec_command finding, 2026-10-24) ----
+// decideBefore gates irreversible commands under ANY tool name (doubt blocks, full-enforcement 04/AC7), so a test
+// run through the same tool must record — otherwise a gate that fires on exec_command can never open from an
+// exec_command session (veto fail-closed forever on the bb/Codex path).
+{
+  const dir = freshDir();
+  const recorded = observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: {} });
+  check('G1 a passing test run via exec_command records fresh evidence',
+    recorded !== null && readState(dir).testPassFresh === true, JSON.stringify({ recorded, state: readState(dir) }));
+  const v = decideBefore({ dir, tool: 'exec_command', args: { command: 'git commit -m "feat: x"' } });
+  check('G2 commit via exec_command after its own passing test run is ALLOWED', v.allow === true, JSON.stringify(v));
+}
+{
+  const dir = freshDir();
+  observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'fail 1', metadata: { error: true } });
+  const v = decideBefore({ dir, tool: 'exec_command', args: { command: 'git push origin master' } });
+  check('G3 push via exec_command after a FAILING test run is DENIED', v.allow === false, JSON.stringify(v));
+}
+{
+  const dir = freshDir();
+  const touched = observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'git status' } }, { title: '', output: '', metadata: {} });
+  check('G4 a non-test command via exec_command records nothing (no state touched)',
+    touched === null && !existsSync(join(dir, '.trust', 'tna-gate-state.json')), String(touched));
+}
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

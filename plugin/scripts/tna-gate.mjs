@@ -5,7 +5,7 @@
  *
  * Two halves with one seam between them:
  *
- *   observeAfter(dir, input, output) — records session evidence: a bash test
+ *   observeAfter(dir, input, output) — records session evidence: a shell-tool test
  *     command (`.test.mjs`) that exits clean sets testPassFresh true; one
  *     that errors sets it false, explicitly (a stale true after a red run is
  *     the hole this exists to close). Anything else returns null and touches
@@ -142,7 +142,7 @@ const TEST_RUN =
 export function observeAfter(dir, input = {}, output = {}) {
   const name = String(input?.tool ?? '').toLowerCase();
   const command = typeof input?.args?.command === 'string' ? input.args.command : '';
-  if (name !== 'bash' || !TEST_RUN.test(command)) return null;
+  if (!SHELL_TOOLS.has(name) || !TEST_RUN.test(command)) return null;
   const pass = !output?.metadata?.error;
   return writeState(dir, { testPassFresh: pass, command, updatedAt: new Date().toISOString() });
 }
