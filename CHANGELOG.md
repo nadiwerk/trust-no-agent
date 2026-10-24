@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.50] - 2026-10-24
+
 ### Added
 
 - **`roast-my-code` carries a review-loop contract: the fix/re-review cycle is
@@ -1316,7 +1318,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...HEAD
+[0.1.50]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...v0.1.50
 [0.1.49]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...v0.1.49
 [0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.47...v0.1.48
 [0.1.47]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.46...v0.1.47
