@@ -252,7 +252,32 @@ docs fails CI).
 # Skills:
 cp -r <trust-no-agent>/skills/*/* .agents/skills/     # repo
 cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
+
+# Plugin (the only path that wires the hooks — without them the skills are inert):
+codex plugin marketplace add nadiwerk/trust-no-agent
+codex plugin add trust-no-agent@trust-no-agent
 ```
+
+**Two manifests, and the split is load-bearing.** Codex loads the hook wiring from
+`plugin/.codex-plugin/plugin.json` (`"hooks": [ "./hooks/codex.hooks.json" ]` — an
+**array** of hook-file paths), while `plugin/plugin.json` stays the portable Agent
+Plugins manifest for every other tool. The portable manifest must **not** carry a
+`hooks` key: Codex reads the root manifest first, and an unknown field there is
+discarded with a warning that never reaches a session — so a `hooks` key on the root
+silently shadows the Codex-native one and no hook loads at all. Measured on codex
+0.163.0 (2026-10-24), counting the framework's `SessionStart` hook (a machine with
+omo contributes 5; 6 means this plugin loaded):
+
+| root `plugin.json` | `.codex-plugin/plugin.json` | loaded |
+|---|---|---|
+| `$schema` + `hooks` string | present | **no** (5 — shadowed) |
+| `$schema`, no `hooks` key | present | **yes** (6) |
+| no `$schema`, `hooks` array | absent | **no** (5 — root ignored) |
+
+Verify the wiring without guessing: `codex` → `/hooks` → `PreToolUse` must list a
+hook whose source is `Plugin — trust-no-agent`. A hook that is installed but not
+trusted shows there and asks for review; a hook that never loaded shows nowhere.
+`node scripts/codex-plugin.test.mjs` pins the manifest shape (F1–F11).
 
 ### Hermes Agent
 ```bash
@@ -325,7 +350,7 @@ Routing + skills install per the sections above; the *veto* wires separately per
 
 - **opencode V2 — veto:** project-level plugin `.opencode/plugins/tna-gate/` autoloads; `execute.before` denies irreversible calls without fresh evidence, `execute.after` records test runs; both persist via `ctx.storage` (hook FS-writes vanish live — proven 2026-10-12). Proven live on v2.0.27 (4 denials + 1 post-evidence allow, 2026-10-13). The `.trust/` FS copy is read-preferred by doctor/audit, synced out-of-hook. Verify: `node scripts/tna-gate-v2.test.mjs` exits 0.
 - **Claude Code — veto:** `plugin/hooks/hooks.json` wires `PreToolUse` (Bash matcher) to `scripts/gate-hook.mjs` (exit 2 denies) and `PostToolUse` (Bash|PowerShell matcher) for automatic test-evidence recording; reads the same project state file. **Proven live 2026-10-22** (v0.1.47 payload: deny → deny → evidence set → allow; veto log `.trust/tna-gate-log.jsonl` recorded each denial). The PostToolUse evidence gap found in that live run is closed as of 0.1.48: the adapter now records matched test-runner invocations itself, mirroring opencode's `execute.after`. Verify: `node scripts/gate-hook.test.mjs` exits 0.
-- **Codex — veto:** `plugin/hooks/codex.hooks.json` wires `PreToolUse` the same way; runner must forward pre-tool events in gate-hook stdin shape — live check open. Verify: `node scripts/codex-plugin.test.mjs` exits 0.
+- **Codex - veto:** `plugin/.codex-plugin/plugin.json` declares `"hooks": [ "./hooks/codex.hooks.json" ]` (the Codex-native manifest; a `hooks` key on the portable root manifest shadows it and nothing loads), which wires `PreToolUse` to `scripts/gate-hook.mjs`; the runner forwards pre-tool events in gate-hook stdin shape (`tool_name`/`tool_input`/`cwd`). **Proven live 2026-10-24 on codex 0.163.0**: a real `codex exec` commit was blocked with the TNA reason, no commit landed, `.trust/tna-gate-log.jsonl` recorded it. Verify: `node scripts/codex-plugin.test.mjs` exits 0.
 - **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known. Verify: `node scripts/ledger-audit.test.mjs` exits 0.
 - **Current API harness (this session) — audit-only:** no prompt-hook or tool-veto surface observed (subagent has no skill-loading parameter; no tool-gate host ran the veto — veto log empty 2026-10-12). Framework runs as prose + ledger audit here; do not rely on veto. A future adapter needs a hook/tool-gate surface first (ticket 07 candidate, not manual discipline). Verify: `node scripts/doctor.mjs` exits 0 with the audit-only row present.
 - **omp / Devin — doc-first WARN:** adapter documented only; no live veto proof exists, so any install here reports WARN (never hostable-by-assertion) until a run shows the denial firing. Verify: `node scripts/eval.mjs` exits 0 (check 36 pins the doc-first marking).

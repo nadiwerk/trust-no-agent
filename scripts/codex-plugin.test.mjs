@@ -69,10 +69,88 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
     `${m.version} vs ${JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8')).plugins[0].version}`);
   check('C4 it declares skills (Codex needs the field when skills are packaged)',
     m.skills === './skills/', JSON.stringify(m.skills));
-  check('C5 it points hooks at the Codex variant, not the Claude one',
-    typeof m.hooks === 'string' && /codex\.hooks\.json$/.test(m.hooks) && m.hooks.startsWith('./'),
-    JSON.stringify(m.hooks));
   check('C6 it carries author identity', typeof m.author?.name === 'string' && m.author.name.length > 0);
+}
+
+// ---- F. The Codex-native manifest carries hooks in the shape Codex LOADS ----
+// Origin: 2026-10-24 live finding. The portable manifest declared
+// `"hooks": "./hooks/codex.hooks.json"` (a string). Codex's Agent Plugins loader
+// does not know that field in this schema and DISCARDS it with a warning that
+// never reaches a normal session:
+//   WARN agent_plugin_manifest: ignoring unknown Agent Plugins manifest field
+//        path=.../plugin.json field="hooks"   (and field="skills")
+// So every TNA hook was unregistered, the TUI /hooks list showed none of them,
+// and the veto was dead while the manifest, the trust config, and the docs all
+// looked correct. The previous C5 pinned exactly that dead shape — a test
+// certifying the bug. Ground truth for the working shape is a Codex-native
+// plugin on this machine (omo 4.19.4, whose hooks do run): its own
+// `<plugin>/.codex-plugin/plugin.json` with `"hooks": [ "./hooks/x.json", ... ]`
+// — an ARRAY of hook-file paths, one file per hook entry.
+{
+  const CODEX_MANIFEST = join(ROOT, 'plugin', '.codex-plugin', 'plugin.json');
+  check('F1 plugin/.codex-plugin/plugin.json exists (the manifest path Codex loads)',
+    existsSync(CODEX_MANIFEST));
+  if (existsSync(CODEX_MANIFEST)) {
+    let cm = {};
+    try { cm = JSON.parse(readFileSync(CODEX_MANIFEST, 'utf8')); } catch { /* reported below */ }
+    check('F2 it names the plugin and carries a version',
+      cm.name === 'trust-no-agent' && typeof cm.version === 'string', JSON.stringify({ n: cm.name, v: cm.version }));
+    check('F3 version matches the portable manifest (one release, two manifests)',
+      cm.version === JSON.parse(readFileSync(MANIFEST, 'utf8')).version,
+      `${cm.version} vs ${JSON.parse(readFileSync(MANIFEST, 'utf8')).version}`);
+    check('F4 hooks is an ARRAY of paths — the shape Codex loads (a string is silently dropped)',
+      Array.isArray(cm.hooks) && cm.hooks.length > 0,
+      `typeof=${Array.isArray(cm.hooks) ? 'array' : typeof cm.hooks} value=${JSON.stringify(cm.hooks)}`);
+    const hookPaths = Array.isArray(cm.hooks) ? cm.hooks : [];
+    const resolved = hookPaths.map((p) => join(ROOT, 'plugin', String(p).replace(/^\.\//, '')));
+    check('F5 every declared hook file exists',
+      hookPaths.length > 0 && resolved.every((p) => existsSync(p)),
+      JSON.stringify(hookPaths.filter((p, i) => !existsSync(resolved[i]))));
+    // Each declared file must itself be a hook document Codex can read, and the
+    // four events the framework depends on must be wired somewhere in the set.
+    const events = new Set();
+    let allParse = hookPaths.length > 0;
+    const commands = [];
+    for (const p of resolved) {
+      if (!existsSync(p)) { allParse = false; continue; }
+      let doc = {};
+      try { doc = JSON.parse(readFileSync(p, 'utf8')); } catch { allParse = false; continue; }
+      if (!doc || typeof doc.hooks !== 'object' || doc.hooks === null) { allParse = false; continue; }
+      for (const [ev, entries] of Object.entries(doc.hooks)) {
+        events.add(ev);
+        for (const e of Array.isArray(entries) ? entries : [])
+          for (const h of e.hooks ?? []) commands.push(String(h.command ?? ''));
+      }
+    }
+    check('F6 every declared hook file is a { hooks: { Event: [...] } } document', allParse, JSON.stringify([...events]));
+    check('F7 the set wires SessionStart, PostCompact, UserPromptSubmit and PreToolUse',
+      ['SessionStart', 'PostCompact', 'UserPromptSubmit', 'PreToolUse'].every((e) => events.has(e)),
+      JSON.stringify([...events]));
+    check('F8 every hook command resolves through ${PLUGIN_ROOT}',
+      commands.length >= 4 && commands.every((c) => c.includes('${PLUGIN_ROOT}')), JSON.stringify(commands));
+    check('F9 no hook command escapes the plugin root',
+      commands.every((c) => !/[A-Za-z]:\\|\/Users\/|\.\.\//.test(c)), JSON.stringify(commands));
+    check('F10 it declares the skills directory Codex reads',
+      typeof cm.skills === 'string' && cm.skills.length > 0, JSON.stringify(cm.skills));
+  }
+  // F11 is the load-bearing one, measured on codex 0.163.0 (2026-10-24). Codex
+  // resolves the ROOT plugin.json first when it is a valid Agent Plugins
+  // manifest, and an unknown field there is discarded rather than falling
+  // through — so a `hooks` key on the root manifest SHADOWS the Codex-native
+  // one and no hook loads at all. Matrix, each run a real codex exec, counting
+  // TNA's SessionStart hook (omo contributes 5; 6 means TNA loaded):
+  //   root($schema + hooks string) + .codex-plugin   -> 5  (shadowed)
+  //   root($schema, no hooks)      + .codex-plugin   -> 6  (loaded)
+  //   root(no $schema, hooks array), no .codex-plugin -> 5  (ignored)
+  //   root($schema + hooks string) alone             -> 5  (discarded field)
+  // The fix is therefore two-part: the Codex-native manifest carries the
+  // hooks, and the portable manifest must NOT carry the key.
+  {
+    const portable = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
+    check('F11 the portable manifest declares NO `hooks` key (it shadows the Codex-native one)',
+      !('hooks' in portable),
+      `hooks=${JSON.stringify(portable.hooks)} — Codex reads the root manifest first and discards the unknown field, so .codex-plugin/plugin.json never loads`);
+  }
 }
 
 // ---- D. The Codex hook variant uses the variable Codex substitutes ----

@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.51] - 2026-10-24
+
+### Fixed
+
+- **The Codex plugin now registers its hooks at all — the veto was dead for two
+  releases while everything looked correct** (measured on codex 0.163.0,
+  2026-10-24). `plugin/plugin.json` carried `"hooks": "./hooks/codex.hooks.json"`
+  as a **string**, on a manifest declaring the Agent Plugins schema. Codex's
+  loader does not know that field in this schema and discards it — with a warning
+  that never reaches a normal session:
+  `WARN agent_plugin_manifest: ignoring unknown Agent Plugins manifest field …
+  field="hooks"` (and `field="skills"`). So all four framework hooks
+  (`SessionStart`, `PostCompact`, `UserPromptSubmit`, `PreToolUse`) were
+  unregistered: `codex` → `/hooks` → `PreToolUse` listed only the user config and
+  omo, the floor was never injected by the hook, and no irreversible call was ever
+  vetoed. The previous test pinned exactly that dead shape (`C5` asserted `hooks`
+  is a *string*), so a green suite certified the bug.
+
+  Fix, in two parts because Codex reads the root manifest first and an unknown
+  field there **shadows** the native one instead of falling through:
+
+  - new `plugin/.codex-plugin/plugin.json` — the Codex-native manifest, with
+    `"hooks": [ "./hooks/codex.hooks.json" ]` (an **array** of hook-file paths,
+    the shape a working Codex plugin on this machine uses);
+  - `plugin/plugin.json` loses its `hooks` key entirely — it stays the portable
+    Agent Plugins manifest for every other tool, and the key must not be there.
+
+  Measured matrix, each row a real `codex exec` counting the framework's
+  `SessionStart` hook (a machine with omo contributes 5; 6 means this plugin
+  loaded): root(`$schema` + hooks string) + native → **5, not loaded**;
+  root(`$schema`, no hooks) + native → **6, loaded**; root(no `$schema`, hooks
+  array) with no native manifest → **5, not loaded**.
+
+  Proven live after the fix: `codex exec` committing → `hook: PreToolUse Blocked`,
+  router error quoting the framework's reason, **no commit landed**,
+  `.trust/tna-gate-log.jsonl` +1; and the same session received the injected
+  discipline floor. Fail-first: `F1`–`F11` written first and observed RED (`F1`
+  missing native manifest; `F11` root declares `hooks`), then GREEN.
+
+### Added
+
+- **`scripts/codex-plugin.test.mjs` F-series: the manifest shape Codex actually
+  loads is now pinned, including the shadowing rule** (`F11`: the portable
+  manifest must declare no `hooks` key). A test that pins the *declared* shape
+  without pinning *loading* is how this bug survived two releases; the F-series
+  records the measured matrix in its comment so the next editor cannot
+  "simplify" the two-manifest split away.
+
 ## [0.1.50] - 2026-10-24
 
 ### Added
@@ -1318,7 +1366,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...HEAD
+[0.1.51]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...v0.1.51
 [0.1.50]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...v0.1.50
 [0.1.49]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...v0.1.49
 [0.1.48]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.47...v0.1.48
