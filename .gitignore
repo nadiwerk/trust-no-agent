@@ -17,3 +17,8 @@ node_modules/
 # Session-local scratch
 .tmp/
 .zcode/
+
+# Jev hook state — written into whatever directory a session runs in, never
+# committed. `.jev-hook-errors.log` is already covered by *.log above.
+.jev-lane.json
+.jev-gated.json
