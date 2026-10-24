@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.52] - 2026-10-24
+
+### Fixed
+
+- **0.1.51 was incomplete: a `$schema` on the portable manifest shadows the
+  Codex-native one, so the hooks still never loaded.** Measured on the released
+  0.1.51 install (codex 0.163.0): `SessionStart` count stayed at 5 (omo only) —
+  this plugin did not load — because `plugin/plugin.json` still declared
+  `"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"`.
+  Codex resolves the root manifest first and, when that file is a valid Agent
+  Plugins manifest, treats it as *the* manifest: unknown fields there are
+  discarded (a warning that never reaches a session) and
+  `.codex-plugin/plugin.json` is **never consulted**. Dropping `hooks` alone was
+  therefore not enough.
+
+  Full matrix, each row a real `codex exec` counting the framework's
+  `SessionStart` hook (a machine with omo contributes 5; 6 means loaded):
+
+  | root `plugin.json` | `.codex-plugin/plugin.json` | loaded |
+  |---|---|---|
+  | `$schema` + `hooks` string | present | **no** (5) |
+  | `$schema`, no `hooks` | present | **no** (5) |
+  | `$schema` + `hooks` array | absent | **no** (5) |
+  | no `$schema`, no `hooks` | present | **yes** (6) |
+  | no `$schema` + `hooks` array | absent | **no** (5) |
+  | absent | present | **yes** (6) |
+
+  Shipped shape, now pinned by the C/F checks: `plugin/.codex-plugin/plugin.json`
+  carries the `$schema` **and** `"hooks": [ "./hooks/codex.hooks.json" ]`;
+  `plugin/plugin.json` carries **neither** key. Proven live on the shipped shape:
+  `codex exec` committing → `hook: PreToolUse Blocked`, router error quoting the
+  framework's reason, **no commit landed**, veto log +1.
+
+- **The release-before-verify mistake, named.** 0.1.51 was cut, tagged, released
+  and pushed before the live probe on the *installed* plugin was run; the probe
+  then showed it did not load. The manifest-shape tests were green throughout
+  because they pinned the shape I had reasoned to, not the shape a harness
+  actually loads. The C/F checks now encode the measured matrix, and the ledger
+  entry for this unit records the failed release rather than hiding it.
+
+### Added
+
+- **`scripts/codex-plugin.test.mjs` C7, F12, F13** — the shadowing rule is now
+  pinned from both sides: the portable manifest must declare no `hooks` and no
+  `$schema`, and the Codex-native manifest must declare the `$schema`.
+
 ## [0.1.51] - 2026-10-24
 
 ### Fixed
@@ -1366,7 +1412,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...HEAD
+[0.1.52]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...v0.1.52
 [0.1.51]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...v0.1.51
 [0.1.50]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...v0.1.50
 [0.1.49]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.48...v0.1.49

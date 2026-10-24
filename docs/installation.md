@@ -260,24 +260,27 @@ codex plugin add trust-no-agent@trust-no-agent
 
 **Two manifests, and the split is load-bearing.** Codex loads the hook wiring from
 `plugin/.codex-plugin/plugin.json` (`"hooks": [ "./hooks/codex.hooks.json" ]` — an
-**array** of hook-file paths), while `plugin/plugin.json` stays the portable Agent
-Plugins manifest for every other tool. The portable manifest must **not** carry a
-`hooks` key: Codex reads the root manifest first, and an unknown field there is
-discarded with a warning that never reaches a session — so a `hooks` key on the root
-silently shadows the Codex-native one and no hook loads at all. Measured on codex
-0.163.0 (2026-10-24), counting the framework's `SessionStart` hook (a machine with
-omo contributes 5; 6 means this plugin loaded):
+**array** of hook-file paths), while `plugin/plugin.json` stays the portable manifest
+for every other tool. The portable manifest must carry **neither** a `hooks` key nor a
+`$schema`: Codex reads the root manifest first, and if that file declares the Agent
+Plugins schema it is treated as *the* manifest — unknown fields there are discarded with
+a warning that never reaches a session, and `.codex-plugin/plugin.json` is never
+consulted. Measured on codex 0.163.0 (2026-10-24), counting the framework's
+`SessionStart` hook (a machine with omo contributes 5; 6 means this plugin loaded):
 
 | root `plugin.json` | `.codex-plugin/plugin.json` | loaded |
 |---|---|---|
 | `$schema` + `hooks` string | present | **no** (5 — shadowed) |
-| `$schema`, no `hooks` key | present | **yes** (6) |
-| no `$schema`, `hooks` array | absent | **no** (5 — root ignored) |
+| `$schema`, no `hooks` key | present | **no** (5 — the schema alone shadows) |
+| `$schema` + `hooks` array | absent | **no** (5 — field discarded) |
+| no `$schema`, no `hooks` | present | **yes** (6) |
+| no `$schema` + `hooks` array | absent | **no** (5) |
+| absent | present | **yes** (6) |
 
 Verify the wiring without guessing: `codex` → `/hooks` → `PreToolUse` must list a
 hook whose source is `Plugin — trust-no-agent`. A hook that is installed but not
 trusted shows there and asks for review; a hook that never loaded shows nowhere.
-`node scripts/codex-plugin.test.mjs` pins the manifest shape (F1–F11).
+`node scripts/codex-plugin.test.mjs` pins the manifest shape (C1, C7, F1–F13).
 
 ### Hermes Agent
 ```bash

@@ -1,6 +1,6 @@
 {
   "name": "trust-no-agent",
-  "version": "0.1.51",
+  "version": "0.1.52",
   "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 12 skills, and a mechanical enforcement layer (evidence-gated commit veto) that does not rely on the model choosing to load anything.",
   "author": {
     "name": "nadiwerk"

@@ -57,10 +57,12 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
     String(entry.source?.path));
 }
 
-// ---- C. The portable manifest carries what Codex requires ----
+// ---- C. The portable manifest carries what the other harnesses read ----
 {
   const m = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
-  check('C1 it uses the Agent Plugins schema', /agent-plugins\.org\/schemas/.test(m.$schema ?? ''), m.$schema);
+  check('C1 the portable manifest declares NO `$schema` and NO `hooks` — both shadow the Codex-native manifest',
+    !('$schema' in m) && !('hooks' in m),
+    `$schema=${JSON.stringify(m.$schema)} hooks=${JSON.stringify(m.hooks)}`);
   check('C2 it declares name/version/description',
     m.name === 'trust-no-agent' && typeof m.version === 'string' && typeof m.description === 'string',
     JSON.stringify({ n: m.name, v: m.version }));
@@ -70,6 +72,8 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
   check('C4 it declares skills (Codex needs the field when skills are packaged)',
     m.skills === './skills/', JSON.stringify(m.skills));
   check('C6 it carries author identity', typeof m.author?.name === 'string' && m.author.name.length > 0);
+  check('C7 the portable manifest carries no hooks key at all',
+    !('hooks' in m), JSON.stringify(m.hooks));
 }
 
 // ---- F. The Codex-native manifest carries hooks in the shape Codex LOADS ----
@@ -134,22 +138,34 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
       typeof cm.skills === 'string' && cm.skills.length > 0, JSON.stringify(cm.skills));
   }
   // F11 is the load-bearing one, measured on codex 0.163.0 (2026-10-24). Codex
-  // resolves the ROOT plugin.json first when it is a valid Agent Plugins
-  // manifest, and an unknown field there is discarded rather than falling
-  // through — so a `hooks` key on the root manifest SHADOWS the Codex-native
-  // one and no hook loads at all. Matrix, each run a real codex exec, counting
-  // TNA's SessionStart hook (omo contributes 5; 6 means TNA loaded):
-  //   root($schema + hooks string) + .codex-plugin   -> 5  (shadowed)
-  //   root($schema, no hooks)      + .codex-plugin   -> 6  (loaded)
-  //   root(no $schema, hooks array), no .codex-plugin -> 5  (ignored)
-  //   root($schema + hooks string) alone             -> 5  (discarded field)
-  // The fix is therefore two-part: the Codex-native manifest carries the
-  // hooks, and the portable manifest must NOT carry the key.
+  // resolves the ROOT plugin.json first, and if that file declares the Agent
+  // Plugins `$schema` it is treated as THE manifest — unknown fields there are
+  // discarded and `.codex-plugin/plugin.json` is never consulted, so no hook
+  // loads at all. Both the `$schema` key and a `hooks` key on the root shadow
+  // the Codex-native manifest. Matrix, each run a real codex exec, counting the
+  // framework's SessionStart hook (a machine with omo contributes 5; 6 means
+  // this plugin loaded):
+  //   root($schema + hooks string)   + native -> 5  not loaded (shadowed)
+  //   root($schema, no hooks)        + native -> 5  not loaded (schema shadows)
+  //   root($schema, hooks ARRAY)     + no native -> 5 not loaded (field discarded)
+  //   root(no $schema, no hooks)     + native -> 6  LOADED
+  //   root(no $schema, hooks array)  + no native -> 5 not loaded
+  //   no root manifest               + native -> 6  LOADED
+  // The fix is therefore two-part: the Codex-native manifest carries the hooks
+  // (and the $schema), and the portable manifest carries neither key.
   {
     const portable = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
     check('F11 the portable manifest declares NO `hooks` key (it shadows the Codex-native one)',
       !('hooks' in portable),
       `hooks=${JSON.stringify(portable.hooks)} — Codex reads the root manifest first and discards the unknown field, so .codex-plugin/plugin.json never loads`);
+    check('F12 the portable manifest declares NO `$schema` (a valid Agent Plugins manifest there shadows the native one)',
+      !('$schema' in portable),
+      `$schema=${JSON.stringify(portable.$schema)} — with a valid schema on the root, Codex never consults .codex-plugin/plugin.json`);
+    const native = existsSync(join(ROOT, 'plugin', '.codex-plugin', 'plugin.json'))
+      ? JSON.parse(readFileSync(join(ROOT, 'plugin', '.codex-plugin', 'plugin.json'), 'utf8'))
+      : {};
+    check('F13 the Codex-native manifest declares the Agent Plugins $schema',
+      /agent-plugins\.org\/schemas/.test(native.$schema ?? ''), JSON.stringify(native.$schema));
   }
 }
 
