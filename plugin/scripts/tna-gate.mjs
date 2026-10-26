@@ -140,7 +140,7 @@ export async function logVetoWith(store, entry = {}) {
  */
 export async function observeAfterWith(store, { tool = '', command = '', pass = null } = {}) {
   if (!SHELL_TOOLS.has(String(tool ?? '').toLowerCase())) return null;
-  if (!TEST_RUN.test(String(command ?? ''))) return null;
+  if (!recordedTestRun(command)) return null;
   if (typeof pass !== 'boolean') return null;
   try {
     await store.writeState({ testPassFresh: pass, command: String(command) });
@@ -196,8 +196,48 @@ export function passFromOutput(output) {
  * shape would be the worse failure), and Iron Law 4 sign-off still gates the
  * irreversible act itself.
  */
+/**
+ * A test run is a RUNNER INVOCATION at a segment head — never a substring.
+ *
+ * History of this boundary:
+ *   2026-10-12  a substring matcher let `echo .test.mjs` record a pass; it became
+ *               an EXACT invocation.
+ *   2026-10-26  the exact set was only `*.test.mjs` / `npm test` / `bun test`, so
+ *               a vitest/jest/pytest/cargo/go project could NEVER record
+ *               evidence. Measured on a real adopter (ads-tracker, Claude Code):
+ *               a green `npx vitest run ...` wrote nothing, the state stayed
+ *               dated 2026-10-23, and every commit was refused forever — the gate
+ *               could deny but never open. Replaying a real PostToolUse payload
+ *               with exitCode 0 wrote NOTHING for all four response shapes.
+ *
+ * The three ADAPTERS learned these runners on 2026-10-25; the canonical path
+ * (Claude Code + Codex) had not. Kept as one table so the two cannot drift again.
+ */
 const TEST_RUN =
-  /^\s*(node|bun)\s+[^\s]*\.test\.mjs(\s|$)|^\s*npm\s+test(\s|$)|^\s*bun\s+test(\s|$)/;
+  /^\s*(node|bun|deno)\s+[^\s]*\.test\.(mjs|js|ts|cjs|mts)(\s|$)|^\s*(npm|pnpm|yarn)\s+(run\s+)?test(:[\w.:-]+)?(\s|$)|^\s*(npx\s+|pnpm\s+|yarn\s+)?(vitest|jest)(\s|$)|^\s*(python\s+-m\s+)?pytest(\s|$)|^\s*cargo\s+test(\s|$)|^\s*go\s+test(\s|$)|^\s*(bun|deno)\s+test(\s|$)/;
+
+/**
+ * Did this command line's EXIT STATUS come from the test?
+ *
+ * A shell reports the LAST command's status, so the rule is positional:
+ *   `cd repo && npx vitest run x`      -> test is last -> trustworthy
+ *   `npx vitest run x; echo done`      -> echo is last -> NOT trustworthy
+ *   `npx vitest run x && git commit`   -> commit is last -> NOT trustworthy
+ *
+ * The first form MUST stay accepted: in a BB thread the session cwd is the
+ * workspace root, so a path-based runner is only reachable behind a `cd` prefix
+ * (the pi recorder report's central finding). The trailing forms are how a red
+ * suite was once certified green (measured 2026-10-25).
+ */
+export function recordedTestRun(command) {
+  const text = String(command ?? '').trim();
+  if (text === '') return false;
+  // Command substitution and newlines break the positional argument.
+  if (/\$\(|`|\r|\n/.test(text)) return false;
+  const parts = text.split(/;|&&|\|\||\|/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return false;
+  return TEST_RUN.test(parts[parts.length - 1]);
+}
 
 /**
  * Record evidence from a finished tool call. Returns the written state, or
@@ -206,7 +246,7 @@ const TEST_RUN =
 export function observeAfter(dir, input = {}, output = {}) {
   const name = String(input?.tool ?? '').toLowerCase();
   const command = typeof input?.args?.command === 'string' ? input.args.command : '';
-  if (!SHELL_TOOLS.has(name) || !TEST_RUN.test(command)) return null;
+  if (!SHELL_TOOLS.has(name) || !recordedTestRun(command)) return null;
   // Positive exit signal only; unknown records NOTHING (audit-run-blockers #2).
   const pass = passFromOutput(output);
   if (pass === null) return null;
