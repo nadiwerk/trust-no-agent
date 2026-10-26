@@ -39,12 +39,19 @@ export const IRREVERSIBLE_PATTERNS = [
  * Shell-execution tool names, matched case-insensitively. `bash` is the
  * documented name; `shell` is the LIVE name opencode V2 sends (proven
  * 2026-10-12 by the tna-probe: keys=["tool","sessionID","agent","messageID",
- * "id","input"], tool="shell"); `exec_command` is the LIVE name bb/Codex sessions send (proven 2026-10-24 by failing G-suite: exec_command test runs recorded null while decideBefore gated them). Since full-enforcement 04/AC7 the set is
- * advisory only: a `command` string matching the irreversible patterns gates
- * under ANY tool name (doubt blocks with its reason shown) — a future
- * harness renaming `shell` must not reopen the hole ticket 08 closed live.
+ * "id","input"], tool="shell"); `exec_command` is the LIVE name bb/Codex sessions
+ * send (proven 2026-10-24 by failing G-suite: exec_command test runs recorded
+ * null while decideBefore gated them); `pwsh`/`powershell` are what a Windows
+ * harness sends (audit-run-blockers #13, measured 2026-10-25: `pwsh Set-Content
+ * .trust/progress.txt` PASSED while `bash` blocked it — the ledger rule is
+ * guarded by `SHELL_TOOLS.has(name)`, so the PowerShell tool never reached it).
+ *
+ * Since full-enforcement 04/AC7 the set is advisory for CLASSIFICATION: a
+ * `command` string matching the irreversible patterns gates under ANY tool name.
+ * It is NOT advisory for the ledger rule, which keys on the name — hence the
+ * PowerShell entries.
  */
-export const SHELL_TOOLS = new Set(['bash', 'shell', 'exec_command']);
+export const SHELL_TOOLS = new Set(['bash', 'shell', 'exec_command', 'pwsh', 'powershell']);
 
 /**
  * The private ledger is append-only by contract (`.trust/progress.txt`).
@@ -139,6 +146,40 @@ function splitSegments(command) {
   return segments;
 }
 
+/**
+ * git's own global options, which sit BETWEEN the program and the subcommand
+ * and therefore launder the match. Measured live 2026-10-25: `git -C . commit
+ * --allow-empty` ran a real commit while classifyAction returned gated:false —
+ * the first word compared against `git commit` is `git`, so any global option
+ * broke the match on EVERY harness at once. The set is git's documented
+ * global-option grammar (short forms that take a value: -C -c; long forms that
+ * take a value: --git-dir --work-tree --namespace --config-env --exec-path;
+ * valueless: --no-pager --bare --literal-pathspecs --no-replace-objects …).
+ */
+const GIT_GLOBAL_VALUE_FLAGS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path', '--super-prefix']);
+const GIT_GLOBAL_BARE_FLAGS = new Set([
+  '--no-pager', '--paginate', '-p', '--bare', '--literal-pathspecs', '--glob-pathspecs',
+  '--noglob-pathspecs', '--icase-pathspecs', '--no-replace-objects', '--no-optional-locks',
+  '--no-lazy-fetch', '--html-path', '--man-path', '--info-path', '--version', '--help',
+]);
+
+/** Drop git global options so the subcommand lands in the head position. */
+function stripGitGlobalOptions(words) {
+  let i = 0;
+  while (i < words.length) {
+    const w = words[i];
+    const name = w.includes('=') ? w.slice(0, w.indexOf('=')) : w;
+    if (GIT_GLOBAL_VALUE_FLAGS.has(name)) {
+      // `-C.` / `--git-dir=.git` carry their value inline; bare forms take the next word.
+      i += w.includes('=') || w.length > name.length ? 1 : 2;
+      continue;
+    }
+    if (GIT_GLOBAL_BARE_FLAGS.has(name)) { i += 1; continue; }
+    break;
+  }
+  return words.slice(i);
+}
+
 function matchAtExecution(command, depth = 0) {
   if (depth > 3) return null;
   for (const raw of splitSegments(stripHeredocBodies(command))) {
@@ -152,7 +193,13 @@ function matchAtExecution(command, depth = 0) {
       while (i < words.length && words[i].startsWith('-')) i++;                    // wrapper flags
     }
     if (i >= words.length) continue;
-    const head = words.slice(i).join(' ').toLowerCase();
+    // A wrapped `git` hides its subcommand behind global options (`-C .`,
+    // `--no-pager`, …). Normalize the head so the pattern table sees the
+    // subcommand it actually runs.
+    const normalized = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '') === 'git'
+      ? [words[i], ...stripGitGlobalOptions(words.slice(i + 1))]
+      : words.slice(i);
+    const head = normalized.join(' ').toLowerCase();
     for (const p of IRREVERSIBLE_PATTERNS) {
       const needle = String(p).toLowerCase();
       if (head === needle || head.startsWith(`${needle} `)) return p;

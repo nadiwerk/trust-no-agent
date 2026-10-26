@@ -352,17 +352,30 @@ export function newestEntry(ledgerText) {
     return all.length ? all[all.length - 1][1] : null;
   };
 
-  const receipts = [...src.matchAll(/^####\s+Receipt\b/gm)];
-  if (receipts.length) {
-    const start = receipts[receipts.length - 1].index;
-    const date = headingAt(start);
-    if (date) return { date, text: src.slice(start) };
-  }
-
+  // Anchor = the NEWEST `## <date>` partition. A `#### Receipt` block inside it
+  // is the content that gets judged — never a reason to walk BACK to an earlier
+  // partition.
+  //
+  // Origin 2026-10-25 (audit-run-blockers #4, measured): this preferred the last
+  // `#### Receipt` anywhere in the file, so a ledger whose newest 12 partitions
+  // were summary-style entries was judged on a 2026-10-24 receipt and returned
+  // allow:true — twelve newer entries never examined. The verdict happened to be
+  // "deny" in the repo only because that old receipt cited a command outside the
+  // allowlist. A gate that reads the wrong entry is not a gate, even when its
+  // answer looks right.
   const parts = src.split(/(?=^## \d{4}-\d{2}-\d{2})/m).filter((p) => /^## \d{4}-\d{2}-\d{2}/.test(p));
   if (!parts.length) return null;
   const last = parts[parts.length - 1];
   const m = /^## (\d{4}-\d{2}-\d{2})/.exec(last);
+  if (!m) return null;
+
+  // If the newest partition has no receipt block, report the partition itself:
+  // "no valid receipt" is the finding, not a fallback.
+  const receipts = [...last.matchAll(/^####\s+Receipt\b/gm)];
+  if (receipts.length) {
+    const start = last.indexOf(receipts[receipts.length - 1][0], receipts[receipts.length - 1].index);
+    return { date: m[1], text: last.slice(start >= 0 ? start : 0) };
+  }
   return { date: m[1], text: last };
 }
 

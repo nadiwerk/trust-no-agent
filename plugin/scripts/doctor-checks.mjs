@@ -194,6 +194,113 @@ export function rollupLedgerFindings({ findings = [], total = null } = {}) {
 }
 
 /**
+ * C10 — per-harness ADAPTER check (2026-10-25).
+ *
+ * The doctor verified the router, git hooks, skills and ledger, but never the
+ * file that actually enforces the veto on omp/pi/dsh. Measured the same day:
+ * the installed pi and omp discipline adapters both DIFFERED from the shipped
+ * copies while `doctor.mjs` printed "installation healthy". A self-check that
+ * cannot see the enforcement layer is checking the wrong half of the install.
+ *
+ * Levels: an absent adapter is WARN (the layer is simply missing — the operator
+ * may have installed only skills); a drifted one is WARN naming both hashes
+ * (an older adapter is still a working gate); a dsh plugin present without its
+ * `cordis.patch.yml` row is WARN as `unregistered`, because a file in a plugins
+ * dir that no patch row loads is not an installed layer. Never FAIL: the repair
+ * is a write to an installed artifact, which is the operator's decision
+ * (Iron Law 4), and a stale adapter breaks no gate by itself.
+ *
+ * @param {{harness?: string, adapters?: Array<{path: string, state: 'current'|'missing'|'drift'|'unregistered', installed?: string, shipped?: string}>}} input
+ * @returns {{level: 'pass'|'warn', message: string}}
+ */
+export function adapterVerdict({ harness = 'unknown', adapters = [] } = {}) {
+  if (!adapters.length) {
+    return {
+      level: 'pass',
+      message: 'adapter check not applicable — no harness detected here (opencode/Claude Code/Codex install their hooks through the plugin payload; omp/pi/dsh use copied adapters)',
+    };
+  }
+  const defects = adapters.filter((a) => a.state !== 'current');
+  if (!defects.length) {
+    return { level: 'pass', message: `${adapters.length} adapter(s) current for ${harness} (bytes match the shipped copy)` };
+  }
+  const lines = defects.map((a) => {
+    if (a.state === 'missing') return `${a.path} is missing (run node scripts/onboarding.mjs --refresh)`;
+    if (a.state === 'unregistered') return `${a.path} exists but no cordis.patch.yml row loads it — the profile boots without this plugin (re-run onboarding --refresh)`;
+    return `${a.path} DIFFERS from the shipped copy (installed ${String(a.installed ?? '?').slice(0, 12)}, shipped ${String(a.shipped ?? '?').slice(0, 12)}) — re-run node scripts/onboarding.mjs --refresh`;
+  });
+  return {
+    level: 'warn',
+    message: `${defects.length} adapter defect(s) for ${harness} (of ${adapters.length} checked): ${lines.join('; ')}`,
+  };
+}
+
+/**
+ * C11 — is the INSTALLED skill payload current? (omp fix-list #3, 2026-10-25.)
+ *
+ * The payload under `~/.agents/skills/setup-tna/` (and `~/.omp/agent/skills/`)
+ * is what a fresh install actually copies from. Measured: it held a 3382-byte
+ * `tna-veto.ts` from before 2026-10-25 (only `toolName === "bash"`, no recorder)
+ * and an `onboarding.mjs` with no `--refresh`, while doctor PASSed on the live
+ * adapters and said nothing about the payload the NEXT install would use. An
+ * adopter following the skill's own instruction therefore got a veto that could
+ * never open — a wall, not a gate.
+ *
+ * WARN, never fail: the live install may be perfectly current; what is stale is
+ * the distribution copy. The repair is a sync, which writes to a shared dir and
+ * is the operator's decision.
+ *
+ * @param {{pairs?: Array<{installed: string, state: 'current'|'drift'|'missing', installedHash?: string, shippedHash?: string}>}} input
+ * @returns {{level: 'pass'|'warn', message: string}}
+ */
+export function payloadDriftVerdict({ pairs = [] } = {}) {
+  if (!pairs.length) {
+    return { level: 'pass', message: 'installed skill payload: not present on this machine (nothing to compare)' };
+  }
+  const bad = pairs.filter((p) => p.state !== 'current');
+  if (!bad.length) {
+    return { level: 'pass', message: `installed skill payload: ${pairs.length} file(s) current` };
+  }
+  const names = bad.slice(0, 3).map((p) => p.installed).join(', ');
+  return {
+    level: 'warn',
+    message: `installed skill payload is STALE (${bad.length} of ${pairs.length} file(s)): ${names}${bad.length > 3 ? ', …' : ''} — an install from this payload would copy an old adapter. Repair: re-copy skills/meta/setup-tna/ over it from a trust-no-agent checkout, then re-run node scripts/onboarding.mjs --refresh.`,
+  };
+}
+
+/**
+ * C12 — the REAL installed Claude Code plugin, compared to the repo version.
+ * (audit-run-blockers #9, measured 2026-10-25.)
+ *
+ * C9 looked for `~/.claude/plugins/<name>/.claude-plugin/plugin.json`, a path
+ * Claude Code never creates; installs live at
+ * `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` and the source of
+ * truth is `~/.claude/plugins/installed_plugins.json`. Because the first path
+ * was always absent, the version check never ran: a 0.1.50 install sat beside a
+ * 0.1.52 repo while doctor printed "skills version current" (that stamp is the
+ * PROJECT's version, not the plugin's). The stale plugin still had the
+ * pre-0.1.52 classifier, so `git -C . commit` and `git --no-pager push` were
+ * ALLOWED in the harness that was actually running.
+ *
+ * @param {{repoVersion?: string, installed?: Array<{name: string, version: string, installPath?: string}>}} input
+ * @returns {{level: 'pass'|'warn', message: string}}
+ */
+export function installedPluginVerdict({ repoVersion = '', installed = [] } = {}) {
+  if (!installed.length) {
+    return { level: 'pass', message: 'Claude Code plugin not installed on this machine (nothing to compare)' };
+  }
+  const older = installed.filter((p) => repoVersion && p.version !== repoVersion);
+  if (!older.length) {
+    return { level: 'pass', message: `Claude Code plugin current (v${repoVersion})` };
+  }
+  const detail = older.map((p) => `${p.name} v${p.version}${p.installPath ? ` at ${p.installPath}` : ''}`).join('; ');
+  return {
+    level: 'warn',
+    message: `Claude Code plugin is STALE: ${detail} while this repo is v${repoVersion} — the installed copy carries an older classifier, so gate holes fixed upstream are still open in the harness you are running. Update it through the documented path (docs/installation.md "Updating"); writing to the shared plugin dir is the operator's decision.`,
+  };
+}
+
+/**
  * Grandfather verdict (onboarding ticket 08; spec AC12). A working install
  * with no consent stamp gets a WARN naming the onboarding CLI — never a
  * fail, so the update never reddens a machine that already works. A fresh

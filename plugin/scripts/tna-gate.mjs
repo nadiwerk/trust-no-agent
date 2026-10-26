@@ -32,12 +32,33 @@ import { classifyAction, SHELL_TOOLS } from './action-gate.mjs';
 const STATE_FILE = 'tna-gate-state.json';
 const LOG_FILE = 'tna-gate-log.jsonl';
 
-/** @returns {{testPassFresh: boolean, command?: string, updatedAt?: string}} */
+/**
+ * How long a green test run counts as evidence — ONE definition for every path
+ * (canonical hook + all three adapters).
+ *
+ * Origin 2026-10-25 (audit-run-blockers #3, measured): `updatedAt` was written by
+ * four recorders and read by NONE, so this repo's own 2026-10-23 state still
+ * opened the gate on 2026-10-25. Trust decays with time, not only with failure.
+ */
+export const EVIDENCE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * @returns {{testPassFresh: boolean, command?: string, updatedAt?: string, stale?: boolean}}
+ */
 export function readState(dir) {
   try {
     const raw = readFileSync(join(String(dir), '.trust', STATE_FILE), 'utf8');
     const s = JSON.parse(raw);
-    if (s && typeof s === 'object' && typeof s.testPassFresh === 'boolean') return s;
+    if (s && typeof s === 'object' && typeof s.testPassFresh === 'boolean') {
+      // A stale or undated claim is NOT evidence (fail-closed to "no evidence").
+      if (s.testPassFresh === true) {
+        const age = Date.now() - Date.parse(s.updatedAt ?? '');
+        if (!Number.isFinite(age) || age < 0 || age > EVIDENCE_MAX_AGE_MS) {
+          return { ...s, testPassFresh: false, stale: true };
+        }
+      }
+      return s;
+    }
   } catch {
     /* absent or corrupt state is not evidence — fall through to deny */
   }
@@ -54,12 +75,20 @@ function writeState(dir, state) {
  * Append one denial to the veto-fire log (the meter's first source). Returns
  * true when the line landed, false otherwise — logging must NEVER break the
  * veto it records, so every failure is silent by contract.
+ *
+ * Origin 2026-10-25 (audit-run-blockers #14, measured): `join(String(dir), …)`
+ * turned a non-string `cwd` from a hook payload into the literal directory
+ * `[object Object]`, CREATED it in the process cwd, and returned `true` — so the
+ * meter believed the denial was recorded while it landed in a junk folder. The
+ * repo still carries the evidence of that run. A path that is not a non-empty
+ * string is now refused instead of coerced.
  */
 export function logVeto(dir, { harness = 'unknown', tool = '', command = '' } = {}) {
+  if (typeof dir !== 'string' || dir.trim() === '') return false;
   try {
-    mkdirSync(join(String(dir), '.trust'), { recursive: true });
+    mkdirSync(join(dir, '.trust'), { recursive: true });
     appendFileSync(
-      join(String(dir), '.trust', LOG_FILE),
+      join(dir, '.trust', LOG_FILE),
       JSON.stringify({ ts: new Date().toISOString(), harness, tool, command }) + '\n',
     );
     return true;
@@ -122,6 +151,41 @@ export async function observeAfterWith(store, { tool = '', command = '', pass = 
 }
 
 /**
+ * Read the exit signal from a finished tool call. true / false / null (unknown).
+ *
+ * Origin 2026-10-25 (audit-run-blockers #2, measured on gate-hook): the canonical
+ * recorder derived `pass` from `!output.metadata.error`, i.e. from the ABSENCE of
+ * an error marker — so a red run that carried no error metadata was recorded as
+ * green. The signal is now read positively:
+ *   1. a numeric `exitCode`/`exit`/`code` in the output or its metadata;
+ *   2. an `[exit code: N]` marker in the output text;
+ *   3. an explicit `metadata.error` / `isError` boolean.
+ * No signal = null = record NOTHING (a guessed pass is the forgery hole).
+ *
+ * @param {object} output hook payload output
+ * @returns {boolean|null}
+ */
+export function passFromOutput(output) {
+  const meta = output?.metadata ?? {};
+  const explicit = [output?.exitCode, output?.exit, output?.code, meta.exitCode, meta.exit, meta.code]
+    .find((v) => typeof v === 'number' && Number.isFinite(v));
+  if (typeof explicit === 'number') return explicit === 0;
+
+  const text = typeof output?.stdout === 'string' ? output.stdout
+    : typeof output?.output === 'string' ? output.output
+      : Array.isArray(output?.content)
+        ? output.content.filter((b) => b && b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n')
+        : '';
+  const marker = /\[exit code: (-?\d+)\]/.exec(text);
+  if (marker) return Number(marker[1]) === 0;
+
+  if (typeof meta.error === 'boolean') return meta.error === false;
+  if (typeof output?.isError === 'boolean') return output.isError === false;
+  if (meta.error) return false; // an error object/string is still an error
+  return null;
+}
+
+/**
  * A test run is an EXACT runner invocation, never a substring: node|bun
  * running a .test.mjs file, or npm|bun test. Submitted 2026-10-12 after the
  * roast proved `echo .test.mjs` recorded a pass (substring matcher) — the
@@ -143,6 +207,8 @@ export function observeAfter(dir, input = {}, output = {}) {
   const name = String(input?.tool ?? '').toLowerCase();
   const command = typeof input?.args?.command === 'string' ? input.args.command : '';
   if (!SHELL_TOOLS.has(name) || !TEST_RUN.test(command)) return null;
-  const pass = !output?.metadata?.error;
+  // Positive exit signal only; unknown records NOTHING (audit-run-blockers #2).
+  const pass = passFromOutput(output);
+  if (pass === null) return null;
   return writeState(dir, { testPassFresh: pass, command, updatedAt: new Date().toISOString() });
 }

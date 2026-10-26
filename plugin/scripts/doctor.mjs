@@ -30,9 +30,11 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict } from './doctor-checks.mjs';
 import { parseStamp } from './onboarding.mjs';
 import { scanSessionOverlays } from './gate-hook.mjs';
+import { createHash } from 'node:crypto';
+import { detectHarness, adaptersFor, dshProfileDirs, detectInstalledAdapters } from './onboarding.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -439,6 +441,90 @@ if (ledgerPath) {
     if (rr.stale.length)
       warn(`receipt staleness: ${rr.stale.length} ledger claim(s) older than the window await re-verification (re-run their cited gates before gating)`);
   } catch { /* no ledger — nothing to surface */ }
+}
+
+// ---- AD. Per-harness adapter state (C10, 2026-10-25) ----
+// The enforcement layer for omp/pi/dsh is a COPIED file, so it can be stale
+// without anything else looking wrong. This block reads what is installed on
+// THIS machine (every harness family, not just this project's) and compares it
+// to the shipped copies. Warn-level: the repair writes to an installed
+// artifact, which is the operator's call.
+{
+  const { groups } = detectInstalledAdapters(cwd);
+  if (!groups.length) {
+    const av = adapterVerdict({ harness: 'unknown', adapters: [] });
+    pass(av.message);
+  } else {
+    for (const g of groups) {
+      const av = adapterVerdict(g);
+      if (av.level === 'warn') warn(av.message);
+      else pass(av.message);
+    }
+  }
+}
+
+// ---- PL. Installed skill payload freshness (C11, omp fix-list #3) ----
+// The payload under ~/.agents/skills/setup-tna (and each harness's skills dir) is
+// what a FRESH install copies from. Doctor used to PASS on the live adapters
+// while that payload shipped a pre-2026-10-25 veto with no recorder — a wall for
+// anyone who followed the skill's own instruction.
+{
+  const payloadPairs = [];
+  const home = homedir();
+  const shippedRoot = join(ROOT, 'skills', 'meta', 'setup-tna');
+  const installedRoots = [
+    join(home, '.agents', 'skills', 'setup-tna'),
+    join(home, '.omp', 'agent', 'skills', 'setup-tna'),
+    join(home, '.pi', 'agent', 'skills', 'setup-tna'),
+    join(home, '.claude', 'skills', 'setup-tna'),
+    join(home, '.dsh', 'skills', 'setup-tna'),
+  ];
+  const sha = (p) => {
+    try { return createHash('sha256').update(readFileSync(p)).digest('hex'); } catch { return ''; }
+  };
+  for (const root of installedRoots) {
+    if (!existsSync(root)) continue;
+    for (const rel of ['veto-hooks/omp/tna-veto.ts', 'veto-hooks/omp/tna-discipline.ts', 'veto-hooks/pi/tna-veto.ts', 'scripts/onboarding.mjs']) {
+      const installed = join(root, ...rel.split('/'));
+      const shipped = join(shippedRoot, ...rel.split('/'));
+      if (!existsSync(installed) || !existsSync(shipped)) continue;
+      const a = sha(installed);
+      const b = sha(shipped);
+      payloadPairs.push({ installed, state: a === b ? 'current' : 'drift', installedHash: a.slice(0, 12), shippedHash: b.slice(0, 12) });
+    }
+  }
+  const pv = payloadDriftVerdict({ pairs: payloadPairs });
+  if (pv.level === 'warn') warn(pv.message);
+  else pass(pv.message);
+}
+
+// ---- CC. The REAL Claude Code plugin install (C12, audit #9) ----
+// C9 looks for a path Claude Code never creates. The source of truth is
+// `~/.claude/plugins/installed_plugins.json`; without reading it a 0.1.50 install
+// sat beside a 0.1.52 repo while doctor said "version current", and the stale
+// classifier allowed `git -C . commit`.
+{
+  const home = homedir();
+  const registry = join(home, '.claude', 'plugins', 'installed_plugins.json');
+  const installed = [];
+  try {
+    const parsed = JSON.parse(readFileSync(registry, 'utf8'));
+    for (const [key, entries] of Object.entries(parsed?.plugins ?? {})) {
+      if (!key.startsWith('trust-no-agent@')) continue;
+      for (const e of Array.isArray(entries) ? entries : []) {
+        installed.push({ name: key.split('@')[0], version: String(e?.version ?? ''), installPath: String(e?.installPath ?? '') });
+      }
+    }
+  } catch { /* not installed here */ }
+  let repoVersion = '';
+  // The plugin manifest lives under plugin/, not at the repo root.
+  for (const rel of ['plugin.json', join('plugin', '.claude-plugin', 'plugin.json'), join('plugin', 'plugin.json')]) {
+    if (repoVersion) break;
+    try { repoVersion = JSON.parse(readFileSync(join(ROOT, rel), 'utf8')).version ?? ''; } catch { /* try next */ }
+  }
+  const pv = installedPluginVerdict({ repoVersion, installed });
+  if (pv.level === 'warn') warn(pv.message);
+  else pass(pv.message);
 }
 
 // ---- summary ----

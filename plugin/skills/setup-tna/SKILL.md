@@ -105,10 +105,17 @@ Run these checks and read each result before claiming anything:
    core-rules file).
 3. Skills detected: the harness's skill discovery lists the framework's
    skills.
-4. Veto plugin: on a tree whose harness is OpenCode and whose consent
-   included hooks, the veto plugin is present at
-   .opencode/plugins/tna-gate/index.js (the CLI copies it; its receipt line
-   names the copy or "already present").
+4. Veto + discipline: the veto plugin is present per harness. On an
+   OpenCode tree whose consent included hooks it lives at
+   `.opencode/plugins/tna-gate/index.js`; omp gets
+   `~/.omp/agent/hooks/pre/{tna-veto.ts,tna-discipline.ts}` plus
+   `~/.omp/agent/extensions/tna-receipts-gate.ts`; pi gets
+   `.pi/extensions/{tna-veto.ts,tna-discipline.ts}`; dsh gets
+   `.dsh/profiles/<every profile>/plugins/{tna-veto.mjs,tna-discipline.mjs}`
+   with matching `cordis.patch.yml` rows. The CLI's receipt carries a `Layers:`
+   line naming what landed; relay that line verbatim rather than saying
+   "hooks are on" (origin 2026-10-25: the discipline adapters existed but had no
+   install path, so a fresh install shipped one of four layers).
 
 ## Step 5 — The veto plugin, per harness (say it exactly)
 
@@ -118,10 +125,45 @@ Run these checks and read each result before claiming anything:
 - **Claude Code and Codex**: the plugin install already ships the veto hooks
   — verify the presence of the hooks file in the plugin payload instead of
   re-wiring anything, and say so.
+- **omp**: the CLI copies veto-hooks/omp/tna-veto.ts to
+  ~/.omp/agent/hooks/pre/tna-veto.ts — the mid-session veto is ON. Relay
+  the CLI's line (copied / already present).
+- **pi**: the CLI copies veto-hooks/pi/tna-veto.ts to
+  .pi/extensions/tna-veto.ts AND veto-hooks/pi/tna-discipline.ts to
+  .pi/extensions/tna-discipline.ts — veto, floor, mandatory-gate and
+  done-gate are ON. Relay the CLI's line (copied / already present).
+- **DeepSeek Harness (dsh)**: there is no hook JSON file and no `tool_call`
+  event. Two cordis plugins do the work — `tna-veto.mjs` on the
+  `tools/pre-execute` waterfall (veto + evidence recorder) and
+  `tna-discipline.mjs` on `agent/pre-step` (mandatory-gate + done-gate) —
+  both loaded by path from the profile's cordis.patch.yml. See
+  docs/installation.md § DeepSeek Harness for the copies and the patch rows.
+  Wire EVERY profile the harness can boot: a profile without the rows has no
+  veto, and a session booted on it will commit freely (measured 2026-10-25).
 - **Harness without a hook API**: say honestly that the mid-session veto is
   audit-only there — the machine ships but nothing calls it mid-session; the
   commit gate via git hooks still applies when the hooks component was
   consented and scripts/hooks exists.
+
+**A veto proof is two-sided.** A denial alone does not prove the gate works:
+a denial with no evidence recorder is a permanent wall, and it reads exactly
+like a working gate. Prove both halves before calling a harness protected —
+deny without fresh evidence, then a green `*.test.mjs` run, then the same
+irreversible action ALLOWED. Never relay "veto is ON" from a one-sided probe.
+
+**A veto is one of four layers.** floor (router injected), mandatory-gate
+(prompt classified against the MANDATORY domains), veto (irreversible action
+refused), done-gate (completion claim with no verifying tool call flagged) —
+plus the ledger append-only guard. Report which layers a harness actually
+carries, never "TNA is installed": a harness with only the veto enforces
+roughly a quarter of the discipline while looking complete. The audited
+per-harness state of all four is the full-function matrix in
+docs/compatibility.md.
+
+**The install is a table, not per-harness prose.** `adaptersFor()` in
+scripts/onboarding.mjs decides what each harness receives; a new adapter added
+to `veto-hooks/` without a row there is a layer no user gets. When you add one,
+add its row AND its expectation in scripts/onboarding-layers.test.mjs.
 
 ## Step 6 — Receipt
 
