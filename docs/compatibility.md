@@ -61,12 +61,99 @@ Skill routing and AGENTS.md work on every harness above; the *veto* — refusing
 |---|---|---|
 | opencode V2 | `tool.execute.before` deny-by-throw + `execute.after` evidence recorder over `ctx.storage` | veto (proven live 2026-10-13 on v2.0.27: 4 denials + 1 post-evidence allow) |
 | Claude Code | `PreToolUse` exit-0 stdout-JSON block deny over the shared project state + `PostToolUse` evidence recorder (both wired by `plugin/hooks/hooks.json`) | veto (proven live 2026-10-22 on v0.1.47 plugin payload: 3 denials with reasons logged to `.trust/tna-gate-log.jsonl`, then the same `git commit` allowed once `testPassFresh` was set — dry-run probes, no side effects; deny-contract re-proven live 2026-10-23: exit-0 + stdout `{"decision":"block","reason"}` is enforced, the older exit-2+stderr path FAILS OPEN — probe 14/15/16, commit 2555907; on 0.1.46: 2 denials + 0 false allows — the gate-hook vetoed two read-only shell commands touching the append-only ledger from a live session, each with an actionable reason, denial messages quoted in `.trust/progress.txt`; recorder proven live 2026-10-22 on 0.1.48: one test suite (`node scripts/tna-store.test.mjs`, ALL PASS) run in a fresh post-restart session wrote `.trust/tna-gate-state.json` automatically (`testPassFresh:true`, command matching the exact invocation) — no manual write involved) |
-| Codex | `PreToolUse` via the Codex-native manifest `plugin/.codex-plugin/plugin.json` (`"hooks": [ … ]`), shared project state | veto (**re-proven live 2026-10-24 on codex 0.163.0**, after a two-release hole: the portable `plugin/plugin.json` carried `"hooks": "…"` as a string *and* declared the Agent Plugins `$schema`, so Codex treated that file as THE manifest, discarded the unknown `hooks` field, never consulted `.codex-plugin/plugin.json`, and registered **no TNA hook at all** — the veto was dead while the manifest, the trust config and the docs all looked right. Fix = the Codex-native manifest carries the `$schema` and the hooks array; the portable manifest carries neither key (either one shadows the native manifest). Proven live: `codex exec` commit → `hook: PreToolUse Blocked`, router error quoting the TNA reason, no commit landed, `.trust/tna-gate-log.jsonl` +1; `SessionStart` floor injected in the same session. The 2026-10-23 probe 14/15/16 evidence stands for the *deny shape* (exit-0 + stdout `{"decision":"block","reason"}`, commit 2555907) but was taken on a path that did not prove the plugin manifest loaded — manifest registration and deny shape are two separate claims) |
+| Codex | `PreToolUse` via the Codex-native manifest `plugin/.codex-plugin/plugin.json` (`"hooks": [ … ]`), shared project state | **MEASURED LIMIT 2026-10-26 on codex 0.163.0 — the recorder does not run.** `PreToolUse` executes: a commit with no evidence is refused with `Command blocked by PreToolUse hook: [trust-no-agent] irreversible action (git commit) ... without fresh test evidence` and the denial lands in `.trust/tna-gate-log.jsonl` (5 trust entries persisted, no bypass flag needed). `PostToolUse` does NOT: Codex prints `hook: PostToolUse Completed` but never spawns the command. Verified three ways — a marker script that writes a file before touching stdin never ran; the same with `--dangerously-bypass-hook-trust`; and the same with a `powershell -Command` form modelled on OMO. OMO's own `PostToolUse` also never runs in this build (its matcher-targeted write fired, yet no hook command executed), so this is a PLATFORM limit, not a TNA defect. CONSEQUENCE, stated plainly: on codex 0.163.0 the TNA gate can DENY an irreversible action but CANNOT BE OPENED — a wall, not a gate, until a Codex build executes `PostToolUse`. The rows below stay true for the Codex versions they were measured on; for 0.163.0 read the veto as "deny-proven, recorder broken". veto (**re-proven live 2026-10-24 on codex 0.163.0**, after a two-release hole: the portable `plugin/plugin.json` carried `"hooks": "…"` as a string *and* declared the Agent Plugins `$schema`, so Codex treated that file as THE manifest, discarded the unknown `hooks` field, never consulted `.codex-plugin/plugin.json`, and registered **no TNA hook at all** — the veto was dead while the manifest, the trust config and the docs all looked right. Fix = the Codex-native manifest carries the `$schema` and the hooks array; the portable manifest carries neither key (either one shadows the native manifest). Proven live: `codex exec` commit → `hook: PreToolUse Blocked`, router error quoting the TNA reason, no commit landed, `.trust/tna-gate-log.jsonl` +1; `SessionStart` floor injected in the same session. The 2026-10-23 probe 14/15/16 evidence stands for the *deny shape* (exit-0 + stdout `{"decision":"block","reason"}`, commit 2555907) but was taken on a path that did not prove the plugin manifest loaded — manifest registration and deny shape are two separate claims) |
 | OMO | `load_skills` delegation load + ledger audit | audit-only (no tool veto known) |
-| omp / Devin | documented adapter only | doc-first WARN until a live veto proof exists |
+| omp | `tool_call` block hook at `~/.omp/agent/hooks/pre/tna-veto.ts` + `tool_result` evidence recorder (self-contained adapter, `veto-hooks/omp/`) | veto (**proven live 2026-10-25 on omp 18.10.4**, end-to-end in one session: `git -C . commit --allow-empty` → `tna-gate veto: "git commit" is irreversible … Project state: (missing)`, no commit landed; then `node y.test.mjs` green → the same commit **allowed** and landed as `f7fb0e6`. Closes three holes measured the same day: the adapter only watched `toolName === "bash"`, a substring test for `git commit` missed `git -C . commit` (a real commit `7aa82a7` had landed through it), and with **no recorder** the gate could never open — a green suite was ignored and every commit stayed refused forever. Devin keeps the doc-first WARN: no live run) **Fix-list round 2026-10-25 (twelve findings, each measured first).** Three were lethal: (1) delegation ARMING never reached the tool call - the handler returned `{context, tasks}` at top level while omp only replaces the input when the result carries an `input` key, so the delegated-execution contract was discarded silently and the layer read "PASS" in doctor; (2) the delegation veto was blind to omp's own primary wire shape - `tasks[]` is an array, `payloadText` read only scalars, so `batched (tasks[])`, `batched + context` and `context` were all ALLOWED; (3) the installed skill payload was stale (3382-byte pre-2026-10-25 veto, no recorder) so an adopter following the skill instruction got a wall, not a gate. Also fixed: `sudo`/`bash -c`/`sh -c`/`env X=1` now denied (ported `EXEC_WRAPPERS`/`INTERPRETERS`); an absent `isError` no longer records a pass (unknown records nothing); evidence expires after 30 minutes; every denial appends to `.trust/tna-gate-log.jsonl`; the done-gate counts verification (`grep`/`glob`/`lsp`/`bash`) instead of `write`/`edit`; the floor resolves from the session cwd and no longer borrows the 33-line-stale `~/.omo` router; install is multi-harness (a leftover `.opencode/` no longer suppresses omp); the MANDATORY classifier is re-ported from `scripts/mandatory-gate.mjs` with negation handling, and host-injected instruction blocks are stripped before classification (the bb block alone used to fire all three domains). Live two-sided proof on omp 18.10.4: `sudo`, `bash -c` and `env` commits DENIED with the log written; green suite -> evidence -> **commit landed**; stale 2020 evidence -> **denied**. Pinned fail-first by `scripts/omp-fixlist.test.mjs` (24 RED -> GREEN), including the harness merge helper that made finding 1 invisible to every earlier test. |
+| pi | `tool_call` block hook at `.pi/extensions/tna-veto.ts` + `tool_result` evidence recorder (self-contained adapter, `veto-hooks/pi/`) | veto (**proven live 2026-10-25 on pi 1.4.0**, same end-to-end shape as omp: laundered commit denied with `Project state: (missing)`, then `node y.test.mjs` → commit allowed and landed as `e36d01c`. pi declares a `powershell` tool carrying the same `{ command }` input — the old `toolName === "bash"` guard never examined it; both shell tools are covered now, and `scripts/veto-adapter.test.mjs` pins the grammar to the canonical gate so the installed copy cannot drift. **Recorder repaired 2026-10-25 (two-sided re-proof)**: the recorder matcher was anchored at the string start while the veto side tokenised, so any `cd` prefix defeated evidence capture while the veto kept firing — in a BB thread (cwd = workspace root) `cd <repo> && node x.test.mjs` printed ALL PASS, recorded nothing, and every commit stayed vetoed with `Project state: (missing)`. Veto and recorder now share ONE segmenter (`segments()`), heredoc bodies are stripped as data (writing a doc that mentions a command is no longer vetoed), and runner coverage widened to vitest/jest/pytest/cargo/go/`npm run test:*`. Measured with the upstream report's own repro: section A 4/8 → **8/8**, C 3/5 → **5/5**, B 15/15 unchanged; live end-to-end on pi 1.4.0: `green + prefix` went from `state=none, commit=blocked` to **`state=true, commit=LANDED`**. Pinned fail-first by `scripts/pi-recorder.test.mjs` (18 RED → GREEN across pi/omp/dsh)) |
+| DeepSeek Harness (dsh) | cordis plugin on the `tools/pre-execute` waterfall returning `{ kind: 'deny', reason }` + `tools/result` evidence recorder (`veto-hooks/dsh/tna-veto.mjs`, loaded by path from the profile's `cordis.patch.yml`) | veto (**proven live 2026-10-25 on dsh `--profile headless`**, the profile bb's launcher boots: `git -C . commit --allow-empty` → `Error: [trust-no-agent] tna-gate veto: "git commit" is irreversible …`, no commit landed; then `node y.test.mjs` → the same commit allowed and landed as `c0e6969`, with `.trust/tna-gate-state.json` written by the harness itself. Covers both dsh shell tools (`bash`, `pwsh`). `scripts/dsh-veto.test.mjs` drives the plugin's own cordis contract and pins its grammar to the canonical gate. **Fix-list round 2026-10-25 (ten findings, each measured before the fix).** The recorder read `result.isError`, but dsh reports a non-zero exit in the RESULT TEXT (`[exit code: N]`) and keeps `isError: false` - so a RED suite recorded `testPassFresh: true` and the commit landed: a gate certifying the bug it exists to catch. It now reads the exit signal, refuses to attribute a compound line to the test (a shell reports the LAST command's status, so `node y.test.mjs; "exit=$LASTEXITCODE"` on a red suite certified green - measured live), and expires evidence after 30 minutes (a 2020 state file still opened the gate). The classifier gained `EXEC_WRAPPERS`/`INTERPRETERS` (`sudo git commit`, `bash -c "git commit"`, `sh -c "git push"` were all allowed), the ledger guard now covers the SHELL path (`>`, `Set-Content`, `Out-File`, `tee`; `>>` stays open), `terminal_send` is treated as a shell, and every denial appends to `.trust/tna-gate-log.jsonl` so the meter can count it. Live two-sided proof in a real `headless` session: `sudo` and `bash -c` denied with the log written; green run -> evidence -> **commit landed**; red run -> `testPassFresh: false` -> **commit denied**; stale 2020 evidence -> **denied**. Pinned fail-first by `scripts/dsh-fixlist.test.mjs` (28 RED -> GREEN). Two further findings from the same round: an unresolvable working directory now fails CLOSED instead of reading `process.cwd()` (a session in repo A could read repo B's evidence - measured as deny/deny/allow across three calls), and the MANDATORY classifier was re-ported from `scripts/mandatory-gate.mjs` (three of four ordinary sentences fired a domain before). **Wired into all five profiles** — `acp`, `acp-creator`, `acp-minimal`, `headless`, `web` — and deny verified live on the three ACP profiles through a real ACP client (`acp-probe`: `tool_result[failed] … tna-gate veto`, no commit landed); **`web` is now deny-proven too (2026-10-25)**: the profile is not an ACP stdio endpoint, so the proof boots the actual composed tree (`dsh-base` + `dsh-web-app` + the profile's `cordis.patch.yml` rows) through `runProfile` and drives the `tools/pre-execute` waterfall the browser UI uses — clean repo → `{"kind":"deny", reason:"… git commit … is irreversible …"}`, no commit landed; after the `tools/result` recorder took a green `node y.test.mjs`, the same call returned `allow` and the commit landed (`063cb04`) — two-sided, on the real composed surface) |
 | Current API harness (this session: tool-calling API, subagent without skill-loading, no prompt/tool-hook surface observed) | no veto wired — enforcement falls back to prose + ledger audit | audit-only (live 2026-10-12: veto log empty, meter "no data yet", self-trigger gap applies) |
 
-A veto without a live proof is a proposal, not a guarantee: omp/Devin rows stay doc-first and degrade to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing. Every other harness's install section in docs/installation.md states which of the two levels it wires.
+A veto without a live proof is a proposal, not a guarantee: a row stays doc-first and degrades to WARN (never hostable-by-assertion) until a run on that harness shows the denial firing **and** the gate opening again after fresh evidence. Every other harness's install section in docs/installation.md states which of the two levels it wires.
+
+**A gate that cannot open is a wall, not a gate.** The 2026-10-25 round found that both the pi and omp adapters shipped a denial path with no recorder: the harness never wrote `.trust/tna-gate-state.json`, so `testPassFresh` could only ever read false and every irreversible action was refused forever. Measured live: a green `node x.test.mjs` was ignored and the following commit was still vetoed with `Project state: (missing)`. The proof bar for a veto row is therefore two-sided — **deny without evidence, then allow with it** — because a one-sided probe cannot tell a working gate from a permanent block. The same round found a classifier hole that affected *every* harness at once: `git -C . commit`, `git -c k=v commit`, `git --git-dir=.git commit` and `git --no-pager push` all ran while the gate reported open, because the pattern was matched against the first words of the segment and git's global options sit between `git` and the subcommand. Fixed in `scripts/action-gate.mjs` (global options stripped before matching) and pinned by the J series in `scripts/action-gate.test.mjs`.
+
+### Full-function matrix — all four mechanical layers, per harness
+
+A veto alone is not "TNA working". The framework carries **four** mechanical
+layers, and a harness that has one of them enforces roughly a quarter of the
+discipline while looking installed. Audited 2026-10-25:
+| Layer | What it does | opencode | Claude Code | Codex | omp | pi | dsh |
+|---|---|---|---|---|---|---|---|
+| **floor** — router's Iron Laws + MANDATORY section injected each session/compaction | rules survive a harness that drops AGENTS.md | `ctx` injection | `SessionStart` + `PostCompact` | `SessionStart` + `PostCompact` | `tna-discipline.ts` (`session_start`, `before_agent_start`) | `tna-discipline.ts` (`before_agent_start`, `session_compact`) | dsh reads `AGENTS.md` natively; `tna-discipline.mjs` adds the rest |
+| **mandatory-gate** — each prompt classified against expect-fail / root-cause / receipts | the trigger matrix fires mechanically, not by model initiative | hook | `UserPromptSubmit` | `UserPromptSubmit` | `tna-discipline.ts` | `tna-discipline.ts` | `tna-discipline.mjs` (`agent/pre-step`) |
+| **veto** — irreversible action without fresh evidence refused | Iron Law 4 is enforced, not suggested | plugin throw | `PreToolUse` | `PreToolUse` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` (`tools/pre-execute`) |
+| **done-gate** — completion claim with no verifying tool call flagged | Iron Law 3 is enforced, not suggested | — | — | — | `tna-receipts-gate.ts` (`session_stop`) | `tna-discipline.ts` (`agent_before_settle`) | `tna-discipline.mjs` (`agent/pre-step`) |
+| **ledger append-only** — `write`/`edit` to `.trust/progress.txt` refused | the private history cannot be clobbered | `action-gate` | `action-gate` | `action-gate` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` |
+
+Live evidence for the layers added on 2026-10-25:
+
+- **pi** — `before_agent_start` proven by asking the live session whether its
+  system prompt contains the floor (`YES`), then whether a failing-test prompt
+  carries the directive (`YES`). `~/.pi/agent/extensions/` holds both adapters.
+- **omp** — floor already proven live by the adapter's own trace
+  (`~/.omp/agent/hooks/tna-trace.log`: `before_agent_start {floor:true,flagged:false}`).
+- **dsh** — `MANDATORY-SEEN`: a live `--profile headless` turn asked to report
+  whether `MANDATORY DOMAIN DETECTED` was in its context answered affirmatively
+  for a failing-test prompt, with the turn ending `reason: completed`.
+
+**Two dsh contracts learned the hard way** (both cost a live crash before they
+were understood, and both are pinned in `scripts/dsh-discipline.test.mjs`):
+
+1. **`next()` is called exactly once.** A second call from a `catch` block
+   resolves `undefined` (the waterfall index already advanced) and the loop dies
+   with `Cannot read properties of undefined (reading 'kind')`.
+2. **An injected message needs `id` and `source`, not just `role` + `content`.**
+   dsh builds messages through `createUserMessage` (which sets both); a plain
+   object crashes the same way. The adapter constructs the same shape locally
+   because a path-loaded profile plugin cannot resolve `@deepseek-ai/dsh-llm`.
+
+**A discipline plugin that can crash the session is worse than none.** Both
+contracts above were found by running the plugin against the real harness, not
+by reading the type file — which is why the live probe is part of the proof and
+the fixture test is not enough on its own.
+
+### Install parity — a layer that exists but is never installed is not a layer
+
+The matrix above describes what the ADAPTERS can do. Whether a fresh install
+actually delivers them is a separate claim, and on 2026-10-25 it was false:
+
+- **`detectHarness()` had no `dsh` branch.** A DeepSeek Harness user got no
+  hooks, no profile patch and no receipt line — dsh support was manual.
+- **The hooks component copied only `tna-veto`.** The discipline adapter
+  (floor + mandatory-gate + done-gate) had no copy path, so a fresh omp/pi
+  install shipped one of four layers while the receipt said "hooks: consented".
+- **`--undo` reversed only what it knew about**, so any newly copied adapter
+  would have become residue.
+- **The floor's fallback list pointed at the maintainer's own checkout**
+  (`~/projects/trust-no-agent`) — a path no adopter has — so outside an adopted
+  project the floor silently found nothing and fail-open meant "no floor".
+
+Fixed in `scripts/onboarding.mjs` and pinned by
+`scripts/onboarding-layers.test.mjs` (AC1–AC5: every adapter per harness,
+dsh detection, profile wiring, undo residue, and never clobbering an owner's
+edited copy). The install is now a **table** (`adaptersFor`) rather than
+hand-written per-harness blocks, so a future adapter cannot ship without an
+install path.
+
+**What a clean install now places** (verified live 2026-10-25 in an isolated
+`HOME`, so nothing touched the real machine state):
+
+| Harness | Files placed | Patch rows |
+|---|---|---|
+| omp | `~/.omp/agent/hooks/pre/{tna-veto.ts,tna-discipline.ts}` + `~/.omp/agent/extensions/tna-receipts-gate.ts` | — |
+| pi | `.pi/extensions/{tna-veto.ts,tna-discipline.ts}` | — |
+| dsh | `.dsh/profiles/<every profile>/plugins/{tna-veto.mjs,tna-discipline.mjs}` | `tna-veto` + `tna-discipline`, idempotent per profile |
+
+The dsh wiring is per-profile by necessity: a profile without the rows has no
+veto, and `dshProfileDirs` deliberately skips `node_modules` (which lives in the
+same parent and was wired as a "profile" by the first version of the fix).
+
+**One honest limit that no installer can remove.** The evidence file
+`.trust/tna-gate-state.json` is **per repository**, not per machine. A veto
+therefore refuses an irreversible action in any repo that has not run its tests
+in that session — including repos unrelated to TNA. That is the design (evidence
+must come from the project being changed), but it is the behaviour a new user
+meets first, so it is stated here rather than discovered as a bug.
 
 ### Known harness contracts (not defects — stated so they are chosen, not discovered)
 

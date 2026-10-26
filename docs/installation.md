@@ -310,6 +310,145 @@ cp <trust-no-agent>/AGENTS.md RULES.md   # omp treats RULES.md as always-apply a
 # Invocation flag IS honored (kebab-case normalized).
 ```
 
+**Veto hook (the mechanical half).** omp dispatches typed events in-process;
+the veto is a `tool_call` handler plus the `tool_result` recorder that makes
+the gate able to OPEN again:
+
+```bash
+mkdir -p ~/.omp/agent/hooks/pre
+cp <trust-no-agent>/veto-hooks/omp/tna-veto.ts ~/.omp/agent/hooks/pre/tna-veto.ts
+```
+The adapter is self-contained (it imports only `node:fs`/`node:path` — the
+framework tree does not exist beside a home-level hook dir). Verify with the
+two-sided proof: a commit is denied with `Project state: (missing)`, then a
+green `*.test.mjs` run is followed by the same commit being **allowed**.
+`node scripts/veto-adapter.test.mjs` pins the installed grammar to the
+canonical classifier, so a future edit to one side fails the suite instead of
+shipping a silent divergence.
+
+omp additionally carries the floor/mandatory-gate (`hooks/pre/tna-discipline.ts`)
+and the done-gate (`extensions/tna-receipts-gate.ts`) — both are in the
+setup-tna payload and are what make omp the most complete non-plugin install.
+
+### pi
+```bash
+# Skills: pi discovers `.agents/skills/` project-locally (through the working
+# directory's ancestors, stopping at the repo root) and `~/.agents/skills/`
+# user-wide — the shared Agent Skills locations, so the framework's flat copy
+# works unchanged. `skills: [...]` in settings.json adds more locations.
+mkdir -p .agents/skills && cp -r <trust-no-agent>/skills/*/* .agents/skills/
+# Veto hook (same two-sided contract as omp; pi declares both `bash` and
+# `powershell` with the same `{ command }` input, and both are covered):
+mkdir -p .pi/extensions
+cp <trust-no-agent>/veto-hooks/pi/tna-veto.ts .pi/extensions/tna-veto.ts
+# Floor + mandatory-gate + done-gate (pi has no plugin-installed hooks, so all
+# three layers are this one extension):
+cp <trust-no-agent>/veto-hooks/pi/tna-discipline.ts .pi/extensions/tna-discipline.ts
+```
+Verify: `node scripts/pi-discipline.test.mjs` (floor injection, prompt
+classification, settle-boundary gate) and `node scripts/veto-adapter.test.mjs`
+(the `tool_call`/`tool_result` contract, including the powershell path). Live
+check: ask the session whether its system prompt contains `Iron Laws` — it
+should answer `YES`, which proves the extension loaded.
+
+### The automated path — one command, every layer
+
+The per-harness sections below are the manual equivalent. On any of the four
+harnesses with a mechanical surface (opencode, omp, pi, dsh) the onboarding CLI
+now places **every** adapter the harness needs and, for dsh, registers it in
+every profile:
+
+```bash
+node <trust-no-agent>/scripts/onboarding.mjs
+# non-interactive (agents forward the human's answers):
+node <trust-no-agent>/scripts/onboarding.mjs --from-chat '{"components":{"floor":true,"hooks":true,"overlays":false,"evidenceGate":true},"mapSkills":[]}'
+```
+
+The receipt prints a `Layers:` line naming what actually landed, because
+"hooks=consented" alone used to hide a one-of-four install. Verify with
+`node scripts/onboarding-layers.test.mjs` (install contract, per harness) and
+`node scripts/doctor.mjs`. Undo is exact: `node scripts/onboarding.mjs --undo`
+removes only the adapters it copied and strips the dsh patch rows it added.
+
+**Skills are installed by the same command.** Consenting to the `floor`
+component copies all twelve skills into the directory the detected harness
+actually reads (`.agents/skills/` for opencode/omp/pi, `~/.dsh/skills/` for
+dsh) — a pre-existing skill is never overwritten. Before 2026-10-25 the CLI
+copied zero skills, so "one command installs TNA" shipped the *quoting* of the
+MANDATORY skills and not the skills themselves.
+
+**Updating an existing install — `--refresh`.** Adapters are copied files, so
+an adapter shipped *after* your first install never reaches you by itself
+(measured 2026-10-25: the installed pi and omp discipline adapters were both
+behind while every gate reported green). `--refresh` reconciles:
+
+```bash
+node <trust-no-agent>/scripts/onboarding.mjs --refresh
+# with the chat channel: --from-chat '<answers>' --refresh (consent is never re-asked)
+```
+
+It rewrites only the adapters whose bytes differ, re-wires every dsh profile
+(including profiles created *after* the first install — those were previously
+left with no plugin at all), installs any missing skills, and records the
+content hash of every adapter in `.trust/onboarding.json`. Without
+`--refresh` an existing adapter is still left untouched, but the drift is
+**named** in the output — "consented" never reads as "current" again.
+
+**Checking what is installed — doctor C10.** `node scripts/doctor.mjs` now
+compares every adapter installed on this machine (pi, omp, and every dsh
+profile) against the shipped copy and warns with both hashes plus the repair
+command. It scans every harness family on disk, not just the project's own:
+running doctor inside an opencode repo used to print "not applicable" while
+stale pi/omp adapters sat on the same machine.
+
+### DeepSeek Harness (dsh)
+```bash
+# Skills: dsh reads $DSH_HOME/skills/<name>/SKILL.md (flattened).
+mkdir -p ~/.dsh/skills && cp -r <trust-no-agent>/skills/*/* ~/.dsh/skills/
+# AGENTS.md: read from the workspace root like every other harness.
+
+# Veto: dsh has no hook JSON file and no `tool_call` event. Its extension
+# point is the cordis `tools/pre-execute` waterfall, so the veto is a profile
+# plugin loaded by path:
+mkdir -p ~/.dsh/profiles/<profile>/plugins
+cp <trust-no-agent>/veto-hooks/dsh/tna-veto.mjs ~/.dsh/profiles/<profile>/plugins/tna-veto.mjs
+# MANDATORY classification + completion-claim gate (dsh reads AGENTS.md itself,
+# so the floor is already covered; this adds the two layers it lacks):
+cp <trust-no-agent>/veto-hooks/dsh/tna-discipline.mjs ~/.dsh/profiles/<profile>/plugins/tna-discipline.mjs
+```
+Then add both rows to that profile's `cordis.patch.yml` (a top-level YAML array):
+
+```yaml
+# trust-no-agent: evidence-gated veto for irreversible shell actions.
+- insert:
+    - id: tna-veto
+      name: 'file:///<home>/.dsh/profiles/<profile>/plugins/tna-veto.mjs'
+# trust-no-agent: MANDATORY classification + completion-claim gate.
+- insert:
+    - id: tna-discipline
+      name: 'file:///<home>/.dsh/profiles/<profile>/plugins/tna-discipline.mjs'
+```
+Confirm the loader sees both before trusting them:
+`dsh --profile <profile> --dump-config | grep -E 'tna-(veto|discipline)'`. The
+veto denies on `tools/pre-execute` (`{ kind: 'deny', reason }`) and records
+evidence on `tools/result`; the discipline plugin injects on `agent/pre-step`.
+Both dsh shell tools (`bash`, `pwsh`) are covered.
+`node scripts/dsh-veto.test.mjs` and `node scripts/dsh-discipline.test.mjs`
+drive the plugins' own cordis contracts and pin their grammar to the canonical
+classifier.
+
+**Two dsh contracts worth knowing before you debug a crash.** An injected
+message needs `id` and `source` (dsh's `createUserMessage` sets both) — a plain
+`{ role, content }` object kills the loop with `Cannot read properties of
+undefined (reading 'kind')`. And `next()` in a waterfall is called exactly once:
+calling it again from a `catch` resolves `undefined` and crashes the same way.
+Both were measured live 2026-10-25 and are pinned in the discipline test.
+
+**Profiles are per-launch.** A veto wired into one profile does not protect a
+session booted on another — measured 2026-10-25: the first dsh probe ran on
+`headless` while the plugin had only been added to `acp`, and the commit
+landed. Wire every profile the harness can boot, then verify each one.
+
 ### OpenClaw
 ```bash
 # AGENTS.md: read natively (workspace + project).
