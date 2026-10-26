@@ -1,6 +1,6 @@
 {
   "name": "trust-no-agent",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "description": "Trust over speed: a discipline framework for GitHub Copilot coding agent — the AGENTS.md router (read natively by Copilot) plus the 12 skills via the Agent Skills standard.",
   "author": {
     "name": "nadiwerk"

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.53] - 2026-10-26
+
+### Added
+
+- **Evidence recorder that reads real test signals.** Tool hooks previously
+  recorded a pass from the *absence* of an error: `isError !== true` in the
+  adapters, `!metadata.error` in the gate. A red suite that reported no error
+  object wrote `testPassFresh: true` and the next commit was allowed — the
+  exact failure the audit measured on 2026-10-25. Evidence now requires a
+  positive exit-code signal (`exitCode` / `[exit code: N]` / explicit boolean);
+  an unreadable result records NOTHING.
+- **Explicit, verifiable evidence command.** `scripts/record-test-evidence.mjs`
+  (`--from-log` for a captured run, `--run` to execute it) verifies a runner
+  signature and refuses a forged log. Built for the two harnesses whose
+  `PostToolUse` never arrives (Claude Code 2.1.305, Codex 0.163.0): the gate
+  could DENY there but never OPEN. There is deliberately no `--pass` flag.
+- **Per-harness install + update path.** `onboarding.mjs` installs hooks and
+  skills per detected harness, `--refresh` reconciles drifted adapters and
+  records their hashes, and `--undo` removes exactly what it created. `doctor`
+  gained C10 (installed-adapter drift), C11 (stale skill-payload warning), and
+  C12 (the real Claude Code install via `installed_plugins.json`).
+- **PostToolUse hook wiring for Claude Code and Codex.** `PostToolUse` added to
+  `plugin/hooks/hooks.json` and `plugin/hooks/codex.hooks.json`, pinned by
+  tests, so the veto can be opened on those harnesses.
+
+### Fixed
+
+- **Broadened the test runner set that opens the gate.** `TEST_RUN` now covers
+  vitest/jest/pytest/cargo/go/`npm run test:*` in addition to `*.test.mjs`,
+  `npm test` and `bun test`. Measured on a real adopter (2026-10-26): a green
+  `npx vitest run` wrote nothing while the veto refused every commit — a state
+  file from 2026-10-23 was effectively permanent.
+- **30-minute evidence expiry everywhere.** `readState` (canonical) and every
+  adapter now read the `updatedAt` they already wrote — previously ignored, so a
+  2026-10-23 state still opened the gate days later.
+- **Non-shell shell tools covered.** omp/pi/dsh now run shell-execution tools
+  (`eval`, `codemode`, `run_code`) and delegation payloads (`task`, `subagent`,
+  `workflow`, `ralph`, BB `task`) in execution-position terms; `sudo`,
+  `env FOO=1`, and `bash/sh -c "..."` no longer bypass the veto.
+- **Heredoc bodies treated as data.** Writing a document that merely *mentions*
+  a command was vetoed — twice while the report that found it was being
+  written. Both sides now share one segmenter.
+- **Ledger append-only on the shell path.** `>`, `Set-Content`, `Out-File` and
+  `| tee` to `.trust/progress.txt` were open on all harnesses; only `>>` is
+  allowed. Every denial is now appended to `tna-gate-log.jsonl` so the meter
+  can count it.
+- **Delegation arming actually reaches the tool call** (omp): `tool_call` again
+  returns `{ input: ... }`, because omp only replaces the input when that key
+  is present. The previous shape was silently discarded while doctor reported
+  "PASS".
+- **Receipt gate names its own antecedent.** `newestEntry` anchors on the
+  newest `## <date>` partition instead of the last `#### Receipt` anywhere,
+  and `logVeto` refuses a non-string cwd instead of writing to a literal
+  `[object Object]` directory.
+
+### Changed
+
+- **Docs now state what is measured**, including two corrections: the dsh `web`
+  profile is deny-proven (real composed tree), and the Codex row records a
+  MEASURED LIMIT — `PostToolUse` runs on neither Codex 0.163.0 nor the observed
+  Claude Code build, so those gates can DENY but not OPEN (audit-only).
+
 ## [0.1.52] - 2026-10-24
 
 ### Fixed
@@ -1412,7 +1474,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...HEAD
+[0.1.53]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...v0.1.53
 [0.1.52]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...v0.1.52
 [0.1.51]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...v0.1.51
 [0.1.50]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.49...v0.1.50
