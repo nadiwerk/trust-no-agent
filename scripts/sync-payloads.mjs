@@ -50,7 +50,12 @@ const PAYLOAD_MAP = [
   ['scripts/onboarding.mjs', join(ROOT, 'scripts', 'onboarding.mjs')],
   ['scripts/file-budget.mjs', join(ROOT, 'scripts', 'file-budget.mjs')],
   ['veto-hooks/omp/tna-veto.ts', join(ROOT, 'veto-hooks', 'omp', 'tna-veto.ts')],
+  ['veto-hooks/omp/tna-discipline.ts', join(ROOT, 'veto-hooks', 'omp', 'tna-discipline.ts')],
+  ['veto-hooks/omp/tna-receipts-gate.ts', join(ROOT, 'veto-hooks', 'omp', 'tna-receipts-gate.ts')],
   ['veto-hooks/pi/tna-veto.ts', join(ROOT, 'veto-hooks', 'pi', 'tna-veto.ts')],
+  ['veto-hooks/pi/tna-discipline.ts', join(ROOT, 'veto-hooks', 'pi', 'tna-discipline.ts')],
+  ['veto-hooks/dsh/tna-veto.mjs', join(ROOT, 'veto-hooks', 'dsh', 'tna-veto.mjs')],
+  ['veto-hooks/dsh/tna-discipline.mjs', join(ROOT, 'veto-hooks', 'dsh', 'tna-discipline.mjs')],
 ];
 
 const walk = (dir, acc = []) => {
@@ -74,8 +79,13 @@ const walk = (dir, acc = []) => {
 
 const discoverRoots = () => {
   const cwd = process.cwd();
-  // The canonical root itself is not a mirror.
-  return walk(cwd).filter((p) => !existsSync(join(CANON_SKILL, 'SKILL.md')) || p !== CANON_SKILL);
+  // The canonical payload root IS a mirror of scripts/ and veto-hooks/ — it is
+  // the copy a `cp -r` install ships from, so a stale file there is the most
+  // damaging drift of all. Origin 2026-10-25: it was filtered out ("not a
+  // mirror"), which is why `skills/meta/setup-tna/veto-hooks/pi/tna-veto.ts`
+  // sat 4 KB behind the adapter it was supposed to ship while every other pin
+  // stayed green.
+  return walk(cwd);
 };
 
 // Mirror discovery (router + script mirrors) walks the REPO the script belongs
@@ -125,6 +135,42 @@ const discoverScriptMirrors = () => {
   return out;
 };
 
+/**
+ * Same-name adapter mirrors OUTSIDE a setup-tna payload: `plugin/<harness>/veto-hooks/`
+ * copies. They are not referenced by any manifest (Copilot has no hook surface),
+ * which is exactly why they rotted: measured 2026-10-25, both sat at the
+ * pre-0.1.39 2319-byte shape while nine other copies were current, and the
+ * zero-drift check never looked. A tracked copy of a security adapter must be
+ * the current adapter or not exist — a stale one is a trap for the next reader.
+ */
+const discoverAdapterMirrors = () => {
+  const out = [];
+  const roots = [join(ROOT, 'plugin')];
+  const walkAdapters = (dir) => {
+    let names;
+    try { names = readdirSync(dir); } catch { return; }
+    for (const name of names) {
+      if (SKIP_DIRS.has(name)) continue;
+      const p = join(dir, name);
+      let st;
+      try { st = lstatSync(p); } catch { continue; }
+      if (st.isSymbolicLink()) continue;
+      if (st.isDirectory()) { walkAdapters(p); continue; }
+      if (!/^tna-veto\.(ts|mjs)$/.test(name)) continue;
+      // Only the plugin/<harness>/veto-hooks/<harness>/ shape: the setup-tna
+      // payloads are covered by PAYLOAD_MAP above.
+      const norm = p.replace(/\\/g, '/');
+      if (norm.includes('/skills/setup-tna/')) continue;
+      const harness = norm.includes('/omp/') ? 'omp' : norm.includes('/pi/') ? 'pi' : null;
+      if (!harness) continue;
+      const canonical = join(ROOT, 'veto-hooks', harness, name);
+      if (existsSync(canonical)) out.push({ mirror: p, canonical });
+    }
+  };
+  for (const r of roots) walkAdapters(r);
+  return out;
+};
+
 const same = (a, b) => existsSync(a) && existsSync(b) && readFileSync(a).equals(readFileSync(b));
 
 const args = process.argv.slice(2);
@@ -159,7 +205,7 @@ for (const root of roots) {
   }
 }
 if (MIRRORS_AVAILABLE) {
-  for (const { mirror, canonical } of [...discoverRouterMirrors(), ...discoverScriptMirrors()]) {
+  for (const { mirror, canonical } of [...discoverRouterMirrors(), ...discoverScriptMirrors(), ...discoverAdapterMirrors()]) {
     if (same(mirror, canonical)) continue;
     drift++;
     if (write) { copyFileSync(canonical, mirror); repairs.push(relative(process.cwd(), mirror) || mirror); }

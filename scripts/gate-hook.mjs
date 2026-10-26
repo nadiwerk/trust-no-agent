@@ -369,11 +369,19 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
           : payload.args && typeof payload.args === 'object' ? payload.args : null;
         const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
         if (toolName && input && typeof input.command === 'string') {
-          // Claude Code PostToolUse signals failure via tool_response.error
-          // (an object with a message); success is its absence. Map to
-          // observeAfter's output.metadata.error shape.
+          // Pass the WHOLE response through, not just an error flag.
+          //
+          // Origin 2026-10-25 (audit-run-blockers #2, measured): this built
+          // `{ metadata: { error: resp.error ?? null } }` and dropped everything
+          // else — including `exitCode` and `stdout`. `observeAfter` then inferred
+          // "pass" from the ABSENCE of an error, so a red suite that reported no
+          // error object was recorded green. The exit signal now survives the hop.
           const resp = payload.tool_response && typeof payload.tool_response === 'object' ? payload.tool_response : {};
-          const output = { metadata: { error: resp.error ?? null } };
+          const output = {
+            metadata: { error: resp.error ?? null, ...(resp.exitCode !== undefined ? { exitCode: resp.exitCode } : {}) },
+            ...(typeof resp.stdout === 'string' ? { stdout: resp.stdout } : {}),
+            ...(resp.exitCode !== undefined ? { exitCode: resp.exitCode } : {}),
+          };
           observeAfter(cwd, { tool: toolName, args: { command: input.command } }, output);
         }
       } catch {

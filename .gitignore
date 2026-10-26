@@ -1,4 +1,4 @@
-# OS junk
+﻿# OS junk
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -18,7 +18,13 @@ node_modules/
 .tmp/
 .zcode/
 
-# Jev hook state — written into whatever directory a session runs in, never
+# Jev hook state â€” written into whatever directory a session runs in, never
 # committed. `.jev-hook-errors.log` is already covered by *.log above.
 .jev-lane.json
 .jev-gated.json
+
+# Harness-local installs (onboarding writes these per machine, like ~/.pi) —
+# the payload under skills/meta/setup-tna/ is the distributable copy.
+.pi/
+.omp/
+.dsh/

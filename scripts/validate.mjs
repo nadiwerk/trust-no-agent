@@ -96,8 +96,36 @@ const NON_SKILL_TERMS = new Set([
   'outbox', 'currency',
   'IMPLEMENTED-UNVERIFIED', 'SHIPPED', 'ledger.test.jsonl', 'ledger.jsonl',
 ]);
+
+/**
+ * Skill folder names follow `[a-z]+(-[a-z]+)*`. Anything else in backticks is a
+ * FILE, a FIELD, or an identifier — `cordis.patch.yml`, `tna-veto.mjs`,
+ * `testPassFresh` — and cannot be a skill reference. Used by `checkRefs` below
+ * and by the docs/skills/ mirror pass further down.
+ *
+ * Origin 2026-10-25: `checkRefs` treated EVERY backticked token as a skill name,
+ * so documenting the dsh adapter (which necessarily names its files and state
+ * fields) failed CI with five "unknown skill" errors and no doc change could
+ * land. The fix is this shape test — NOT five more entries in NON_SKILL_TERMS,
+ * a list that would grow forever as prose names new files.
+ */
+const SKILL_SHAPED = /^[a-z]+(?:-[a-z]+)*$/;
 const extractBacktickRefs = (text) =>
   [...text.matchAll(/`([A-Za-z0-9][A-Za-z0-9.-]*?)`/g)].map((m) => m[1]);
+
+/**
+ * Skill folder names follow `[a-z]+(-[a-z]+)*`. Anything else in backticks is a
+ * FILE, a FIELD, or an identifier — `cordis.patch.yml`, `tna-veto.mjs`,
+ * `testPassFresh` — and cannot be a skill reference.
+ *
+ * Origin 2026-10-25: `checkRefs` treated EVERY backticked token as a skill name,
+ * so documenting the dsh adapter (which necessarily names its files and state
+ * fields) failed CI with five "unknown skill" errors and no doc change could
+ * land. The fix is the shape test the docs/skills/ mirror pass already used —
+ * NOT five more entries in NON_SKILL_TERMS, a list that would grow forever as
+ * prose names new files. (`SKILL_SHAPED` is declared below with that pass and
+ * reused here.)
+ */
 
 // All tracked-content files (markdown/scripts/configs), skipping gitignored dirs.
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.trust', '.omo', '.omx', '.codegraph']);
@@ -122,6 +150,8 @@ const extractFencedChainRefs = (text) =>
 const checkRefs = (text, source) => {
   for (const ref of new Set([...extractBacktickRefs(text), ...extractFencedChainRefs(text)])) {
     if (NON_SKILL_TERMS.has(ref)) continue;
+    // A token that is not skill-shaped is a file/field/identifier, not a skill.
+    if (!SKILL_SHAPED.test(ref)) continue;
     if (!declaredNames.has(ref) && !folderNames.has(ref))
       err(`${source} references unknown skill: \`${ref}\``);
   }
@@ -153,7 +183,8 @@ for (const cat of categories) {
 // Skill folder names follow `[a-z]+(-[a-z]+)*`; the mirror pages also backtick
 // code identifiers (relay.ts, ECONNRESET, PaymentService.charge) that cannot be
 // skill references, so only skill-shaped tokens are scanned here.
-const SKILL_SHAPED = /^[a-z]+(?:-[a-z]+)*$/;
+// (`SKILL_SHAPED` itself is declared above, beside NON_SKILL_TERMS, because
+// checkRefs — which runs earlier — uses the same test.)
 for (const p of walkFiles(join(ROOT, 'docs', 'skills'))) {
   const text = readFileSync(p, 'utf8');
   for (const ref of new Set([...extractBacktickRefs(text), ...extractFencedChainRefs(text)])) {
