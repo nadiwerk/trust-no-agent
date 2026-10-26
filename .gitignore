@@ -28,3 +28,8 @@ node_modules/
 .pi/
 .omp/
 .dsh/
+# Path-coercion artifacts: a hook that receives a non-string cwd used to build
+# a literal '[object Object]' directory (audit-run-blockers #14). The bug is fixed
+# in logVeto; this pattern keeps a future regression from hiding in git.
+\[object Object\]/
+\[object Object\]
