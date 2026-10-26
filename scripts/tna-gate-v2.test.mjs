@@ -79,7 +79,7 @@ const throwsWith = async (fn) => {
 // ---- C. Fresh pass opens the gate (same boundary, same state — ticket 01/02 reused) ----
 {
   const dir = freshDir();
-  await observeAfter(dir, { tool: 'bash', sessionID: 's', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: {} });
+  await observeAfter(dir, { tool: 'bash', sessionID: 's', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
   const ctx = fakeCtx(dir);
   await plugin.setup(ctx);
   let threw = null;

@@ -49,7 +49,7 @@ const freshDir = () => mkdtempSync(join(tmpdir(), 'tna-gate-'));
 // ---- C. Fresh pass opens the gate ----
 {
   const dir = freshDir();
-  observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: {} });
+  observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
   const v = decideBefore({ dir, tool: 'bash', args: { command: 'git commit -m "feat: x"' } });
   check('C1 commit after a passing test run is ALLOWED', v.allow === true, JSON.stringify(v));
   check('C2 the pass is recorded in the state file', readState(dir).testPassFresh === true, JSON.stringify(readState(dir)));
@@ -93,7 +93,7 @@ const freshDir = () => mkdtempSync(join(tmpdir(), 'tna-gate-'));
 // exec_command session (veto fail-closed forever on the bb/Codex path).
 {
   const dir = freshDir();
-  const recorded = observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: {} });
+  const recorded = observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'node scripts/x.test.mjs' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
   check('G1 a passing test run via exec_command records fresh evidence',
     recorded !== null && readState(dir).testPassFresh === true, JSON.stringify({ recorded, state: readState(dir) }));
   const v = decideBefore({ dir, tool: 'exec_command', args: { command: 'git commit -m "feat: x"' } });

@@ -198,5 +198,43 @@ const check = (label, cond, detail = '') => {
   }
 }
 
+// ---- J. git's own global options do not launder the subcommand (2026-10-25) ----
+// Measured live: `git -C . commit --allow-empty` ran a real commit while
+// `classifyAction` returned gated:false, on every harness — the classifier
+// compared the first word to `git commit` and git's global options (`-C`,
+// `-c`, `--git-dir`, `--no-pager`, …) sit BETWEEN the program and the
+// subcommand. The gate keys on the action the shell will run, so the options
+// are skipped before the subcommand is matched. Read-only git stays open:
+// the fix must not turn `git status` into a false positive.
+{
+  const laundering = [
+    { cmd: 'git -C . commit --allow-empty -m x', label: '-C <path> commit' },
+    { cmd: 'git -c user.name=x commit -m x', label: '-c <k=v> commit' },
+    { cmd: 'git --git-dir=.git commit -m x', label: '--git-dir commit' },
+    { cmd: 'git --no-pager commit -m x', label: '--no-pager commit' },
+    { cmd: 'git -C /repo push origin master', label: '-C <path> push' },
+    { cmd: 'git --no-pager -C . push --force', label: 'stacked global options, push' },
+    { cmd: 'sudo git -C . commit -m x', label: 'global option behind an executing wrapper' },
+  ];
+  for (const { cmd, label } of laundering) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`J1 git global options still gate (${label})`, v.gated === true, JSON.stringify(v));
+  }
+  const readOnly = [
+    { cmd: 'git status', label: 'status' },
+    { cmd: 'git -C . status', label: '-C . status' },
+    { cmd: 'git --no-pager log --oneline -5', label: '--no-pager log' },
+    { cmd: 'git -c core.pager=cat diff', label: '-c <k=v> diff' },
+  ];
+  for (const { cmd, label } of readOnly) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`J2 read-only git stays open (${label})`, v.gated === false, JSON.stringify(v));
+  }
+  // Evidence still opens a laundered commit: the fix must gate the ACTION,
+  // never punish the syntax.
+  const open = classifyAction({ tool: 'bash', args: { command: 'git -C . commit -m x' }, evidence: { testPassFresh: true } });
+  check('J3 fresh evidence opens a laundered commit', open.gated === false, JSON.stringify(open));
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

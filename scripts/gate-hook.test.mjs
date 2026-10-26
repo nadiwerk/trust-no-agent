@@ -196,7 +196,7 @@ const passedDir = () => {
   const d = bareDir();
   mkdirSync(join(d, '.trust'), { recursive: true });
   writeFileSync(join(d, '.trust', 'tna-gate-state.json'),
-    JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: '2026-10-12T00:00:00.000Z' }));
+    JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: new Date().toISOString() }));
   return d;
 };
 {
@@ -437,7 +437,7 @@ const passedDir = () => {
       hook_event_name: 'PostToolUse',
       tool_name: 'Bash',
       tool_input: { command: 'node scripts/foo.test.mjs' },
-      tool_response: { stdout: 'ALL PASS' },
+      tool_response: { stdout: 'ALL PASS', exitCode: 0 },
       cwd: dir,
     }),
     encoding: 'utf8',
