@@ -376,7 +376,19 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
           // else — including `exitCode` and `stdout`. `observeAfter` then inferred
           // "pass" from the ABSENCE of an error, so a red suite that reported no
           // error object was recorded green. The exit signal now survives the hop.
-          const resp = payload.tool_response && typeof payload.tool_response === 'object' ? payload.tool_response : {};
+          //
+          // Origin 2026-10-27 (ads-tracker live, gate denied forever): Claude Code
+          // names the finished tool's result `toolUseResult` —
+          // `{ stdout, stderr, interrupted, isImage, noOutputExpected }` — and
+          // sends NO `tool_response` field at all. Reading only tool_response made
+          // this recorder blind on that harness: a green vitest run recorded
+          // nothing, the state stayed stale, and every commit/push was refused
+          // while the PreToolUse veto kept firing. Read BOTH names, tool_response
+          // preferred (Codex canonical shape) so the two cannot drift apart.
+          const resp =
+            (payload.tool_response && typeof payload.tool_response === 'object' ? payload.tool_response : null) ??
+            (payload.toolUseResult && typeof payload.toolUseResult === 'object' ? payload.toolUseResult : null) ??
+            {};
           const output = {
             metadata: { error: resp.error ?? null, ...(resp.exitCode !== undefined ? { exitCode: resp.exitCode } : {}) },
             ...(typeof resp.stdout === 'string' ? { stdout: resp.stdout } : {}),

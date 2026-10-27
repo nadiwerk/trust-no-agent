@@ -159,12 +159,27 @@ export async function observeAfterWith(store, { tool = '', command = '', pass = 
  * green. The signal is now read positively:
  *   1. a numeric `exitCode`/`exit`/`code` in the output or its metadata;
  *   2. an `[exit code: N]` marker in the output text;
- *   3. an explicit `metadata.error` / `isError` boolean.
+ *   3. an explicit `metadata.error` / `isError` boolean;
+ *   4. a runner FAILURE signature in the text (2026-10-27, measured on
+ *      Claude Code 2.1.305: toolUseResult carries no exit code at all —
+ *      only stdout/stderr/interrupted — so a red vitest run had NO signal and
+ *      recorded nothing, leaving a stale true alive. A runner's own failure
+ *      summary is a positive red signal, not a guess: the framework printed
+ *      it. Pass is STILL never inferred from text — "passed" without an exit
+ *      signal records nothing (record-test-evidence.mjs owns that case).)
  * No signal = null = record NOTHING (a guessed pass is the forgery hole).
  *
  * @param {object} output hook payload output
  * @returns {boolean|null}
  */
+const TEXT_FAILURE_MARKERS = [
+  /Failed Tests \d/i,              // vitest heading
+  /Tests:\s+.*\d+\s+failed/i,      // jest
+  /\d+\s+failed(\s*\||$)/i,        // vitest summary "1 failed | 39 passed"
+  /test result:\s+FAILED/i,        // cargo
+  /^FAIL\s+\S+/m,                  // go test
+];
+
 export function passFromOutput(output) {
   const meta = output?.metadata ?? {};
   const explicit = [output?.exitCode, output?.exit, output?.code, meta.exitCode, meta.exit, meta.code]
@@ -178,6 +193,11 @@ export function passFromOutput(output) {
         : '';
   const marker = /\[exit code: (-?\d+)\]/.exec(text);
   if (marker) return Number(marker[1]) === 0;
+
+  // A failure signature the RUNNER printed is positive red evidence — read it
+  // BEFORE the boolean fallbacks so a red run is never laundered into a pass
+  // by an absent-error shape.
+  if (TEXT_FAILURE_MARKERS.some((re) => re.test(text))) return false;
 
   if (typeof meta.error === 'boolean') return meta.error === false;
   if (typeof output?.isError === 'boolean') return output.isError === false;

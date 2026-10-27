@@ -464,6 +464,103 @@ const passedDir = () => {
   rmSync(dir, { recursive: true, force: true });
 }
 
+// ---- L4. Claude Code names the result field toolUseResult, not tool_response
+// (measured live on ads-tracker 2026-10-26/27: the PreToolUse veto fired, but
+// every green vitest run recorded NOTHING — the gate denied forever and the
+// session's commits had to go out-of-band. The transcript stores the finished
+// tool's result under toolUseResult: { stdout, stderr, interrupted, ... }; the
+// recorder read only tool_response, which this harness never sends, so
+// observeAfter saw `{}` and every signal vanished on the hop. The fix reads
+// BOTH field names, preferring whichever is present.)
+//
+// SECOND MEASURED FACT (same live session): the Claude Code toolUseResult
+// carries NO exit code — only { stdout, stderr, interrupted, isImage,
+// noOutputExpected }, with stderr empty even on red runs. passFromOutput's
+// doctrine ("no signal = null = record NOTHING; a guessed pass is the forgery
+// hole") therefore means the hook can never record a PASS from this shape —
+// that is by design, and the explicit record-test-evidence.mjs path (commit
+// b0f82f4) owns pass evidence on this harness. What the hook CAN do honestly:
+// a run whose stdout carries a runner FAILURE signature is a POSITIVE red
+// signal — recording testPassFresh:false immediately (instead of leaving a
+// stale true alive) is the same doctrine that motivated the 2026-10-25 fix.
+{
+  // RED run through toolUseResult: failure marker = positive red evidence.
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'npx vitest run src/x.test.ts' },
+      toolUseResult: { stdout: '⎯⎯ Failed Tests 1 ⎯⎯\n Tests  1 failed | 39 passed', stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  let state = null;
+  try { state = JSON.parse(readFileSync(join(dir, '.trust', 'tna-gate-state.json'), 'utf8')); } catch { /* reported below */ }
+  check('L4 a FAILED toolUseResult records testPassFresh false (red marker = positive red signal)', r.status === 0 && state?.testPassFresh === false, `exit=${r.status} state=${JSON.stringify(state)}`);
+  check('L5 the recorded command is the vitest invocation', state?.command === 'npx vitest run src/x.test.ts', JSON.stringify(state));
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // tool_response wins when both are present (Codex shape stays canonical), and
+  // a FAILED toolUseResult must record a red state, not silently nothing.
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'npx vitest run src/x.test.ts' },
+      tool_response: { exitCode: 0, stdout: 'ALL PASS' },
+      toolUseResult: { stdout: 'Tests  1 failed | 39 passed', stderr: '', interrupted: false },
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  let state = null;
+  try { state = JSON.parse(readFileSync(join(dir, '.trust', 'tna-gate-state.json'), 'utf8')); } catch { /* reported below */ }
+  check('L6 tool_response takes precedence over toolUseResult when both exist', r.status === 0 && state?.testPassFresh === true, `exit=${r.status} state=${JSON.stringify(state)}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // RED run through toolUseResult without the Failed-Tests heading: a bare
+  // "N failed" summary is still an explicit failure marker.
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'npx vitest run src/x.test.ts' },
+      toolUseResult: { stdout: 'Tests  1 failed | 39 passed', stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  let state = null;
+  try { state = JSON.parse(readFileSync(join(dir, '.trust', 'tna-gate-state.json'), 'utf8')); } catch { /* reported below */ }
+  check('L7 a FAILED toolUseResult records testPassFresh false (a red run is evidence too)', r.status === 0 && state?.testPassFresh === false, `exit=${r.status} state=${JSON.stringify(state)}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // No exit signal AND no failure marker = unknown outcome: records NOTHING
+  // (the doctrine holds — a guessed pass is the forgery hole). This is the
+  // green-run-without-exitCode case on Claude Code 2.1.305: the explicit
+  // record-test-evidence.mjs path owns it, the hook must not guess.
+  const dir = mkdtempSync(join(tmpdir(), 'tna-post-'));
+  const r = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'npx vitest run src/x.test.ts' },
+      toolUseResult: { stdout: 'Test Files  2 passed (2)\n      Tests  40 passed (40)', stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
+      cwd: dir,
+    }),
+    encoding: 'utf8',
+  });
+  check('L8 an exit-less PASS records NOTHING (no guessed pass — explicit path owns it)', r.status === 0 && !existsSync(join(dir, '.trust', 'tna-gate-state.json')), `exit=${r.status}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+
 // ---- M. The receipt rule matches EXECUTION position, not the whole string ----
 // (finding #3, live proof 2026-10-22). receiptVerdict matched /git\s+commit/
 // against the whole command string, so a pure ledger append whose heredoc body
