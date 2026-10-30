@@ -75,13 +75,19 @@ const ALL_LAYERS = { components: { floor: true, hooks: true, overlays: false, ev
   rmSync(dir, { recursive: true, force: true });
 }
 
-// ---- AC2. omp: same two adapters at the home hook dir ----
-// The test cannot write to the real home dir safely, so it asserts the SOURCE
-// payload exists for both adapters (the copy itself is AC1's shape, proven on pi
-// where the target is project-local).
+// ---- AC2. omp: same adapters at the home hook dir ----
 {
   check('AC2a omp veto adapter is shipped', existsSync(join(ROOT, 'veto-hooks', 'omp', 'tna-veto.ts')));
   check('AC2b omp discipline adapter is shipped', existsSync(join(ROOT, 'veto-hooks', 'omp', 'tna-discipline.ts')));
+  check('AC2c omp stop-gate adapter is shipped', existsSync(join(ROOT, 'veto-hooks', 'omp', 'tna-receipts-gate.ts')));
+  check('AC2d omp manual install docs copy all three adapters',
+    (() => {
+      try {
+        const text = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+        return ['tna-veto.ts', 'tna-discipline.ts', 'tna-receipts-gate.ts'].every((f) =>
+          new RegExp(`veto-hooks/omp/${f.replace(/\./g, '\\.')}.*?\\.omp/agent/(hooks/pre|extensions)/${f.replace(/\./g, '\\.')}`, 's').test(text));
+      } catch { return false; }
+    })());
 }
 
 // ---- AC3. dsh: detected, patched, and every profile wired ----

@@ -317,6 +317,10 @@ the gate able to OPEN again:
 ```bash
 mkdir -p ~/.omp/agent/hooks/pre
 cp <trust-no-agent>/veto-hooks/omp/tna-veto.ts ~/.omp/agent/hooks/pre/tna-veto.ts
+# Floor + mandatory-gate + done-gate (manual copy must match the CLI table):
+cp <trust-no-agent>/veto-hooks/omp/tna-discipline.ts ~/.omp/agent/hooks/pre/tna-discipline.ts
+mkdir -p ~/.omp/agent/extensions
+cp <trust-no-agent>/veto-hooks/omp/tna-receipts-gate.ts ~/.omp/agent/extensions/tna-receipts-gate.ts
 ```
 The adapter is self-contained (it imports only `node:fs`/`node:path` — the
 framework tree does not exist beside a home-level hook dir). Verify with the
