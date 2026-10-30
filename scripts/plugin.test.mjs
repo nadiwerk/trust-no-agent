@@ -325,5 +325,34 @@ const skills = canonicalSkills();
   }
 }
 
+// ---- K. Skill-count prose cannot go stale (origin: 2026-10-30 audit).
+// Three files said "11 skills" while the canonical tree held 12, and every
+// gate stayed green because no check read the prose. This pin derives the
+// count from the canonical tree and rejects the stale number in payload text.
+{
+  const canonCount = skills.length;
+  const NUM_WORDS = { 12: 'twelve' };
+  const stale = (t) => /\b(eleven|11)\s+(discipline\s+)?skills?\b/i.test(t);
+  const namesCount = (t) => new RegExp(`\\b${canonCount}\\s+(discipline\\s+)?skills?\\b`, 'i').test(t)
+    || (NUM_WORDS[canonCount] ? new RegExp(`\\b${NUM_WORDS[canonCount]}\\s+(discipline\\s+)?skills?\\b`, 'i').test(t) : false);
+  const payloadFiles = [
+    join(PLUGIN, '.claude-plugin', 'plugin.json'),
+    join(PLUGIN, 'plugin.json'),
+    join(PLUGIN, '.codex-plugin', 'plugin.json'),
+    join(ROOT, 'docs', 'installation.md'),
+  ];
+  for (const f of payloadFiles) {
+    const rel = relative(ROOT, f).split('\\').join('/');
+    const text = readFileSync(f, 'utf8');
+    check(`K1 ${rel} names no stale 11/eleven skill count`, !stale(text), text.match(/\b(eleven|11)\s+(discipline\s+)?skills?\b/i)?.[0] ?? '');
+    check(`K2 ${rel} names the canonical count (${canonCount})`, namesCount(text), `canonical: ${canonCount}`);
+  }
+  const doctorSrc = readFileSync(join(ROOT, 'scripts', 'doctor.mjs'), 'utf8');
+  const fbMatch = doctorSrc.match(/const FALLBACK_SKILLS = \[([\s\S]*?)\];/);
+  const fbNames = fbMatch ? [...fbMatch[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]) : [];
+  check('K3 doctor FALLBACK_SKILLS matches the canonical count', fbNames.length === canonCount, `fallback: ${fbNames.length}, canonical: ${canonCount}`);
+  check('K4 doctor FALLBACK_SKILLS includes setup-tna', fbNames.includes('setup-tna'), fbNames.join(', '));
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll plugin-mirror expectations hold.');
 process.exit(failures ? 1 : 0);
