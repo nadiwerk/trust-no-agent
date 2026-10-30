@@ -222,5 +222,40 @@ function catOf(canonDir, name) {
   return '';
 }
 
+// ---- G. Full gate on Codex = deny (hook) + explicit evidence (command).
+// Origin: 2026-10-26 measured limit on codex 0.163.0 — PostToolUse never
+// spawns, so the automatic recorder cannot open the gate. The honest full
+// gate is therefore two-sided by construction: the hook denies without
+// evidence, and record-test-evidence.mjs opens it after a VERIFIED green run
+// (no --pass flag exists; a forged log is refused). This pin keeps that
+// paired contract from drifting apart: the deny half, the explicit half,
+// the shipped script, and the docs that teach the pair.
+{
+  check('G1 the Codex hooks wire PreToolUse (the deny half)',
+    existsSync(HOOKS) && (() => {
+      try {
+        const j = JSON.parse(readFileSync(HOOKS, 'utf8'));
+        return Boolean(j.hooks?.PreToolUse);
+      } catch { return false; }
+    })());
+  check('G2 record-test-evidence.mjs is shipped in the plugin payload (the open half)',
+    existsSync(join(ROOT, 'plugin', 'scripts', 'record-test-evidence.mjs')));
+  check('G3 the shipped recorder is byte-identical to the canonical script',
+    (() => {
+      try {
+        return readFileSync(join(ROOT, 'plugin', 'scripts', 'record-test-evidence.mjs'), 'utf8') ===
+          readFileSync(join(ROOT, 'scripts', 'record-test-evidence.mjs'), 'utf8');
+      } catch { return false; }
+    })());
+  check('G4 Codex install docs teach the deny+explicit-evidence pair (no wall)',
+    (() => {
+      try {
+        const text = readFileSync(join(ROOT, 'docs', 'installation.md'), 'utf8');
+        const sect = text.split('### Codex')[1]?.split('### ')[0] ?? '';
+        return /record-test-evidence\.mjs/.test(sect) && /PostToolUse/.test(sect);
+      } catch { return false; }
+    })());
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll codex-plugin expectations hold.');
 process.exit(failures ? 1 : 0);

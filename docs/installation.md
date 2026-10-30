@@ -282,6 +282,27 @@ hook whose source is `Plugin — trust-no-agent`. A hook that is installed but n
 trusted shows there and asks for review; a hook that never loaded shows nowhere.
 `node scripts/codex-plugin.test.mjs` pins the manifest shape (C1, C7, F1–F13).
 
+**Full gate on Codex = deny (hook) + explicit evidence (command).** Measured
+2026-10-26 on codex 0.163.0: `PostToolUse` prints "Completed" but never spawns
+the hook command, so the automatic recorder has no event to listen to and a
+green suite writes no evidence. The gate would deny every commit forever — a
+wall, not a gate. The honest pair is: the `PreToolUse` hook denies without
+fresh evidence, and after a green run the agent opens the gate itself with the
+verified explicit path (no `--pass` flag exists; a forged log is refused):
+
+```bash
+# After your test command goes green:
+node <plugin-root>/scripts/record-test-evidence.mjs --run node y.test.mjs
+# Or verify a captured log instead of re-running:
+node <plugin-root>/scripts/record-test-evidence.mjs --from-log /tmp/test.log --command "node y.test.mjs"
+# Then retry the commit — the same gate that denied it now allows it.
+```
+
+Until a Codex build executes `PostToolUse`, skip the recorder-wiring step at
+your peril: without this command the veto cannot open. `node
+scripts/codex-plugin.test.mjs` pins the pair (G1–G4): the deny hook, the
+shipped recorder, and this section teaching both.
+
 ### Hermes Agent
 ```bash
 # AGENTS.md: read natively (priority chain); nothing to do at project root.
