@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.54] - 2026-10-30
+
+### Fixed
+
+- **Codex full gate via deny hook plus verified explicit evidence.**
+  `record-test-evidence.mjs` is now shipped in the plugin payload and taught
+  in the Codex install docs: `PreToolUse` denies without evidence, then the
+  agent opens the gate with `--run` or `--from-log` (runner signature
+  verified, forged logs refused, no `--pass` flag). Pinned by
+  codex-plugin.test.mjs G1–G4. Measured limit stands: `PostToolUse` never
+  spawns on Codex 0.163.0, so the automatic recorder stays silent there.
+- **omp manual install copies all three adapters.** The docs copied only
+  `tna-veto.ts`; the CLI installs veto + discipline + receipts-gate, so a
+  manual copy ran a wall (deny without floor/mandatory/done). Pinned by
+  onboarding-layers.test.mjs AC2c–AC2d.
+- **Skill-count prose corrected to 12.** Three payload descriptions and one
+  install line said 11 while the canonical tree holds 12 (setup-tna missing
+  from the doctor fallback). Pinned by plugin.test.mjs K1–K4.
+
 ## [0.1.53] - 2026-10-26
 
 ### Added
@@ -1474,7 +1493,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...HEAD
+[0.1.54]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...v0.1.54
 [0.1.53]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...v0.1.53
 [0.1.52]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...v0.1.52
 [0.1.51]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.50...v0.1.51
