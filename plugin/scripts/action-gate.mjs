@@ -23,6 +23,8 @@
  * code or assets used.
  */
 
+import { basename, dirname, resolve } from 'node:path';
+
 /**
  * Irreversible-action patterns, matched case-insensitively against bash
  * command text. Literal substrings (not regexes) so the F1 consistency check
@@ -163,21 +165,123 @@ const GIT_GLOBAL_BARE_FLAGS = new Set([
   '--no-lazy-fetch', '--html-path', '--man-path', '--info-path', '--version', '--help',
 ]);
 
+/**
+ * One git global option at `w`, with `next` as the following word.
+ * Returns { name, value, consumed } or null when `w` is not a global option.
+ *
+ * Attached forms are part of git's grammar, not an edge case: `-C.` and
+ * `-Crepo` (short flag + value, no space) and `--git-dir=<path>`. Before
+ * 2026-11-01 only the `=` form was recognized, so `git -C. commit` fell out of
+ * the strip loop at the first word and matched no pattern at all — a real
+ * commit that neither the irreversible gate nor the receipt veto saw.
+ */
+function gitGlobalOption(w, next) {
+  if (GIT_GLOBAL_BARE_FLAGS.has(w)) return { name: w, value: null, consumed: 1 };
+  if (GIT_GLOBAL_VALUE_FLAGS.has(w)) return { name: w, value: typeof next === 'string' ? next : '', consumed: 2 };
+  const eq = w.indexOf('=');
+  if (eq > 0 && GIT_GLOBAL_VALUE_FLAGS.has(w.slice(0, eq)))
+    return { name: w.slice(0, eq), value: w.slice(eq + 1), consumed: 1 };
+  if (w.length > 2 && /^-[A-Za-z]/.test(w) && GIT_GLOBAL_VALUE_FLAGS.has(w.slice(0, 2)))
+    return { name: w.slice(0, 2), value: w.slice(2), consumed: 1 };
+  return null;
+}
+
 /** Drop git global options so the subcommand lands in the head position. */
 function stripGitGlobalOptions(words) {
   let i = 0;
   while (i < words.length) {
-    const w = words[i];
-    const name = w.includes('=') ? w.slice(0, w.indexOf('=')) : w;
-    if (GIT_GLOBAL_VALUE_FLAGS.has(name)) {
-      // `-C.` / `--git-dir=.git` carry their value inline; bare forms take the next word.
-      i += w.includes('=') || w.length > name.length ? 1 : 2;
-      continue;
-    }
-    if (GIT_GLOBAL_BARE_FLAGS.has(name)) { i += 1; continue; }
-    break;
+    const opt = gitGlobalOption(words[i], words[i + 1]);
+    if (!opt) break;
+    i += opt.consumed;
   }
   return words.slice(i);
+}
+
+/** Words of one segment, with quotes consumed — `-C "a b"` is one value. */
+function splitWords(segment) {
+  const words = [];
+  let cur = '';
+  let quote = null;
+  let has = false;
+  // POSIX double quotes keep a backslash LITERAL except before $ ` " \ and a
+  // newline — which is what makes a quoted Windows path (`"C:\Users\…"`) the
+  // path git actually receives, not a mangled one. Escaping every following
+  // character instead is a bash-in-interactive-quotes habit, and it turned
+  // every quoted Windows target into a nonexistent directory (measured
+  // 2026-11-01: `git -C "C:\…\repo" commit` resolved to nothing).
+  const DQ_ESCAPES = new Set(['$', '`', '"', '\\', '\n']);
+  for (let i = 0; i < segment.length; i++) {
+    const ch = segment[i];
+    if (quote === '"') {
+      if (ch === '\\' && i + 1 < segment.length && DQ_ESCAPES.has(segment[i + 1])) { cur += segment[++i]; has = true; continue; }
+      if (ch === '"') { quote = null; continue; }
+      cur += ch;
+      has = true;
+      continue;
+    }
+    if (quote === "'") {
+      if (ch === "'") { quote = null; continue; }
+      cur += ch;
+      has = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; has = true; continue; }
+    if (ch === '\\' && i + 1 < segment.length) { cur += segment[++i]; has = true; continue; }
+    if (/\s/.test(ch)) { if (cur || has) { words.push(cur); cur = ''; has = false; } continue; }
+    cur += ch;
+    has = true;
+  }
+  if (cur || has) words.push(cur);
+  return words;
+}
+
+/**
+ * The work tree a git invocation ACTS ON, resolved against `cwd`, or null when
+ * the command names no target (a plain `git commit` acts on the cwd itself).
+ *
+ * Origin 2026-11-01, measured live on this framework's own release commit: the
+ * receipt veto and the evidence precondition both read from `payload.cwd` —
+ * where the shell happened to be — while `git -C <repo> commit` commits in
+ * <repo>. From a workspace with a ledger and no AGENTS.md/CI, the commit was
+ * refused with "no proof commands declared in <workspace>/AGENTS.md" although
+ * the target repo declared 35. The rule keys on the action the shell runs, so
+ * the repo under test is the repo that action names. Pure: resolution only,
+ * no filesystem access — the caller decides whether the path exists.
+ */
+export function gitTargetDir(command, cwd = '') {
+  const base = String(cwd ?? '');
+  if (!base) return null;
+  const start = resolve(base);
+  for (const raw of splitSegments(stripHeredocBodies(String(command ?? '')))) {
+    const segment = raw.trim().replace(/[)`]+$/, '');
+    if (!segment) continue;
+    const words = splitWords(segment);
+    let i = 0;
+    while (i < words.length && EXEC_WRAPPERS.has(words[i].toLowerCase())) {
+      i++;
+      while (i < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i])) i++;
+      while (i < words.length && words[i].startsWith('-')) i++;
+    }
+    if (i >= words.length) continue;
+    if (words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '') !== 'git') continue;
+    let dir = start;
+    for (let j = i + 1; j < words.length; ) {
+      const opt = gitGlobalOption(words[j], words[j + 1]);
+      if (!opt) break;
+      if (opt.value) {
+        if (opt.name === '-C' || opt.name === '--work-tree') dir = resolve(dir, opt.value);
+        else if (opt.name === '--git-dir') {
+          // `--git-dir=<repo>/.git` names a git directory; the ledger and the
+          // gate allowlist live in the work tree that owns it.
+          const p = resolve(dir, opt.value);
+          dir = basename(p) === '.git' ? dirname(p) : p;
+        }
+      }
+      j += opt.consumed;
+    }
+    return dir === start ? null : dir;
+  }
+  return null;
 }
 
 function matchAtExecution(command, depth = 0) {

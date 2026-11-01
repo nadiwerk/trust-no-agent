@@ -82,7 +82,15 @@ for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
 // categorized skill tree IS the framework checkout (repo mode, strict C2); any
 // other project adopted the skills and is held to the adopter contract, which
 // never FAILs here (see doctor-checks.mjs hookVerdict for why).
-const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md')) || cwd === ROOT;
+//
+// Where the SCRIPT lives is not what the DIRECTORY is (origin 2026-11-01): the
+// old `|| cwd === ROOT` made every distributed payload — plugin/ in the
+// checkout, and the installed plugin cache — claim repo mode, so the strict
+// checkout contract (tracked hooks dir, tracked gate self-test) was applied to
+// a distribution artifact that legitimately carries neither, and doctor
+// reported two FAILs on a correct install. A real checkout already satisfies
+// the skill-tree test above, so the clause only ever fired for payloads.
+const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md'));
 // Working-install signals for the onboarding grandfather verdict (08).
 let hooksWired = false;
 let skillsFound = false;
@@ -130,9 +138,10 @@ try {
 // check RUNS it rather than trusting file presence alone. By design this
 // executes code from the audited tree (the test file is the evidence — roast
 // finding 2026-09-20, security axis): only point doctor at checkouts you
-// already trust enough to run its scripts. A missing test file counts as a
-// failed self-test (the gate cannot prove itself), distinct from a missing
-// gate script (which gateVerdict reports separately).
+// already trust enough to run its scripts. A missing test file is reported as
+// its own fact (`gateTestExists`), distinct from a failing one — the payload
+// never ships `.test.mjs`, so conflating the two accused a green classifier of
+// drift in every payload-based install (origin 2026-11-01).
 {
   const gateScript = join(cwd, 'scripts', 'mandatory-gate.mjs');
   const gateTest = join(cwd, 'scripts', 'mandatory-gate.test.mjs');
@@ -145,7 +154,7 @@ try {
       gateSelfTestPasses = true;
     } catch { /* non-zero exit or spawn failure = self-test failed */ }
   }
-  const res = gateVerdict({ gateExists, gateSelfTestPasses, mode: repoMode ? 'repo' : 'adopter' });
+  const res = gateVerdict({ gateExists, gateTestExists, gateSelfTestPasses, mode: repoMode ? 'repo' : 'adopter' });
   if (res.level === 'fail') fail(res.message);
   else if (res.level === 'warn') warn(res.message);
   else pass(res.message);

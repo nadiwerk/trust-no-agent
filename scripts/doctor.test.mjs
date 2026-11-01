@@ -470,6 +470,61 @@ const ledgerWithDate = (dateStr) =>
     /meterVerdict\s*\(/.test(src), 'no meterVerdict( call in doctor.mjs');
 }
 
+// ---- K9/K10. Gate self-test ABSENT is not the same defect as RED (C8) ----
+// Origin 2026-11-01, measured on a real install: running doctor from the
+// distributed payload (plugin/ in the checkout, or the installed plugin cache)
+// printed "mandatory-gate self-test fails — the classifier drifts from its
+// keyword tables" while the classifier was green. Cause: the payload ships
+// mandatory-gate.mjs but never mandatory-gate.test.mjs (sync-payloads.mjs
+// mirrors same-name .mjs only), so "test file missing" was folded into
+// "self-test failed" and reported as classifier drift — a false diagnosis of
+// the one component that was working.
+//
+// Intent, stated before the fix ran: absence of the test is a DEFECT in a
+// source checkout (the file is tracked and CI runs it) and a STRUCTURAL FACT
+// in a distributed payload (it is not shipped). Different facts, different
+// verdicts. The repo-mode case is a preservation pin whose message assertion
+// is new (it must name the missing file, not accuse the classifier).
+{
+  const absentInAdopter = gateVerdict({ gateExists: true, gateTestExists: false, gateSelfTestPasses: false, mode: 'adopter' });
+  check('K9 a payload that ships the gate without its self-test warns, never fails',
+    absentInAdopter.level === 'warn', JSON.stringify(absentInAdopter));
+  check('K9b the warning says the test is not shipped, not that the classifier drifted',
+    /self-test|test file/.test(absentInAdopter.message) && !/drift/i.test(absentInAdopter.message),
+    absentInAdopter.message);
+  const absentInRepo = gateVerdict({ gateExists: true, gateTestExists: false, gateSelfTestPasses: false, mode: 'repo' });
+  check('K10 a checkout missing its tracked self-test fails, naming the file',
+    absentInRepo.level === 'fail' && /mandatory-gate\.test\.mjs/.test(absentInRepo.message),
+    JSON.stringify(absentInRepo));
+  check('K10b the checkout failure does not accuse the classifier of drift (absence is not redness)',
+    !/drift/i.test(absentInRepo.message), absentInRepo.message);
+  const red = gateVerdict({ gateExists: true, gateTestExists: true, gateSelfTestPasses: false, mode: 'adopter' });
+  check('K10c a test that exists and fails is fail-level in adopter mode too (red is red everywhere)',
+    red.level === 'fail' && /drift/i.test(red.message), JSON.stringify(red));
+}
+
+// ---- K11. Live: doctor run inside the distributed payload must not FAIL ----
+// The seam Master hit, driven end to end rather than through the verdict: the
+// payload directory is doctor's OWN tree (cwd === ROOT) but it is not a source
+// checkout — no categorized skills tree, no tracked hooks dir, no .test.mjs.
+// Treating "where the script lives" as "what the directory is" applied the
+// strict checkout contract to a distribution artifact and produced two false
+// FAILs. Fixture: the repo's own plugin/ payload — a real one, not a mock.
+{
+  const { spawnSync } = await import('node:child_process');
+  const { join: joinK11, dirname: dirnameK11 } = await import('node:path');
+  const { fileURLToPath: fptK11 } = await import('node:url');
+  const hereK11 = dirnameK11(fptK11(import.meta.url));
+  const doctorK11 = joinK11(hereK11, 'doctor.mjs');
+  const payloadK11 = joinK11(hereK11, '..', 'plugin');
+  const r = spawnSync(process.execPath, [doctorK11], { cwd: payloadK11, encoding: 'utf8', timeout: 120000 });
+  const out = String(r.stdout ?? '');
+  const failLines = out.split('\n').filter((l) => l.startsWith('FAIL'));
+  check('K11 doctor run inside the distributed payload reports no installation gap',
+    r.status === 0 && failLines.length === 0,
+    `exit=${r.status} ${failLines.join(' | ').slice(0, 300)}`);
+}
+
 // M1/M2 (hardening-general roast/AC8): the meter block can never fail the
 // install it reports on. Slice the C10 region and assert it contains no
 // fail( invocation and no process.exit — every path warns. An absence test:

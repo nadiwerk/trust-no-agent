@@ -52,7 +52,7 @@ import { parseSkillOverlays } from './overlay-registry.mjs';
 import { composeFloor } from './floor-composer.mjs';
 import { parseStamp } from './onboarding.mjs';
 import { vetoVerdict } from './receipt-enforcement.mjs';
-import { matchesAnyCommand } from './action-gate.mjs';
+import { matchesAnyCommand, gitTargetDir } from './action-gate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -290,7 +290,24 @@ function buildPreToolVerdict(payload) {
         : null;
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : '';
   if (!toolName || !input || !cwd) return null;
-  return decideBefore({ dir: cwd, tool: toolName, args: input });
+  // Evidence belongs to the repo the action targets (2026-11-01, same class as
+  // receiptVerdict below): a cwd holding a green state file cannot lend it to a
+  // commit in a different repo. A target that does not exist is not evidence
+  // either — the cwd state is the only state on record.
+  const dir = targetDirFor(input, cwd);
+  return decideBefore({ dir, tool: toolName, args: input });
+}
+
+/**
+ * The directory an action is graded against: the git work tree the command
+ * names (`git -C <path>` / `--git-dir` / `--work-tree`), else the cwd itself.
+ * A named target that does not exist falls back to the cwd — the pre-2026-11-01
+ * verdict — rather than resolving to an empty directory that trivially passes.
+ */
+function targetDirFor(input, cwd) {
+  const command = typeof input?.command === 'string' ? input.command : '';
+  const target = command && matchesAnyCommand(command) ? gitTargetDir(command, cwd) : null;
+  return target && existsSync(target) ? target : cwd;
 }
 
 /**
@@ -427,11 +444,19 @@ function receiptVerdict(payload) {
   // use: heredoc bodies are data, segments split at separators, quotes held.
   if (!matchesAnyCommand(cmd)) return null;
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+  // The ledger and the allowlist belong to the repo the COMMIT targets, not to
+  // wherever the shell stood (2026-11-01, measured live on this framework's own
+  // release commit). From a workspace ledger with no AGENTS.md/CI, `git -C
+  // <repo> commit` was denied with "no proof commands declared in
+  // <workspace>/AGENTS.md" while the same action from the repo root was
+  // allowed — the veto graded the wrong tree in both directions. A named target
+  // that does not exist is graded at the cwd, never silently allowed.
+  const root = targetDirFor(payload.tool_input ?? payload.args ?? {}, cwd);
   let ledgerText = '';
-  try { ledgerText = readFileSync(join(cwd, '.trust', 'progress.txt'), 'utf8'); } catch { /* no ledger */ }
-  // The allowlist is the PROJECT's, resolved from the same cwd the ledger came
+  try { ledgerText = readFileSync(join(root, '.trust', 'progress.txt'), 'utf8'); } catch { /* no ledger */ }
+  // The allowlist is the PROJECT's, resolved from the same root the ledger came
   // from (F1, 2026-10-21): the framework's own gates graded an adopter's claim.
-  return vetoVerdict({ ledgerText, today: new Date(), root: cwd });
+  return vetoVerdict({ ledgerText, today: new Date(), root });
 }
 
 // Self-execute only when run directly (the repo-wide guard pattern: every

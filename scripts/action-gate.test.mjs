@@ -236,5 +236,65 @@ const check = (label, cond, detail = '') => {
   check('J3 fresh evidence opens a laundered commit', open.gated === false, JSON.stringify(open));
 }
 
+// ---- K. Attached git option values do not launder the subcommand (2026-11-01) ----
+// Measured on the shipped 0.1.53 module before this fix: `git -Crepo commit -m x`
+// and `git -C. commit -m x` both returned gated:false — `stripGitGlobalOptions`
+// recognized only the `=` spelling, so a short flag with its value attached
+// stopped the strip loop at the first word and the whole command matched no
+// pattern. A real commit therefore passed BOTH the irreversible gate and the
+// receipt veto. The `-C<path>` form is ordinary git usage (`git -C../repo`).
+{
+  const attached = [
+    { cmd: 'git -Crepo commit -m x', label: '-C<path> commit' },
+    { cmd: 'git -C. commit --allow-empty', label: '-C. commit' },
+    { cmd: 'git --git-dir=.git commit -m x', label: '--git-dir=<path> commit' },
+    { cmd: 'git -Crepo push origin master', label: '-C<path> push' },
+  ];
+  for (const { cmd, label } of attached) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`K1 attached-value global options still gate (${label})`, v.gated === true, JSON.stringify(v));
+  }
+  const open = classifyAction({ tool: 'bash', args: { command: 'git -Crepo commit -m x' }, evidence: { testPassFresh: true } });
+  check('K2 fresh evidence still opens an attached-value commit', open.gated === false, JSON.stringify(open));
+  const readOnly = classifyAction({ tool: 'bash', args: { command: 'git -Crepo status' }, evidence: {} });
+  check('K3 read-only with an attached target stays open', readOnly.gated === false, JSON.stringify(readOnly));
+}
+
+// ---- L. gitTargetDir — which work tree a command ACTS ON (2026-11-01) ----
+// The receipt veto and the evidence precondition graded `payload.cwd`, so
+// `git -C <repo> commit` was judged against the directory the shell stood in.
+// Expected values are hand-written from git's documented option grammar, not
+// read off the implementation.
+{
+  const { gitTargetDir } = await import('./action-gate.mjs');
+  const { resolve } = await import('node:path');
+  // Absolute expectations are platform paths (this suite runs on Windows too),
+  // so the expectation is stated as "the cwd-relative target, resolved" — path
+  // resolution is node's documented contract. WHICH word becomes the target is
+  // the behavior under test, and that stays hand-written per case.
+  const cwd = '/work/agent';
+  const at = (...p) => resolve(cwd, ...p);
+  // Windows absolute paths are quoted (as a shell would carry them): an
+  // unquoted backslash is a POSIX escape, so embedding `C:\repo` raw would
+  // test the escape rule instead of the target rule.
+  const q = (p) => `"${p}"`;
+  const cases = [
+    { cmd: 'git commit -m x', want: null, label: 'no target: the cwd is the target' },
+    { cmd: `git -C ${q(at('/repo'))} commit -m x`, want: at('/repo'), label: '-C <abs>' },
+    { cmd: 'git -C ../repo commit -m x', want: at('../repo'), label: '-C <relative>, resolved against the cwd' },
+    { cmd: 'git -Crepo commit -m x', want: at('repo'), label: '-C<relative>/inline' },
+    { cmd: 'git -C. commit -m x', want: null, label: '-C . names the cwd itself' },
+    { cmd: `git --work-tree=${q(at('/repo'))} commit -m x`, want: at('/repo'), label: '--work-tree=<path>' },
+    { cmd: `git --git-dir=${q(at('/repo/.git'))} commit -m x`, want: at('/repo'), label: '--git-dir names a .git dir: the work tree owns it' },
+    { cmd: `git --git-dir=${q(at('/repo/vcs'))} commit -m x`, want: at('/repo/vcs'), label: '--git-dir with a non-.git name stays as named' },
+    { cmd: `git -c user.name=x -C ${q(at('/repo'))} commit -m x`, want: at('/repo'), label: 'stacked globals, target last' },
+    { cmd: 'cd /repo && git commit -m x', want: null, label: 'a `cd` segment is not a git target' },
+  ];
+  for (const { cmd, want, label } of cases) {
+    const got = gitTargetDir(cmd, cwd);
+    check(`L1 gitTargetDir: ${label}`, got === want, `want=${want} got=${got}`);
+  }
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

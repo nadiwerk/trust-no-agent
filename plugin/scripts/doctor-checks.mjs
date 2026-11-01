@@ -111,13 +111,26 @@ export function blindSpotWarning({ mandatoryMentions = [] } = {}) {
  * scripts not) gets WARN — the gate is not part of the documented adopter
  * install, so its absence is not a defect, only a lost capability.
  *
+ * Absence of the self-TEST is its own fact, not a shade of redness (origin
+ * 2026-11-01, measured on a real install): the distributed payload ships
+ * `mandatory-gate.mjs` and never `mandatory-gate.test.mjs` (`sync-payloads.mjs`
+ * mirrors same-name `.mjs` only), so folding "no test file" into "self-test
+ * failed" accused a green classifier of drift in every payload-based install.
+ * A tracked test missing from a checkout is a defect; a test the distribution
+ * never carries is a lost capability — the C2 lesson applies unchanged.
+ *
  * @returns {{level: 'pass'|'warn'|'fail', message: string}}
  */
-export function gateVerdict({ gateExists, gateSelfTestPasses, mode }) {
+export function gateVerdict({ gateExists, gateTestExists = true, gateSelfTestPasses, mode }) {
   if (!gateExists) {
     if (mode === 'repo')
       return { level: 'fail', message: 'mandatory-gate script missing — MANDATORY routing has no mechanical boundary. Restore scripts/mandatory-gate.mjs (spec: docs/specs/mandatory-gate.md)' };
     return { level: 'warn', message: 'mandatory-gate script not installed (adopter mode) — MANDATORY routing runs on the router prose and the ledger Loaded: trail alone' };
+  }
+  if (!gateTestExists) {
+    if (mode === 'repo')
+      return { level: 'fail', message: 'mandatory-gate self-test file missing — scripts/mandatory-gate.test.mjs is tracked and run by CI, so its absence means this checkout cannot prove the classifier. Restore it from the repo' };
+    return { level: 'warn', message: 'mandatory-gate self-test not shipped with this install — payloads carry the gate, not its test file, so the classifier runs here but cannot prove itself; run node scripts/mandatory-gate.test.mjs from a source checkout' };
   }
   if (!gateSelfTestPasses)
     return { level: 'fail', message: 'mandatory-gate self-test fails — the classifier drifts from its keyword tables; run node scripts/mandatory-gate.test.mjs and reconcile before trusting the audit gate findings' };

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.55] - 2026-11-01
+
+### Fixed
+
+- **Doctor no longer FAILs on a correct payload install.** Two false
+  FAILs, one class: doctor read "where the script lives" as "what the
+  directory is". `repoMode` carried `|| cwd === ROOT`, so every
+  distributed payload — `plugin/` in the checkout and the installed plugin
+  cache — claimed repo mode and was held to the strict checkout contract
+  (tracked hooks dir, tracked gate self-test), neither of which a
+  distribution artifact carries. Separately, C8 folded "no
+  `mandatory-gate.test.mjs`" into "self-test failed" and reported it as
+  *"the classifier drifts from its keyword tables"* — a false diagnosis of
+  the one component that was green (`sync-payloads.mjs` mirrors same-name
+  `.mjs` only, so the payload never ships tests). Absence of the test is
+  now its own input (`gateTestExists`): a FAIL naming the missing file in a
+  checkout, a WARN naming the payload boundary otherwise. Measured on
+  trust-no-agent 0.1.53 installed at `~/.claude/plugins/cache/…`: 2 FAILs
+  before, 0 after. Pinned by doctor.test.mjs K9–K11.
+
+- **The commit veto grades the repo the command targets.** Same class, one
+  layer up: `receiptVerdict` and the evidence precondition both read
+  `payload.cwd` — the directory the shell happened to be in — while
+  `git -C <repo> commit` commits in `<repo>`. Measured live on this
+  framework's own release commit: from an agent workspace holding a ledger
+  and no `AGENTS.md`/CI, `git -C <repo> commit` was refused with *"no proof
+  commands declared in &lt;workspace&gt;/AGENTS.md"* although the target repo
+  declares 35, and the same action from the repo root was allowed. Both read
+  the target now: the ledger and the allowlist come from the work tree the
+  command names (`-C`, `--git-dir`, `--work-tree`, absolute, relative, and
+  inline `-C<path>` forms), falling back to the cwd when no target is named
+  or the named one does not exist. A permissive cwd can no longer launder a
+  bad target's receipt, and fresh test state in one repo no longer licenses a
+  commit in another. Pinned by gate-hook.test.mjs P1–P6 and
+  action-gate.test.mjs L1.
+
+- **`git -C<path>` no longer slips past the irreversible gate.** The global
+  option stripper recognized only the `--flag=value` spelling, so
+  `git -Crepo commit` and `git -C. commit` stopped the strip loop at the
+  first word and matched no pattern at all — a real commit passed both the
+  gate and the veto (measured on the shipped 0.1.53 module: `gated:false`).
+  Short flags with an attached value are now parsed as git's own grammar
+  describes them. Pinned by action-gate.test.mjs K1–K3.
+
 ## [0.1.54] - 2026-10-30
 
 ### Fixed
@@ -1493,7 +1537,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...HEAD
+[0.1.55]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...v0.1.55
 [0.1.54]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...v0.1.54
 [0.1.53]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...v0.1.53
 [0.1.52]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.51...v0.1.52

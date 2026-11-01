@@ -624,6 +624,134 @@ const passedDir = () => {
   }
 }
 
+// ---- P. The receipt veto grades the repo the COMMIT targets, not the cwd ----
+// Observed live 2026-11-01 (this framework's own release commit): the veto
+// read `.trust/progress.txt` and the allowlist from `payload.cwd` — the
+// directory the shell happened to be in — while the command was
+// `git -C <repo> commit`, which commits in <repo>. Measured: from a workspace
+// with a ledger but no AGENTS.md and no CI, `git -C <tna repo> commit` was
+// REFUSED with "no proof commands declared in <workspace>/AGENTS.md", and the
+// same action run from the repo root was ALLOWED. Both directions must follow
+// the target: a permissive cwd cannot launder a bad target's receipt, and a
+// bare cwd cannot veto a good target's commit.
+{
+  const runIn = (dir, command) => {
+    const r = spawnSync(process.execPath, [HOOK], {
+      input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir }),
+      encoding: 'utf8', timeout: 30000,
+    });
+    return { status: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
+  };
+  const denyOf = (r) => {
+    try { const p = JSON.parse(r.out); return p?.decision === 'block' ? String(p.reason) : null; } catch { return null; }
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  const VALID = [
+    `## ${today}`,
+    '',
+    '### Session Summary - proper receipt',
+    '**Verdict** — the receipt holds',
+    'constraints satisfied — the shape checked',
+    'evidence fresh — node scripts/eval.mjs → 37/37 green',
+    'scope held — 1 file in, 0 out',
+    'subject verified — the seam',
+    'fail-first proven — RED observed',
+    '**Evidence** — the validator output',
+    '**Open** — the wiring',
+    '**Next** — commit',
+  ].join('\n');
+  const BLANKET = `## ${today}\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none`;
+  const seed = (dir, ledger, { gates = true } = {}) => {
+    mkdirSync(join(dir, '.trust'), { recursive: true });
+    writeFileSync(join(dir, '.trust', 'progress.txt'), ledger);
+    writeFileSync(join(dir, '.trust', 'tna-gate-state.json'), JSON.stringify({ testPassFresh: true, command: 'node scripts/x.test.mjs', updatedAt: new Date().toISOString() }));
+    if (gates) writeFileSync(join(dir, 'AGENTS.md'), '# fixture\n\n```proof-commands\nnode scripts/eval.mjs\n```\n');
+  };
+  {
+    // A good target behind a bare cwd: the cwd has a ledger folder and nothing
+    // else (no AGENTS.md, no CI) — exactly the shape of an agent workspace.
+    const repo = mkdtempSync(join(tmpdir(), 'tna-target-good-'));
+    const bare = mkdtempSync(join(tmpdir(), 'tna-cwd-bare-'));
+    seed(repo, VALID);
+    seed(bare, BLANKET, { gates: false });
+    const r = runIn(bare, `git -C "${repo}" commit -m "fix: x"`);
+    check('P1 a commit targeting a good repo is allowed even when the cwd declares no gates',
+      r.status === 0 && r.out.trim() === '', `status=${r.status} out=${r.out.slice(0, 200)}`);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(bare, { recursive: true, force: true });
+  }
+  {
+    // The reverse: a valid cwd cannot launder a target whose newest entry is a
+    // blanket verdict. Without this direction "follow the target" could be
+    // implemented as "always allow", which passes P1 and fails the rule.
+    const repo = mkdtempSync(join(tmpdir(), 'tna-target-bad-'));
+    const good = mkdtempSync(join(tmpdir(), 'tna-cwd-good-'));
+    seed(repo, BLANKET);
+    seed(good, VALID);
+    const r = runIn(good, `git -C "${repo}" commit -m "fix: x"`);
+    check('P2 a commit targeting a repo with a blanket receipt is denied despite a valid cwd',
+      r.status === 0 && /receipt/i.test(String(denyOf(r))), `status=${r.status} out=${r.out.slice(0, 200)}`);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(good, { recursive: true, force: true });
+  }
+  {
+    // git resolves `-C` against the process cwd, so a relative target must be
+    // resolved the same way — including the inline `-C../x` form. The parent
+    // carries a BLANKET ledger and no gates, so a hook reading the cwd denies
+    // and only a hook reading the target allows.
+    const parent = mkdtempSync(join(tmpdir(), 'tna-rel-'));
+    const repo = join(parent, 'repo');
+    mkdirSync(repo, { recursive: true });
+    seed(repo, VALID);
+    seed(parent, BLANKET, { gates: false });
+    const spaced = runIn(parent, 'git -C repo commit -m "fix: x"');
+    const inline = runIn(parent, 'git -Crepo commit -m "fix: x"');
+    check('P3 a relative -C target is resolved against the cwd (spaced form)',
+      spaced.status === 0 && spaced.out.trim() === '', `status=${spaced.status} out=${spaced.out.slice(0, 200)}`);
+    check('P3b a relative -C target is resolved against the cwd (inline -C<path> form)',
+      inline.status === 0 && inline.out.trim() === '', `status=${inline.status} out=${inline.out.slice(0, 200)}`);
+    rmSync(parent, { recursive: true, force: true });
+  }
+  {
+    // `--git-dir=<repo>/.git` names the git directory of a work tree. The
+    // ledger and the allowlist live in that work tree, not in the git dir.
+    const repo = mkdtempSync(join(tmpdir(), 'tna-gitdir-'));
+    const bareCwd = mkdtempSync(join(tmpdir(), 'tna-gitdir-cwd-'));
+    seed(repo, VALID);
+    seed(bareCwd, BLANKET, { gates: false });
+    const r = runIn(bareCwd, `git --git-dir="${join(repo, '.git')}" commit -m "fix: x"`);
+    check('P4 --git-dir=<repo>/.git resolves the veto to that work tree',
+      r.status === 0 && r.out.trim() === '', `status=${r.status} out=${r.out.slice(0, 200)}`);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(bareCwd, { recursive: true, force: true });
+  }
+  {
+    // The evidence precondition is the same class: fresh test state belongs to
+    // the repo whose tests ran. A cwd holding fresh state cannot lend it to a
+    // commit in a repo that has none — that is laundering, not evidence.
+    const repo = mkdtempSync(join(tmpdir(), 'tna-evidence-target-'));
+    const cwdWithState = mkdtempSync(join(tmpdir(), 'tna-evidence-cwd-'));
+    seed(repo, VALID);
+    rmSync(join(repo, '.trust', 'tna-gate-state.json'), { force: true });
+    seed(cwdWithState, VALID);
+    const r = runIn(cwdWithState, `git -C "${repo}" commit -m "fix: x"`);
+    check('P6 a cwd\'s fresh test state does not license a commit in another repo',
+      r.status === 0 && /fresh test evidence/i.test(String(denyOf(r))), `status=${r.status} out=${r.out.slice(0, 200)}`);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(cwdWithState, { recursive: true, force: true });
+  }
+  {
+    // A target that does not exist cannot be graded — fall back to the cwd
+    // (fail-closed: the same verdict the hook gave before the fix).
+    const bare = mkdtempSync(join(tmpdir(), 'tna-missing-'));
+    seed(bare, BLANKET, { gates: false });
+    const r = runIn(bare, 'git -C "/nonexistent/tna-repo" commit -m "fix: x"');
+    check('P5 a nonexistent target falls back to the cwd (never a silent allow)',
+      r.status === 0 && denyOf(r) !== null, `status=${r.status} out=${r.out.slice(0, 200)}`);
+    rmSync(bare, { recursive: true, force: true });
+  }
+}
+
 // ---- N. The manifest wires PostToolUse (finding #1, automated half) ----
 {
   const hooks = JSON.parse(readFileSync(join(HERE, '..', 'plugin', 'hooks', 'hooks.json'), 'utf8'));
