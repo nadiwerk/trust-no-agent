@@ -726,6 +726,30 @@ const passedDir = () => {
     rmSync(bareCwd, { recursive: true, force: true });
   }
   {
+    // The `cd <repo> && git commit` form names its target with shell state
+    // instead of an option. Observed live 2026-11-01 (the first attempt at this
+    // very release commit): the cwd carries a ledger and no gates, the repo
+    // declares them, and the commit was refused — the same false deny the
+    // -C form fixed, reached by a different spelling.
+    const repo = mkdtempSync(join(tmpdir(), 'tna-cdform-repo-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'tna-cdform-cwd-'));
+    seed(repo, VALID);
+    seed(cwd, BLANKET, { gates: false });
+    const spaced = runIn(cwd, `cd "${repo}" && git commit -m "fix: x"`);
+    check('P7 a `cd <repo> && git commit` is graded against the repo it changes into',
+      spaced.status === 0 && spaced.out.trim() === '', `status=${spaced.status} out=${spaced.out.slice(0, 200)}`);
+    // The reverse direction: a cd into a bad repo is still denied.
+    seed(cwd, BLANKET, { gates: false });
+    const bad = mkdtempSync(join(tmpdir(), 'tna-cdform-bad-'));
+    seed(bad, BLANKET);
+    const denied = runIn(cwd, `cd "${bad}" && git commit -m "fix: x"`);
+    check('P7b a `cd <repo> && git commit` into a repo with a blanket receipt is denied',
+      denied.status === 0 && /receipt/i.test(String(denyOf(denied))), `status=${denied.status} out=${denied.out.slice(0, 200)}`);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(bad, { recursive: true, force: true });
+  }
+  {
     // The evidence precondition is the same class: fresh test state belongs to
     // the repo whose tests ran. A cwd holding fresh state cannot lend it to a
     // commit in a repo that has none — that is laundering, not evidence.

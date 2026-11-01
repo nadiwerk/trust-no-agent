@@ -288,7 +288,9 @@ const check = (label, cond, detail = '') => {
     { cmd: `git --git-dir=${q(at('/repo/.git'))} commit -m x`, want: at('/repo'), label: '--git-dir names a .git dir: the work tree owns it' },
     { cmd: `git --git-dir=${q(at('/repo/vcs'))} commit -m x`, want: at('/repo/vcs'), label: '--git-dir with a non-.git name stays as named' },
     { cmd: `git -c user.name=x -C ${q(at('/repo'))} commit -m x`, want: at('/repo'), label: 'stacked globals, target last' },
-    { cmd: 'cd /repo && git commit -m x', want: null, label: 'a `cd` segment is not a git target' },
+    { cmd: `cd ${q(at('/repo'))} && git commit -m x`, want: at('/repo'), label: 'a `cd` before the commit names the target (2026-11-01)' },
+    { cmd: `cd ${q(at('/repo'))} && git status`, want: at('/repo'), label: 'the rule is per git invocation, not per subcommand' },
+    { cmd: 'cd /repo && npm test', want: null, label: 'a `cd` alone names no git target' },
   ];
   for (const { cmd, want, label } of cases) {
     const got = gitTargetDir(cmd, cwd);

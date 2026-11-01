@@ -252,6 +252,17 @@ export function gitTargetDir(command, cwd = '') {
   const base = String(cwd ?? '');
   if (!base) return null;
   const start = resolve(base);
+  // A chain can name its target in shell state rather than in an option:
+  // `cd <repo> && git commit`. Observed live 2026-11-01 on this framework's own
+  // release commit — the first `cd <repo> && git commit` attempt was refused for
+  // the cwd's missing AGENTS.md, the same false deny the `-C` form fixes, reached
+  // by a different spelling. `cd` only moves the tracked directory; it is not a
+  // git target itself, so a chain ending in some other program still returns null.
+  let dir = start;
+  // Which git segment to report: the one whose subcommand is a gated action when
+  // there is one (that is the action being judged), else the last git segment.
+  let gatedTarget = null;
+  let lastTarget = null;
   for (const raw of splitSegments(stripHeredocBodies(String(command ?? '')))) {
     const segment = raw.trim().replace(/[)`]+$/, '');
     if (!segment) continue;
@@ -263,25 +274,36 @@ export function gitTargetDir(command, cwd = '') {
       while (i < words.length && words[i].startsWith('-')) i++;
     }
     if (i >= words.length) continue;
-    if (words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '') !== 'git') continue;
-    let dir = start;
+    const prog = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '');
+    if (prog === 'cd' || prog === 'pushd') {
+      const dest = words[i + 1];
+      // `cd` with no argument, `cd -`, or a variable is not a resolvable target.
+      if (dest && !dest.startsWith('-') && !dest.startsWith('$')) dir = resolve(dir, dest);
+      continue;
+    }
+    if (prog !== 'git') continue;
+    let target = dir;
+    let sub = '';
     for (let j = i + 1; j < words.length; ) {
       const opt = gitGlobalOption(words[j], words[j + 1]);
-      if (!opt) break;
+      if (!opt) { if (!sub) sub = words[j].toLowerCase(); break; }
       if (opt.value) {
-        if (opt.name === '-C' || opt.name === '--work-tree') dir = resolve(dir, opt.value);
+        if (opt.name === '-C' || opt.name === '--work-tree') target = resolve(target, opt.value);
         else if (opt.name === '--git-dir') {
           // `--git-dir=<repo>/.git` names a git directory; the ledger and the
           // gate allowlist live in the work tree that owns it.
-          const p = resolve(dir, opt.value);
-          dir = basename(p) === '.git' ? dirname(p) : p;
+          const p = resolve(target, opt.value);
+          target = basename(p) === '.git' ? dirname(p) : p;
         }
       }
       j += opt.consumed;
+      if (!sub && j < words.length) sub = words[j].toLowerCase();
     }
-    return dir === start ? null : dir;
+    lastTarget = target === start ? null : target;
+    const gated = IRREVERSIBLE_PATTERNS.some((p) => sub === String(p).split(' ')[1]);
+    if (gated) gatedTarget = lastTarget;
   }
-  return null;
+  return gatedTarget ?? lastTarget;
 }
 
 function matchAtExecution(command, depth = 0) {

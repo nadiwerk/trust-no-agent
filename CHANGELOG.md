@@ -37,10 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declares 35, and the same action from the repo root was allowed. Both read
   the target now: the ledger and the allowlist come from the work tree the
   command names (`-C`, `--git-dir`, `--work-tree`, absolute, relative, and
-  inline `-C<path>` forms), falling back to the cwd when no target is named
-  or the named one does not exist. A permissive cwd can no longer launder a
-  bad target's receipt, and fresh test state in one repo no longer licenses a
-  commit in another. Pinned by gate-hook.test.mjs P1–P6 and
+  inline `-C<path>` forms, plus the `cd <repo> && git commit` spelling, which
+  named the same target through shell state), falling back to the cwd when no
+  target is named or the named one does not exist. A permissive cwd can no
+  longer launder a bad target's receipt, and fresh test state in one repo no
+  longer licenses a commit in another. Pinned by gate-hook.test.mjs P1–P7b and
   action-gate.test.mjs L1.
 
 - **`git -C<path>` no longer slips past the irreversible gate.** The global
