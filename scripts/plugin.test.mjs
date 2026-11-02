@@ -147,7 +147,7 @@ const skills = canonicalSkills();
 // Same hazard, five more copies. A harness dir that drifted would ship a stale
 // skill to that harness alone — the hardest kind of drift to notice.
 {
-  const harnesses = ['.claude', '.cursor', '.agents', '.opencode'];
+  const harnesses = ['.claude', '.agents', '.opencode'];
   const mismatched = [];
   for (const h of harnesses) {
     const dir = join(PLUGIN, h, 'skills');
@@ -171,7 +171,7 @@ const skills = canonicalSkills();
 // copy would give one harness a stale procedure, the exact skill-mirror
 // hazard one directory over.
 {
-  const harnesses = ['.claude', '.cursor', '.agents'];
+  const harnesses = ['.claude', '.agents'];
   const mismatched = [];
   for (const h of harnesses) {
     const mirror = join(PLUGIN, h, 'commands', 'setup-tna.md');

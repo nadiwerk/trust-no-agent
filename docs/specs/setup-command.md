@@ -99,7 +99,7 @@ adopter gets the same door.
   question — the agent is the channel, never the decider). (Round 1 Q1)
 - **Form**: a slash-command markdown file — repo `.opencode/command/
   setup-tna.md` + per-harness plugin mirrors (`.claude/commands/`,
-  `.cursor/commands/`, `.agents/commands/`), tracked, guarded byte-identity —
+  `.agents/commands/`), tracked, guarded byte-identity —
   the 11-skill mirror pattern. Verified: none of these paths are gitignored,
   and no command directory exists anywhere yet (this is the first command).
 - **Scope**: the full onboarding flow + the bonus steps — briefing, per-

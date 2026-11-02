@@ -116,7 +116,7 @@ and the exit + update section.
 - **Consent is real**: a declined component is mechanically off; the doctor
   records "declined at onboarding". No menu decoration. (Round 2 Q8)
 - **Discovery scope**: project directories (./skills, project
-  .agents/.claude/.cursor/.opencode skills dirs) + personal directories
+  .agents/.claude/.opencode skills dirs) + personal directories
   (~/.agents/skills, ~/.claude/skills, ~/.omo/agent/skills) — the doctor C3
   discovery surface. (Round 1 Q3)
 - **Merge depth**: propose per skill — name + suggested trigger keywords

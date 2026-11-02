@@ -11,7 +11,7 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
 
 ## Rules
 
-1. **Classify first**: `fast` (1 step, glance-verifiable) → answer directly; `full` (2-4 steps) → short todos + verification; `loop` (multi-stage/multi-file) → full chain + verify each stage. Can't be checked at a glance = not `fast`. Any class: the skill registry is checked once before answering — a matching skill (the framework's own or an external one) is proposed by name and waits for approval. `fast` skips the chain, never the registry (AGENTS.md §1).
+1. **Classify first**: `fast` answers directly; `full` gets short todos + verification; `loop` runs the full chain and verifies each stage. Can't be checked at a glance = not `fast`. Any class: the skill registry is checked once before answering — a matching skill is proposed by name and waits for approval; `fast` skips the chain, never the registry (AGENTS.md §1).
 
 2. **Large features run the canonical chain** (at least 2 of: 3+ files, >30 min, new logic). No coding before spec & tickets exist:
 
@@ -29,9 +29,9 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
 
 4. **Facts are the agent's, decisions are the user's.** Self-made decisions get a `Ruling:` line in the ledger. Iron-Law-4 actions are never a self-made decision — they always wait for explicit sign-off.
 
-5. **Every subagent prompt** carries the 3-line repo rules + 6 sections (TASK/OUTCOME/TOOLS/MUST DO/MUST NOT DO/CONTEXT). Verify subagent output yourself — reports are leads, not evidence. Accepted review findings become permanent router lines — gated, scoped, and reversible (see `docs/rule-inheritance.md`); recurring failures inherit the same way: the fix lands as a rule, not a transcript story.
+5. **Every subagent prompt** carries the repo rules + 6 sections, and a subagent report is a lead, not evidence — you verify it yourself. Accepted review findings become permanent router lines, gated and reversible (AGENTS.md §5, `docs/rule-inheritance.md`).
 
-6. **Log hard rule**: a finished unit of work → append the private ledger (`.trust/progress.txt`, gitignored) (session summary + verification evidence + self-review) before moving to the next one.
+6. **Log hard rule**: a finished unit of work is appended to the private ledger before the next one starts (AGENTS.md §7, `ship-log`).
 
 7. **Recovery after a long pause**: re-read todos + the private ledger + this file + AGENTS.md, state the next step out loud — never resume from partial memory.
 

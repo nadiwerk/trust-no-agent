@@ -629,7 +629,6 @@ const put = (root, name, text) => {
       join(HERE, '..', 'plugin', 'skills', 'setup-tna'),
       join(HERE, '..', 'plugin', '.agents', 'skills', 'setup-tna'),
       join(HERE, '..', 'plugin', '.claude', 'skills', 'setup-tna'),
-      join(HERE, '..', 'plugin', '.cursor', 'skills', 'setup-tna'),
       join(HERE, '..', 'plugin', '.opencode', 'skills', 'setup-tna'),
     ];
     const rel = { omp: join('veto-hooks', 'omp', 'tna-veto.ts'), pi: join('veto-hooks', 'pi', 'tna-veto.ts') };

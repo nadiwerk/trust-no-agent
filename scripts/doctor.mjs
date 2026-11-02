@@ -13,7 +13,7 @@
  *      commit-msg (and, in repo mode, identical to the tracked copies).
  *  C3. Every canonical skill exists in at least one harness discovery path:
  *      ./skills (repo / clone-on-demand), project .agents/.opencode/.claude/
- *      .cursor skills dirs, or ~/.agents/skills (agentskills.io standard).
+ *      skills dirs, or ~/.agents/skills (agentskills.io standard).
  *  C4. Ledger ready: .trust/ either absent-but-creatable on first ship-log
  *      (warn) or present and confirmed gitignored.
  *  C5. Corrective tier enforced: a ledger with entries but no .trust/lessons.md
@@ -180,7 +180,6 @@ pushIfExists(join(cwd, 'skills')); // repo checkout / clone-on-demand layout
 pushIfExists(join(cwd, '.agents', 'skills'));
 pushIfExists(join(cwd, '.opencode', 'skills'));
 pushIfExists(join(cwd, '.claude', 'skills'));
-pushIfExists(join(cwd, '.cursor', 'skills'));
 pushIfExists(join(homedir(), '.agents', 'skills')); // agentskills.io shared path
 const missing = skillNames.filter((name) => !candidates.some((d) => skillPresent(d, name)));
 skillsFound = missing.length === 0;

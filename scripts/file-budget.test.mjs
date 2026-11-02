@@ -34,7 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const GUARD = join(HERE, 'file-budget.mjs');
 
-// The nine setup-tna payload dirs that ship executable scripts beside onboarding.mjs.
+// The eight setup-tna payload dirs that ship executable scripts beside onboarding.mjs.
 const PAYLOAD_DIRS = [
   'skills/meta/setup-tna',
   'plugin/skills/setup-tna',
@@ -42,7 +42,6 @@ const PAYLOAD_DIRS = [
   '.claude/skills/setup-tna',
   'plugin/.agents/skills/setup-tna',
   'plugin/.claude/skills/setup-tna',
-  'plugin/.cursor/skills/setup-tna',
   'plugin/.opencode/skills/setup-tna',
   'plugin/copilot/.agents/skills/setup-tna',
 ];

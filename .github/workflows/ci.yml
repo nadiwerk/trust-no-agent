@@ -108,8 +108,6 @@ jobs:
         run: node scripts/plugin.test.mjs
       - name: Codex plugin payload guard
         run: node scripts/codex-plugin.test.mjs
-      - name: Cursor plugin payload
-        run: node scripts/cursor-plugin.test.mjs
       - name: Marketplace + Copilot payload
         run: node scripts/marketplace-copilot.test.mjs
       - name: File token budget guard

@@ -28,13 +28,18 @@ const check = (label, cond, detail = '') => {
 
 const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
 const makeItSo = readFileSync(join(ROOT, 'skills', 'engineering', 'make-it-so', 'SKILL.md'), 'utf8');
-for (const [label, re] of [
-  ['adapter matrix named', /adapter matrix/i],
-  ['opencode veto adapter named', /tool\.execute\.before/],
-  ['Claude/Codex pre-tool adapter named', /PreToolUse/],
-  ['no-single-API rule literal', /No single harness API carries enforcement/],
+// Retargeted 2026-11-02 (router-trim): the router keeps the matrix NAME and the
+// no-single-API rule; the per-harness wiring lives in docs/compatibility.md with
+// the veto table. A guard still pointed at the router would pass on a router
+// that names nothing — this mirrors check 35 in eval.mjs, which moved with it.
+const compatForMatrix = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
+for (const [label, re, text, where] of [
+  ['adapter matrix named', /adapter matrix/i, agents, 'AGENTS.md §5'],
+  ['opencode veto adapter named', /tool\.execute\.before/, compatForMatrix, 'docs/compatibility.md'],
+  ['Claude/Codex pre-tool adapter named', /PreToolUse/, compatForMatrix, 'docs/compatibility.md'],
+  ['no-single-API rule literal', /No single harness API carries enforcement/, agents, 'AGENTS.md §5'],
 ]) {
-  check(`35 ${label} in AGENTS.md §5`, re.test(agents), String(re));
+  check(`35 ${label} in ${where}`, re.test(text), String(re));
 }
 
 const compat = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');

@@ -483,14 +483,6 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
 # Ensure skill dir name equals frontmatter `name`. Invocation flag honored.
 ```
 
-### Cursor
-```bash
-# AGENTS.md: read natively (project root + subdirs, nested combine).
-# Skills: / .agents/skills/, .cursor/skills/, plus Claude Code/Codex compatibility dirs.
-cp -r <trust-no-agent>/skills/*/* .agents/skills/
-```
-Load timing for AGENTS.md is not documented by Cursor — unknown whether session-start or lazy; the trigger-matrix prose carries the split regardless.
-
 ### Gemini CLI
 ```bash
 # Native file is GEMINI.md; AGENTS.md must be added explicitly.

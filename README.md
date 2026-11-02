@@ -69,7 +69,7 @@ option, not a requirement. Already using skills from another repo
 ([mattpocock/skills](https://github.com/mattpocock/skills),
 [obra/superpowers](https://github.com/obra/superpowers),
 [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills),
-[pstack](https://github.com/cursor/plugins/tree/main/pstack)) — and yours?
+[pstack](https://github.com/backnotprop/pstack)) — and yours?
 Any skill you already have installs alongside TNA: the onboarding detects
 and maps them as overlays, and the receipts, the veto, and the consent gate
 apply to every action regardless of which workflow produced the code.
@@ -158,14 +158,13 @@ The parts that never depend on the model choosing to comply:
   actions wait for sign-off.
 - **Veto** — irreversible actions are denied, not discouraged: `git commit`,
   `git push`, `npm publish`, `rm -rf` are blocked until fresh test evidence
-  exists (see the TNA gates below). The veto layer reaches six harnesses
-  (OpenCode, Claude Code, Codex, OMP, Pi, Cursor — the Cursor deny contract
-  is wired but doc-first until a live deny fires on a real session), each
+  exists (see the TNA gates below). The veto layer reaches five harnesses
+  (OpenCode, Claude Code, Codex, OMP, Pi), each
   with a real deny contract where proven.
 - **TNA gates** — the named enforcement core behind the veto: `tna-gate`
   records session evidence (which test commands ran and whether they exited
   clean) in `.trust/tna-gate-state.json`, and `action-gate` classifies
-  irreversible commands against that record. The same core runs on all six
+  irreversible commands against that record. The same core runs on all five
   harnesses, so the veto follows you across tools.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.

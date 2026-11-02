@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.56] - 2026-11-02
+
+### Changed
+
+- **The router costs less to carry.** `AGENTS.md` went from ~4,392 to ~3,713
+  tokens (152 → 138 lines) and `WORKFLOW.md` from ~1,265 to ~1,189, with no
+  rule removed: the discipline floor that a harness re-injects after
+  compaction is byte-identical before and after. Three moves, each one
+  verified against the checks that pin it:
+  (a) §5's per-harness adapter wiring moved to `docs/compatibility.md`, which
+  already carried the veto table, the two-sided-proof rule, and the
+  four-layer matrix — the router keeps the rule and the name, the docs keep
+  the detail, and both guards (`eval.mjs` #35, `eval-adapter.test.mjs` #35)
+  were retargeted to the file that now holds each marker (proven two-sided:
+  deleting `tool.execute.before` from the doc reddens eval, restoring it
+  greens it);
+  (b) §2's two MANDATORY paragraphs and §6's seven retrospective bullets were
+  compressed to their load-bearing literals — every marker the eval floor
+  pins survives verbatim (compression that dropped
+  `load_skills: ["root-cause"]` was caught red by the floor, not by review);
+  (c) `WORKFLOW.md` rules 1/5/6 lost their duplication of AGENTS.md §1/§5/§7
+  and now point at them. Rules 2, 3, 4, 7, 8, 9 and the four principles are
+  untouched — rule 3 in particular cannot move (the floor extractor matches
+  four literal law stems within a 12-line window).
+
+  Deliberately NOT done: moving `WORKFLOW.md` rule 8 (verification honesty)
+  into `receipts` or rule 9 (session hygiene) into `ship-log`. Checked before
+  deciding — neither skill carries the failure-class taxonomy or the
+  3-hour/150-message ceiling, so that move would ADD standing cost to a skill
+  instead of removing it from the router. The trim stops where it stops being
+  free.
+
+### Removed
+
+- **Cursor support is gone, all of it.** A relevance review of the router
+  found Cursor absent from the AGENTS.md §5 adapter matrix while a full
+  payload shipped for it; the rail was extended instead of either advertised
+  or removed. Measured 2026-11-02: five harnesses carry a two-sided veto
+  proof, Cursor carried a wired-but-never-fired deny contract — a claim
+  without a live run. Deleted: `plugin/.cursor/` (~45 files: 12 skills,
+  commands, hooks, gate-hook shim), `plugin/.cursor-plugin/plugin.json`,
+  `.cursor-plugin/marketplace.json`, and `scripts/cursor-plugin.test.mjs`
+  with its CI step. Docs stop mentioning it: the compatibility matrix row,
+  the installation section, the README veto count (six → five harnesses),
+  and the onboarding/spec discovery-dir note. The Cursor **text** directory
+  `/cursor/plugins` is not a harness claim and stays where it is: the README
+  links pstack's canonical repo instead, and `docs/research-external-workflows.md`
+  keeps its citation (that document is a survey of other workflows, not an
+  install surface). `CHANGELOG` history is untouched — this entry is the
+  removal record, not a rewrite of what shipped before it.
+
 ## [0.1.55] - 2026-11-01
 
 ### Fixed
@@ -1538,7 +1589,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...HEAD
+[0.1.56]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...v0.1.56
 [0.1.55]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...v0.1.55
 [0.1.54]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...v0.1.54
 [0.1.53]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.52...v0.1.53

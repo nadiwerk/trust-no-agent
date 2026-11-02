@@ -47,9 +47,7 @@ Three skills are **MANDATORY**, not advisory (self-trigger proven unreliable —
 
 These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." `scripts/doctor.mjs` verifies the installation stays intact; the CI eval floor guards this section's presence.
 
-**Mechanical boundary (mandatory-gate).** `scripts/mandatory-gate.mjs` classifies task text (bilingual EN/ID, keyword patterns, binary verdicts) against the three MANDATORY domains — a keyword signal to verify, never proof. Spec and provenance: `docs/specs/mandatory-gate.md`.
-
-**Audit trail for MANDATORY loads.** Every ledger entry for work in a MANDATORY skill's domain carries a `Loaded: <skill>` line naming the skill actually loaded — without the line, compliance is indistinguishable from a dead skill; a domain-relevant entry missing it is a visible gap (audited by `scripts/ledger-audit.mjs` M1, surfaced by doctor C7).
+**Mechanical boundary.** `scripts/mandatory-gate.mjs` classifies task text against the three domains — a keyword signal to verify, never proof (`docs/specs/mandatory-gate.md`). **Audit trail:** every ledger entry in a MANDATORY domain carries a `Loaded: <skill>` line — missing it makes compliance indistinguishable from a dead skill (ledger-audit M1, doctor C7).
 
 ## 3. The chain (for `loop`-class work)
 
@@ -89,25 +87,13 @@ TIMEBOX: <minutes> — wall-clock budget for the delegate
 PARTIAL: <what to return if the TIMEBOX expires — evidence so far, no new work>
 ```
 
-**Aggregate-report gate.** A delegated report that does not record (a) the exact commit SHA(s) it verified, and (b) the method each measurement used, is DROPPED — a **gap in the report never counts as a pass**. Unverifiable results are reported as unverifiable — never folded into an aggregate "success".
-
-Filled example:
-
-```
-VERIFY: node scripts/doctor.mjs
-TIMEBOX: 10 minutes
-PARTIAL: returns the ERROR lines printed so far and stops — no edits beyond the stated scope
-```
+**Aggregate-report gate.** A delegated report that does not record (a) the exact commit SHA(s) it verified, and (b) the method each measurement used, is DROPPED — a **gap in the report never counts as a pass**. Unverifiable results are reported as unverifiable — never folded into an aggregate "success". Filled example: `VERIFY: node scripts/doctor.mjs` / `TIMEBOX: 10 minutes` / `PARTIAL: returns the ERROR lines printed so far and stops — no edits beyond the stated scope`.
 
 Subagent results are verified by the orchestrator — a report is a lead, not evidence. A verifier that cannot determine an outcome reports `uncertain` with a one-line reason. Parallel writers get one git worktree each; read-only parallel work runs without them.
 
-**Load the MANDATORY skills into every delegation that touches their domain.** A delegation that writes tests or behavior-changing code MUST carry `load_skills: ["expect-fail"]`; one that will fix a bug or diagnose a failure MUST carry `load_skills: ["root-cause"]`; one that will claim done or commit MUST carry `load_skills: ["receipts"]`. On a harness whose delegation tool lacks `load_skills`, the inline procedure carries a `Loaded: <skill>` line and the delegation prompt carries it too — an unloaded skill is a dead skill.
+**Load the MANDATORY skills into every delegation that touches their domain** — behavior-changing code or tests carry `load_skills: ["expect-fail"]`; bug diagnosis `load_skills: ["root-cause"]`; done claims or commits `load_skills: ["receipts"]`. On a harness whose delegation tool lacks `load_skills`, the inline procedure carries a `Loaded: <skill>` line and the delegation prompt carries it too — an unloaded skill is a dead skill.
 
-**Enforcement is an adapter matrix, not one API.** No single harness API carries enforcement. One adapter per harness, same boundary (irreversible actions need sign-off plus fresh evidence; words alone never gate): OMO carries `load_skills` on delegation; opencode carries the tool.execute.before deny-by-throw veto plus the execute.after evidence recorder (`.opencode/plugins/tna-gate/`, evidence in ctx.storage with the project's `.trust/` copy read-preferred); Claude Code and Codex carry the PreToolUse hook veto (`plugin/hooks/hooks.json`, `plugin/hooks/codex.hooks.json`, same state file); omp and pi carry a `tool_call` block hook plus a `tool_result` recorder (`veto-hooks/{omp,pi}/tna-veto.ts`), and pi also carries floor + mandatory-gate + done-gate in one extension (`veto-hooks/pi/tna-discipline.ts`); DeepSeek Harness carries a cordis plugin on the `tools/pre-execute` waterfall plus a `tools/result` recorder (`veto-hooks/dsh/tna-veto.mjs`) and a second plugin on `agent/pre-step` for mandatory-gate + done-gate (`veto-hooks/dsh/tna-discipline.mjs`), both loaded by path from the profile's `cordis.patch.yml` — wire every profile, since a session booted on an unwired one has no veto. Harnesses without a live veto proof stay doc-first WARN — see the veto vs audit-only table in docs/compatibility.md. Where no adapter can run, the inline `Loaded:` fallback is the only layer, and its gap stays countable, never silent.
-
-**A veto proof is two-sided.** Deny without fresh evidence, then a green test run, then the same irreversible action ALLOWED — a denial alone cannot distinguish a working gate from a permanent block, and the pi/omp adapters spent a release in exactly that state (no recorder, so `testPassFresh` could only ever read false; measured live 2026-10-25).
-
-**A veto is one of four layers, not "TNA installed".** The mechanical surface is floor (router injected per session/compaction), mandatory-gate (each prompt classified against the MANDATORY domains), veto (irreversible action refused), and done-gate (completion claim with no verifying tool call flagged) — plus the ledger append-only guard. A harness carrying only the veto enforces roughly a quarter of the discipline while looking installed; the per-harness state of all four is the full-function matrix in docs/compatibility.md, audited 2026-10-25.
+**Enforcement is an adapter matrix, not one API.** No single harness API carries enforcement, and a veto proof is **two-sided** — deny without fresh evidence, then a green test run, then the same action ALLOWED; a denial alone cannot tell a working gate from a permanent block. A veto is also **one of four layers**, not "TNA installed" (floor, mandatory-gate, veto, done-gate, plus the ledger append-only guard). Per-harness wiring, the two-sided proofs, the four-layer matrix, and the `record-test-evidence.mjs` door for harnesses whose `PostToolUse` never fires all live in `docs/compatibility.md`; harnesses without a live proof stay doc-first WARN. Where no adapter can run, the inline `Loaded:` fallback is the only layer, and its gap stays countable, never silent.
 
 The routing graph itself is part of the contract:
 
@@ -126,12 +112,12 @@ Close every `full`/`loop` unit in chat with the 4-block receipt — Verdict / Ev
 Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inheritance.md` register):
 
 - **Narration claims are graded as claims.** Every narration claim needs its own artifact — a promotion claimed requires the ADR file on disk, a user sanction claimed requires it to have actually happened.
-- **Ad-hoc verification never earns SHIPPED.** Verification outside the repo (scratch probes, uncommitted runs) is at most `IMPLEMENTED-UNVERIFIED`; `SHIPPED` requires the committed fail-first test plus a fresh run in-session.
-- **Verify the artifact the user reads, never a proxy.** A claim about a rendered page/site is verified live (curl the deployed URL, open the page); a claim about committed content is verified via `git show`. A green receipt against the wrong target is a false receipt.
-- **Rendered-output claims need rendered evidence** (screenshot/browser check of the actual render), **not a string match on the deployed source.**
-- **Owner visual feedback is a context to confirm, not an order to execute.** Before fixing anything from a screenshot/diagram, restate what is seen — display context, the exact block, the symptom — as a `Context confirmed:` line, and let the owner correct it if wrong. Audited mechanically by `scripts/ledger-audit.mjs` (M3).
-- **Reply shape: no preamble, no recap, no closers.** **Cap lists to 5 items** — beyond that, split into ranked groups. **Matter-of-fact errors** — an error is stated plainly: what failed, the evidence, the next step; no apologizing openers, no softening that buries the failure.
-- **`Next: none` only when the whole thread is closed.** Every close carries one concrete forward arrow in the owner's terms — a named action (which skill, why now) or the one decision the owner owns; "want me to X?" is a hanging offer, not a Next. Mechanical twin: `scripts/ledger-audit.mjs` M7.
+- **Ad-hoc verification never earns SHIPPED.** Verification outside the repo is at most `IMPLEMENTED-UNVERIFIED`; `SHIPPED` requires the committed fail-first test plus a fresh run in-session.
+- **Verify the artifact the user reads, never a proxy** — rendered claims live, committed content via `git show`. A green receipt against the wrong target is a false receipt.
+- **Rendered-output claims need rendered evidence** (screenshot/browser of the render), **not a string match on the deployed source.**
+- **Owner visual feedback is a context to confirm, not an order to execute** — restate it as a `Context confirmed:` line before fixing (ledger-audit M3).
+- **Reply shape: no preamble, no recap, no closers.** **Cap lists to 5 items** — beyond that, split into ranked groups. **Matter-of-fact errors** — what failed, the evidence, the next step; no apologizing openers.
+- **`Next: none` only when the whole thread is closed.** Every close carries one concrete forward arrow — a named action (which skill, why now) or the one decision the owner owns (ledger-audit M7).
 
 ## 7. Ledger
 

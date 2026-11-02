@@ -712,23 +712,28 @@ if (!/Lesson: root_cause = .*\| correction = .*\[YYYY-MM-DD\]/.test(shipLogText)
 // Origin: hardening-general 2026-10-12 (the "dead API" crack — enforcement
 // rode `load_skills`, which does not exist on Claude Code or opencode V2, so a
 // minor harness upgrade broke the whole discipline layer). Check 6b guards the
-// PARAMETERIZED path only; this check guards the matrix: AGENTS.md §5 must
-// name the per-harness adapters (load_skills where it exists, veto hooks
-// where it does not) and state that no single harness API carries
-// enforcement. Fail-first proof: delete the matrix paragraph → RED here;
-// restore → GREEN (spec AC9).
-for (const [marker, why] of [
-  [/adapter matrix/i,
-    '§5 must name the enforcement adapter matrix — one harness API (load_skills) already died under the framework once'],
-  [/tool\.execute\.before/,
-    'the matrix must name the opencode veto adapter (tool.execute.before deny-by-throw)'],
-  [/PreToolUse/,
-    'the matrix must name the Claude/Codex pre-tool veto adapter'],
-  [/No single harness API carries enforcement/,
-    'the matrix must state the no-single-API rule literally — otherwise the next dead parameter silently becomes the only path again'],
+// PARAMETERIZED path only; this check guards the matrix: the router's §5 must
+// name the matrix rule and the docs must carry the per-harness wiring.
+// Retargeted 2026-11-02 (router-trim): the router kept the NAME and the rule
+// and the per-harness wiring moved to docs/compatibility.md, where the veto
+// table and the four-layer matrix already lived — the check follows the
+// content instead of pinning prose the router no longer carries. A guard that
+// stays pointed at the old location would pass on a router that names nothing.
+// Fail-first proof: delete the matrix paragraph from the docs → RED here;
+// restore → GREEN.
+const compatText35 = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
+for (const [marker, where, why] of [
+  [/adapter matrix/i, agentsText2,
+    'AGENTS.md §5 must name the enforcement adapter matrix — one harness API (load_skills) already died under the framework once'],
+  [/No single harness API carries enforcement/, agentsText2,
+    'AGENTS.md §5 must state the no-single-API rule literally — otherwise the next dead parameter silently becomes the only path again'],
+  [/tool\.execute\.before/, compatText35,
+    'docs/compatibility.md must name the opencode veto adapter (tool.execute.before deny-by-throw)'],
+  [/PreToolUse/, compatText35,
+    'docs/compatibility.md must name the Claude/Codex pre-tool veto adapter'],
 ]) {
-  if (!marker.test(agentsText2))
-    err(`AGENTS.md §5 adapter matrix: missing ${marker} — ${why}`);
+  if (!marker.test(where))
+    err(`${marker.source} missing — ${why}`);
 }
 
 // ---- 36. The veto guarantee is legible per harness, doc-first where unproven (HARD) ----

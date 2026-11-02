@@ -1,3 +1,0 @@
-interface:
-  display_name: "Ship Log"
-  short_description: "Append completed work to the ledger"

@@ -591,7 +591,7 @@ function discoveryRoots(cwd) {
   const home = homedir();
   return [
     join(cwd, 'skills'), join(cwd, '.agents', 'skills'), join(cwd, '.claude', 'skills'),
-    join(cwd, '.cursor', 'skills'), join(cwd, '.opencode', 'skills'),
+    join(cwd, '.opencode', 'skills'),
     join(home, '.agents', 'skills'), join(home, '.claude', 'skills'), join(home, '.omo', 'agent', 'skills'),
   ];
 }

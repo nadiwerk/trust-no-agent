@@ -1,3 +1,0 @@
-interface:
-  display_name: "Breakpoint"
-  short_description: "Pause and interview before code runs"

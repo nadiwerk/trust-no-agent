@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Fail-first guard for the Cursor MARKETPLACE listing and the GitHub Copilot
- * plugin payload. RED first (2026-10-18): neither existed.
+ * Fail-first guard for the GitHub Copilot plugin payload. RED first
+ * (2026-10-18): it did not exist.
  *
- * Cursor marketplace: a plugin is marketplace-listable when the repo ships a
- * marketplace manifest (the .cursor-plugin/plugin.json is the PLUGIN manifest;
- * the marketplace needs a listing entry, mirroring how .claude-plugin/
- * marketplace.json lists the Claude plugin).
+ * (The Cursor marketplace listing this file used to pin was removed
+ * 2026-11-02 — Cursor support is not shipped, so there is no listing to
+ * guard. The section was deleted, not weakened.)
  *
  * GitHub Copilot: the repo ships a copilot/ payload with the repo-level
  * AGENTS.md (Copilot coding agent reads it natively) plus the 12 skills via
@@ -26,23 +25,6 @@ const check = (label, cond, detail = '') => {
   if (cond) console.log(`ok - ${label}`);
   else { failures++; console.log(`FAIL - ${label}${detail ? ` :: ${detail}` : ''}`); }
 };
-
-// ---- A. Cursor marketplace listing ----
-{
-  const mp = join(ROOT, '.cursor-plugin', 'marketplace.json');
-  check('A1 .cursor-plugin/marketplace.json exists', existsSync(mp));
-  if (existsSync(mp)) {
-    let m = null;
-    try { m = JSON.parse(readFileSync(mp, 'utf8')); } catch (e) { check('A2 parses as JSON', false, e.message); }
-    if (m) {
-      check('A2 parses as JSON', true);
-      const entry = (m.plugins ?? []).find((p) => p.name === 'trust-no-agent');
-      check('A3 lists trust-no-agent', !!entry);
-      check('A4 the listing points at the plugin payload', entry && String(entry.source ?? '').startsWith('./'), JSON.stringify(entry?.source ?? null));
-      check('A5 the listed source exists on disk', entry && existsSync(join(ROOT, entry.source)));
-    }
-  }
-}
 
 // ---- B. GitHub Copilot plugin payload ----
 {
@@ -99,12 +81,6 @@ const check = (label, cond, detail = '') => {
         listed === pluginManifest.version, `listed=${listed} payload=${pluginManifest.version}`);
     }
   }
-}
-
-// ---- C. The Cursor plugin manifest carries a version matching the release ----
-{
-  const m = JSON.parse(readFileSync(join(PLUGIN, '.cursor-plugin', 'plugin.json'), 'utf8'));
-  check('C1 the Cursor plugin manifest declares a version', typeof m.version === 'string', m.version ?? 'missing');
 }
 
 console.log(failures === 0 ? '\nAll marketplace/copilot expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);
