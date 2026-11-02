@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scanSkillDirs, suggestTriggers, planOnboarding, serializeStamp, parseStamp } from './onboarding.mjs';
+import { scanSkillDirs, suggestTriggers, planOnboarding, serializeStamp, parseStamp, readRouterVersion } from './onboarding.mjs';
 import { parseOverlayFrontmatter } from './overlay-registry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -182,6 +182,67 @@ const put = (root, name, text) => {
   const src = readFileSync(ONBOARD, 'utf8');
   check('E7 the onboarding module names no external product in its strings',
     !/typesafe/i.test(src) && !/\bjev\b/i.test(src), 'external product name found in onboarding.mjs');
+
+  // ---- E8. Bare --refresh on a stamped tree routes to the install path ----
+  // Origin 2026-11-02 (measured): the "refresh on a stamped tree" branch lived
+  // ONLY inside the --from-chat handler, so a bare `--refresh` — the exact
+  // command the doctor's stale-skills warning tells adopters to run — fell
+  // through to the interactive consent flow and aborted fail-closed on EOF.
+  // The repair the doctor names was a dead end. Same-dir runner: seed with
+  // --yes, then refresh the SAME tree, so the assertions read the refresh's
+  // own receipt and stamp.
+  {
+    const dir = tmp('onboard-refresh-');
+    const run = (extraArgs = []) => {
+      const r = spawnSync(process.execPath, [ONBOARD, ...extraArgs], { cwd: dir, input: '', encoding: 'utf8', timeout: 60000 });
+      return { code: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
+    };
+    const stampPath = join(dir, '.trust', 'onboarding.json');
+    const markerPath = join(dir, '.trust', 'tna-version');
+
+    const seed = run(['--yes']);
+    check('E8-pre the seed install writes a stamp to refresh against',
+      seed.code === 0 && existsSync(stampPath), `code=${seed.code}`);
+
+    // Age the stamp deliberately: the refresh must LIFT the version, not
+    // inherit it — a refresh that leaves the stamp at the old version lies
+    // about what landed (measured 2026-11-02: the real stamp sat at 0.1.53
+    // through three releases).
+    const aged = JSON.parse(readFileSync(stampPath, 'utf8'));
+    aged.routerVersion = '0.0.9';
+    writeFileSync(stampPath, JSON.stringify(aged, null, 1));
+
+    const bare = run(['--refresh']);
+    check('E8a a bare --refresh on a stamped tree takes the install path (no consent prompt)',
+      bare.code === 0 && /Refreshed:/.test(bare.out) && !/Enable the session floor/.test(bare.out),
+      `code=${bare.code} out=${bare.out.slice(-200)}`);
+
+    const refreshedStamp = parseStamp(readFileSync(stampPath, 'utf8'));
+    check('E8c a successful refresh stamps the current routerVersion',
+      refreshedStamp && refreshedStamp.routerVersion === readRouterVersion(),
+      `stamp version=${refreshedStamp?.routerVersion}`);
+
+    // E8d: a refresh writes .trust/tna-version — doctor C6 reads it, and
+    // nothing in the CLI ever wrote it (measured: a successful refresh left
+    // the marker stale and the doctor warned "stale" forever). Aged to 0.0.9
+    // alongside the stamp: the refresh must write the CURRENT version.
+    const markerText = existsSync(markerPath) ? readFileSync(markerPath, 'utf8').trim() : null;
+    check('E8d an install/refresh writes .trust/tna-version matching the router version',
+      markerText !== null && /^\d+\.\d+\.\d+$/.test(markerText) && markerText === readRouterVersion(),
+      `marker=${markerText}`);
+
+    // E8b: a bare --refresh with NO stamp refuses with a named next step —
+    // never a consent prompt, never a silent success.
+    const noStamp = tmp('onboard-nostamp-');
+    mkdirSync(noStamp, { recursive: true });
+    const r2 = spawnSync(process.execPath, [ONBOARD, '--refresh'], { cwd: noStamp, input: '', encoding: 'utf8', timeout: 60000 });
+    const both = String(r2.stdout ?? '') + String(r2.stderr ?? '');
+    check('E8b a bare --refresh without a stamp refuses with a named next step, never a consent prompt',
+      r2.status === 1 && /No consent stamp/.test(both) && !/Enable the session floor/.test(both),
+      `code=${r2.status} out=${both.slice(-200)}`);
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(noStamp, { recursive: true, force: true });
+  }
 }
 
 // ---- K. Explicit-only overlays: extends/role optional (onboarding 04) ----

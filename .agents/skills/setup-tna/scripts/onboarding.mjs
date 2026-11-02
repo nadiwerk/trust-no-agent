@@ -467,7 +467,8 @@ function wireDshProfiles(cwd) {
   return touched;
 }
 
-function readRouterVersion() {
+/** Read the router version from the repo CHANGELOG (the one version writer). */
+export function readRouterVersion() {
   try {
     const m = /^## \[(\d+\.\d+\.\d+)\]/m.exec(readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8'));
     return m ? m[1] : '';
@@ -754,6 +755,62 @@ function installLayers({ cwd, harness, components, refresh }) {
   return { copiedAdapters, skippedAdapters, missingAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped };
 }
 
+/**
+ * The refresh install path (origin 2026-10-25, retargeted 2026-11-02):
+ * re-run the INSTALL layers against a stamped tree — never the consent flow.
+ * Runs for `--from-chat --refresh` AND for a bare `--refresh` on a stamped
+ * tree (the bare form is the exact command the doctor's stale-skills warning
+ * tells adopters to run — routing it into the consent flow made the named
+ * repair a dead end; measured 2026-11-02, pinned by onboarding.test E8).
+ * Also writes .trust/tna-version: doctor C6 reads it and nothing else in the
+ * CLI ever did, so a successful refresh left the doctor warning "stale"
+ * forever. Returns a receipt string for the caller to print.
+ */
+function runRefreshInstall({ cwd, components, existing, consentedAt }) {
+  // Refresh EVERY family installed on this machine, not just this project's
+  // harness: an opencode project still carries omp/pi/dsh adapters on the same
+  // disk, and those are exactly the copies that go stale unnoticed (measured
+  // 2026-10-25 — doctor ran in an opencode repo and the pi/omp/dsh adapters
+  // were all behind).
+  const families = new Set(detectHarnessFamilies(cwd));
+  for (const g of detectInstalledAdapters(cwd).groups) families.add(g.harness);
+  const layers = { copiedAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [] };
+  for (const family of families) {
+    const r = installLayers({ cwd, harness: family, components, refresh: true });
+    layers.copiedAdapters.push(...r.copiedAdapters);
+    layers.refreshedAdapters.push(...r.refreshedAdapters);
+    layers.driftedAdapters.push(...r.driftedAdapters);
+    Object.assign(layers.adapterHashes, r.adapterHashes);
+    layers.skillsCopied.push(...r.skillsCopied);
+    layers.skillsSkipped.push(...r.skillsSkipped);
+  }
+  const routerVersion = readRouterVersion();
+  const did = {
+    ...existing.did,
+    copiedAdapters: [...new Set([...(existing.did.copiedAdapters || []), ...layers.copiedAdapters])],
+    refreshedAdapters: layers.refreshedAdapters,
+    driftedAdapters: layers.driftedAdapters,
+    adapterHashes: { ...(existing.did.adapterHashes || {}), ...layers.adapterHashes },
+    skillsCopied: [...new Set([...(existing.did.skillsCopied || []), ...layers.skillsCopied])],
+    skillsSkipped: layers.skillsSkipped,
+    dshProfilesWired: families.has('dsh') ? true : existing.did.dshProfilesWired,
+  };
+  writeFileSync(join(cwd, '.trust', 'onboarding.json'), serializeStamp({ components: existing.components, harness: existing.harness, routerVersion, consentedAt: existing.consentedAt, workflowChoice: existing.workflowChoice, did }));
+  // The version marker doctor C6 reads — a refresh that skipped this left the
+  // doctor warning "stale" about an install it had just refreshed.
+  mkdirSync(join(cwd, '.trust'), { recursive: true });
+  writeFileSync(join(cwd, '.trust', 'tna-version'), routerVersion);
+  return [
+    '',
+    'Receipt',
+    `  Consented: unchanged (consent was recorded ${consentedAt ? consentedAt.slice(0, 10) : 'earlier'}; --refresh never re-asks).`,
+    `  Refreshed: ${layers.refreshedAdapters.length} adapter(s) updated to the shipped copy; ${layers.copiedAdapters.length} newly installed.`,
+    ...(layers.driftedAdapters.length ? [`  Drift: ${layers.driftedAdapters.length} adapter(s) still differ (write failed?) — re-run --refresh.`] : []),
+    `  Skills: ${layers.skillsCopied.length} installed, ${layers.skillsSkipped.length} already present (left untouched).`,
+    '  Next: node scripts/doctor.mjs to confirm every adapter is current.',
+  ].join('\n');
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const cwd = process.cwd();
@@ -911,43 +968,7 @@ async function main() {
       // and exited, so a dsh profile created after the first install was never
       // wired and a shipped adapter update could not be delivered at all.
       if (args.includes('--refresh')) {
-        const harness = detectHarness(cwd);
-        const components = existing.components;
-        // Refresh EVERY family installed on this machine, not just this
-        // project's harness: an opencode project still carries omp/pi/dsh
-        // adapters on the same disk, and those are exactly the copies that go
-        // stale unnoticed (measured 2026-10-25 — doctor ran in an opencode repo
-        // and the pi/omp/dsh adapters were all behind).
-        const families = new Set(detectHarnessFamilies(cwd));
-        for (const g of detectInstalledAdapters(cwd).groups) families.add(g.harness);
-        const layers = { copiedAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [] };
-        for (const family of families) {
-          const r = installLayers({ cwd, harness: family, components, refresh: true });
-          layers.copiedAdapters.push(...r.copiedAdapters);
-          layers.refreshedAdapters.push(...r.refreshedAdapters);
-          layers.driftedAdapters.push(...r.driftedAdapters);
-          Object.assign(layers.adapterHashes, r.adapterHashes);
-          layers.skillsCopied.push(...r.skillsCopied);
-          layers.skillsSkipped.push(...r.skillsSkipped);
-        }
-        const did = {
-          ...existing.did,
-          copiedAdapters: [...new Set([...(existing.did.copiedAdapters || []), ...layers.copiedAdapters])],
-          refreshedAdapters: layers.refreshedAdapters,
-          driftedAdapters: layers.driftedAdapters,
-          adapterHashes: { ...(existing.did.adapterHashes || {}), ...layers.adapterHashes },
-          skillsCopied: [...new Set([...(existing.did.skillsCopied || []), ...layers.skillsCopied])],
-          skillsSkipped: layers.skillsSkipped,
-          dshProfilesWired: families.has('dsh') ? true : existing.did.dshProfilesWired,
-        };
-        writeFileSync(stampPath, serializeStamp({ components: existing.components, harness: existing.harness, routerVersion: readRouterVersion(), consentedAt: existing.consentedAt, workflowChoice: existing.workflowChoice, did }));
-        console.log('');
-        console.log('Receipt');
-        console.log(`  Consented: unchanged (consent was recorded ${existing.consentedAt ? existing.consentedAt.slice(0, 10) : 'earlier'}; --refresh never re-asks).`);
-        console.log(`  Refreshed: ${layers.refreshedAdapters.length} adapter(s) updated to the shipped copy; ${layers.copiedAdapters.length} newly installed.`);
-        if (layers.driftedAdapters.length) console.log(`  Drift: ${layers.driftedAdapters.length} adapter(s) still differ (write failed?) — re-run --refresh.`);
-        console.log(`  Skills: ${layers.skillsCopied.length} installed, ${layers.skillsSkipped.length} already present (left untouched).`);
-        console.log('  Next: node scripts/doctor.mjs to confirm every adapter is current.');
+        console.log(runRefreshInstall({ cwd, components: existing.components, existing, consentedAt: existing.consentedAt }));
         process.exit(0);
       }
       // Mapping-only on a stamped tree: never re-asks consent.
@@ -1121,6 +1142,19 @@ async function main() {
     writeFileSync(join(cwd, '.trust', 'onboarding.json'),
       serializeStamp({ components: stamp.components, harness: stamp.harness, routerVersion: stamp.routerVersion, consentedAt: stamp.consentedAt, did }));
     printMapReceipt(r, stamp);
+    process.exit(0);
+  }
+
+  // Bare --refresh on a stamped tree (E8, origin 2026-11-02): the doctor's
+  // stale-skills warning names `node scripts/onboarding.mjs --refresh` as the
+  // repair — a bare refresh that fell into the consent flow made that named
+  // repair a dead end. A stamped tree goes straight to the install path
+  // (never re-asks consent); a tree with no stamp refuses with the named next
+  // step, exactly like --map-only.
+  if (args.includes('--refresh')) {
+    const stamp = parseStamp((() => { try { return readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8'); } catch { return null; } })());
+    if (!stamp) { console.error('No consent stamp — run node scripts/onboarding.mjs first.'); process.exit(1); }
+    console.log(runRefreshInstall({ cwd, components: stamp.components, existing: stamp, consentedAt: stamp.consentedAt }));
     process.exit(0);
   }
 

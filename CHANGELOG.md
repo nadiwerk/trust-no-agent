@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.57] - 2026-11-02
+
+### Fixed
+
+- **The repair path the doctor names actually works now.** Doctor C6 tells
+  adopters with a stale install to run `node scripts/onboarding.mjs --refresh`
+  — but the "refresh on a stamped tree" branch lived only inside the
+  `--from-chat` handler, so a bare `--refresh` fell through to the interactive
+  consent flow and aborted fail-closed on EOF (measured live on a real stamped
+  tree). The named repair was a dead end. Fixed by extracting the refresh
+  install path into `runRefreshInstall()` and calling it from both routes: a
+  bare `--refresh` on a stamped tree now takes the install path directly
+  (never re-asks consent), and a bare `--refresh` with no stamp refuses with
+  the named "No consent stamp" step (the `--map-only` shape) instead of a
+  consent prompt. Pinned fail-first by `onboarding.test.mjs` E8a/E8b
+  (4 RED with the exact abort output before the fix, GREEN after).
+
+- **A successful refresh no longer leaves the doctor warning "stale".**
+  Nothing in the CLI ever wrote `.trust/tna-version` — doctor C6 reads it,
+  but the marker could only exist if written by hand, so a refresh that
+  landed every adapter still left the doctor warning "installed skills
+  v0.1.53 < upstream" forever (measured 2026-11-02: the real stamp sat at
+  0.1.53 through three releases). `runRefreshInstall()` now writes the
+  marker, and the test ages the stamp to 0.0.9 first so it proves the
+  version RISES rather than being inherited (E8c/E8d).
+
 ## [0.1.56] - 2026-11-02
 
 ### Changed
@@ -1589,7 +1615,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.57...HEAD
+[0.1.57]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...v0.1.57
 [0.1.56]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...v0.1.56
 [0.1.55]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...v0.1.55
 [0.1.54]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.53...v0.1.54
