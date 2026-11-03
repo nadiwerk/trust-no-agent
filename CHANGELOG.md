@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet — 0.1.58 is the current release.
+
+## [0.1.58] - 2026-11-03
+
 ### Fixed
 
 - **A gate that cannot load is silent no more.** `gate-hook.mjs` imported its
@@ -136,6 +140,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cells and no row may repeat a >200-char evidence block. Measured 2026-11-03:
   the Claude row carried its whole evidence block twice (4 cells), which every
   index-based parser read as healthy.
+- `plugin.test.mjs` H4 — **all six** shipped manifests must declare the released
+  version, not the two H2/H3 happened to read. Until this release the Codex,
+  Copilot, portable, and GitHub-marketplace manifests were compared by nothing,
+  so a release could ship four installers still advertising the previous version
+  while the gate stayed green. Proven able to fail: pointing
+  `plugin/copilot/plugin.json` at 0.1.56 produced
+  `H4 ... :: plugin/copilot/plugin.json: 0.1.56` and exit 1.
 
 ### Changed
 
@@ -1769,7 +1780,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.57...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.58...HEAD
+[0.1.58]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.57...v0.1.58
 [0.1.57]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...v0.1.57
 [0.1.56]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...v0.1.56
 [0.1.55]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.54...v0.1.55

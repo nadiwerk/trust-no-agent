@@ -278,6 +278,40 @@ const skills = canonicalSkills();
     plugin.version === released, `plugin.json says ${plugin.version}`);
 }
 
+// ---- H4. Every shipped manifest agrees, not just the two H2/H3 read
+// (measured 2026-11-03 while cutting 0.1.58). H2/H3 covered the Claude
+// marketplace entry and plugin/.claude-plugin/plugin.json; the Codex, Copilot,
+// portable and GitHub-marketplace manifests declared a version NOTHING
+// compared, so a release could ship four installers still advertising the
+// previous one while the gate stayed green. Adding a manifest to this list is
+// the one edit a new installer needs; forgetting it is what H4 now catches.
+{
+  const changelog = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const released = (changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || '';
+  const MANIFESTS = [
+    '.claude-plugin/marketplace.json', '.github/plugin/marketplace.json',
+    'plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json',
+    'plugin/plugin.json', 'plugin/copilot/plugin.json',
+  ];
+  const wrong = [];
+  for (const rel of MANIFESTS) {
+    const p = join(ROOT, rel);
+    if (!existsSync(p)) { wrong.push(`${rel}: MISSING`); continue; }
+    let doc;
+    try { doc = JSON.parse(readFileSync(p, 'utf8')); }
+    catch { wrong.push(`${rel}: unparseable`); continue; }
+    // A marketplace states the fact twice (top-level and its plugin entry).
+    const v = new Set();
+    if (typeof doc.version === 'string') v.add(doc.version);
+    for (const e of Array.isArray(doc.plugins) ? doc.plugins : []) {
+      if (e?.name === 'trust-no-agent' && typeof e.version === 'string') v.add(e.version);
+    }
+    if (v.size === 0) wrong.push(`${rel}: no version`);
+    for (const x of v) if (x !== released) wrong.push(`${rel}: ${x}`);
+  }
+  check(`H4 every shipped manifest declares the released version (${released})`, wrong.length === 0, wrong.join('; '));
+}
+
 // ---- I. Import closure (origin: install-path audit 2026-10-19, the omp
 // failure class on the claude/codex path). gate-hook.mjs imports 6 local
 // modules; onboarding.mjs and receipt-enforcement.mjs were NOT in

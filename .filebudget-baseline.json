@@ -67,7 +67,7 @@
   "scripts/ledger-audit.test.mjs": 13648,
   "scripts/onboarding.mjs": 16061,
   "scripts/onboarding.test.mjs": 14318,
-  "scripts/plugin.test.mjs": 5728,
+  "scripts/plugin.test.mjs": 6181,
   "scripts/receipt-enforcement.mjs": 5320,
   "scripts/receipt-enforcement.test.mjs": 6712,
   "skills/meta/setup-tna/scripts/onboarding.mjs": 16061,
