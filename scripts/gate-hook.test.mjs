@@ -372,8 +372,19 @@ const passedDir = () => {
     // declared" instead of the receipt rule they are named for.
     writeFileSync(join(dir, 'AGENTS.md'), '# fixture\n\n```proof-commands\nnode scripts/eval.mjs\n```\n');
   };
+  // The claim date is TODAY (local frame), not a literal: RECEIPT_STALE_DAYS
+  // (receipt-enforcement.mjs) makes a fixed date go stale 14 days after it
+  // was written — a time-bomb fixture (K2 went red 2026-11-02 on untouched
+  // HEAD). Seeding today keeps the "allowed" case fresh on any machine;
+  // K3/K4 replace() the date to age the receipt on purpose.
+  const now = new Date();
+  const claimDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const daysAgo = (n) => {
+    const d = new Date(now.getTime() - n * 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const GOOD_NEWEST = [
-    '## 2026-10-20',
+    `## ${claimDate}`,
     '',
     '### Session Summary - proper receipt',
     '**Verdict** — the receipt holds',
@@ -406,7 +417,7 @@ const passedDir = () => {
   {
     const dir = tmp('veto-newest-');
     // a VALID receipt in an older entry, blanket in the newest: still denied
-    seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-10-13') + '\n\n## 2026-10-20\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
+    seed(dir, GOOD_NEWEST.replace('## ' + claimDate, '## ' + daysAgo(7)) + '\n\n## ' + claimDate + '\n\n**Verdict** — all five hold\n**Evidence** — everything\n**Open** — none\n**Next** — none');
     const r = runCommit(dir);
     check('K3 the linkage is the newest entry (an older valid receipt does not satisfy it)',
       denyReason(r) !== null && /receipt/i.test(denyReason(r)), `status=${r.status}`);
@@ -415,7 +426,7 @@ const passedDir = () => {
   {
     const dir = tmp('veto-stale-');
     // a valid but OLD (stale) claim: denied until re-verified
-    seed(dir, GOOD_NEWEST.replace('## 2026-10-20', '## 2026-08-01'));
+    seed(dir, GOOD_NEWEST.replace('## ' + claimDate, '## ' + daysAgo(70)));
     const r = runCommit(dir);
     check('K4 a stale claim is denied (re-verify before gating)',
       denyReason(r) !== null && /stale|re-verify/i.test(denyReason(r)), `status=${r.status} out=${r.out.slice(0, 160)}`);

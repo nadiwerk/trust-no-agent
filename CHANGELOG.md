@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.57] - 2026-11-02
 
+### Changed
+
+- **The router's administrative fat is trimmed (§2 + §5), only unpinned rows
+  went.** The three per-stage trigger rows duplicated the canonical chain in
+  §3 (which is the mapping), `stress-test` merged into the large-feature row,
+  and the §5 brief contract collapsed to one fence — the 6-section template
+  now lives in `make-it-so`, whose delegation section owns the shape, with the
+  filled example retained per AC4 (re-aimed at `doctor.mjs` because
+  `validate.mjs` does not ship in the plugin payload). Measured: AGENTS.md
+  3,672 → 3,602 tokens (git frame, bytes/4). The same pass caught a
+  pre-existing time bomb: `gate-hook.test.mjs` K2 seeded a fixed claim date
+  (2026-10-20) that aged past `RECEIPT_STALE_DAYS=14` and went permanently red
+  on untouched `aa9a127` — fixtures now derive their dates from the clock
+  (`daysAgo(n)`), so the "allowed" case stays fresh on any machine.
+
 ### Fixed
 
 - **The repair path the doctor names actually works now.** Doctor C6 tells

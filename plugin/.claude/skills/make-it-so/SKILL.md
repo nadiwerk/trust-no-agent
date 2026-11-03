@@ -51,7 +51,7 @@ When executing through subagents, every delegated prompt MUST include:
 
 - **The 3-line repo rules**: (1) every file change is verified (typecheck/test/error output) before being called done; (2) no refactoring outside the requested scope; (3) no touching files outside the allowed path list.
 - **The 6 sections**: TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT.
-- **The 3 timing fields**: `VERIFY:` (the exact command, not "run the tests"), `TIMEBOX:` (wall-clock minutes), `PARTIAL:` (what the delegate returns if the TIMEBOX expires — evidence so far, no new work). A brief with no TIMEBOX has no partial-return trigger, and one with no exact VERIFY hands the definition of done to the delegate. The template lives in AGENTS.md §5.
+- **The 3 timing fields**: `VERIFY:` (the exact command, not "run the tests"), `TIMEBOX:` (wall-clock minutes), `PARTIAL:` (what the delegate returns if the TIMEBOX expires — evidence so far, no new work). A brief with no TIMEBOX has no partial-return trigger, and one with no exact VERIFY hands the definition of done to the delegate. The full template and a filled example live in this skill; AGENTS.md §5 pins the contract.
 
 A vague prompt means the subagent improvises. Subagent results are verified by the orchestrator — never trusted from the report alone.
 

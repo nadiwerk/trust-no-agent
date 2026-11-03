@@ -20,11 +20,7 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 
 | Situation | Load |
 |---|---|
-| Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) | `breakpoint` — runs the canonical chain (WORKFLOW.md rule 2; variant: `scribe` when decisions should be recorded as ADRs/glossary) |
-| User wants to stress-test a plan | `breakpoint` |
-| Conversation converged, need a written spec | `save-as` |
-| Spec ready, need tickets | `fork-it` |
-| Tickets approved, time to build | `make-it-so` |
+| Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) — or a plan to stress-test | `breakpoint` — runs the canonical chain (WORKFLOW.md rule 2; variant: `scribe` when decisions should be recorded as ADRs/glossary) |
 | Writing tests / building test-first | `expect-fail` **MANDATORY** |
 | Bug / test failure / unexpected behavior | `root-cause` **MANDATORY** |
 | Before any "done" claim, commit, or PR | `receipts` **MANDATORY** |
@@ -71,23 +67,17 @@ Rules:
 
 ## 5. Delegation discipline
 
-Every subagent prompt MUST carry:
+Every subagent prompt carries the `Repo rules:` block + 6 sections (**TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT**) and the execution window — the full template and a filled example live in `make-it-so` (its delegation section owns the shape); §5 pins the contract, not the boilerplate:
 
-```
-Repo rules: (1) every file change is verified (typecheck/test/error output) before it's called done. (2) No refactoring outside the requested scope. (3) No touching files outside the allowed path list.
-```
-
-…plus the 6 sections: **TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT**.
-
-Every brief also binds its execution window:
-
-```
+```text
 VERIFY: <exact command — not "run the tests", the literal command line>
 TIMEBOX: <minutes> — wall-clock budget for the delegate
 PARTIAL: <what to return if the TIMEBOX expires — evidence so far, no new work>
 ```
 
-**Aggregate-report gate.** A delegated report that does not record (a) the exact commit SHA(s) it verified, and (b) the method each measurement used, is DROPPED — a **gap in the report never counts as a pass**. Unverifiable results are reported as unverifiable — never folded into an aggregate "success". Filled example: `VERIFY: node scripts/doctor.mjs` / `TIMEBOX: 10 minutes` / `PARTIAL: returns the ERROR lines printed so far and stops — no edits beyond the stated scope`.
+Filled: `VERIFY: node scripts/doctor.mjs · TIMEBOX: 10 minutes · PARTIAL: ERROR lines found so far, then stops.`
+
+**Aggregate-report gate.** A delegated report that does not record (a) the exact commit SHA(s) it verified, and (b) the method each measurement used, is DROPPED — a **gap in the report never counts as a pass**. Unverifiable results are reported as unverifiable — never folded into an aggregate "success".
 
 Subagent results are verified by the orchestrator — a report is a lead, not evidence. A verifier that cannot determine an outcome reports `uncertain` with a one-line reason. Parallel writers get one git worktree each; read-only parallel work runs without them.
 
