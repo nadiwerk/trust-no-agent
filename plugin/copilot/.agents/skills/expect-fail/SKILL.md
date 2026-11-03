@@ -43,6 +43,16 @@ A **seam** is the public boundary where tests attach: the interface you observe 
 
 The question to settle first: "What's the public interface, and which seams should we test?"
 
+## The impractical-test valve
+
+Iron Law 2 has exactly one documented exit, and it is a finding, not a skip. When **no correct seam exists** — every available seam is too shallow to exercise the real bug pattern at the call site — a regression test there would give false confidence, and **that itself is the finding**: the codebase's architecture is preventing the behavior from being locked down. The loop then closes as:
+
+1. **State the missing-seam finding** — what the behavior needs that no seam provides (multiple callers, a real chain, a boundary the code does not expose).
+2. **Record a `Ruling:`** — `no correct seam for <behavior>; regression test deferred — architecture work needed; cost if wrong: the bug class stays untestable`. A valve without a recorded cost is a silent skip wearing the valve's name.
+3. **Route the finding forward** — it belongs in the review stage (`roast-my-code`) or the next spec, as architecture work, not lost in the transcript.
+
+What the valve never covers: "a test would be slow", "the code is simple", "I'll test it manually" — those are the rationalization table's territory, not the valve's. The valve exists because a test at the wrong seam certifies nothing; it does not exist to make testing optional.
+
 ## Anti-patterns
 
 - **Implementation-coupled** — mocks internal collaborators, reaches into private methods, or checks through a side channel (querying the database instead of using the interface). The tell: a refactor that changes no behavior still breaks the test.
@@ -65,3 +75,4 @@ The question to settle first: "What's the public interface, and which seams shou
 | "Tests after achieve the same goals" | They achieve a different goal: retroactive documentation, not design |
 | "The test passed immediately" | Then it isn't a new test — the behavior already existed. Move it or check your assumptions |
 | "The expected value came from running the code" | That certifies the bug, not the behavior — expected values come from intent (name, spec, requirement), never from observed output |
+| "No correct seam exists, so no test" | The valve, not a skip: state the missing-seam finding, record the `Ruling:` with its cost, route the finding to review — never stop silently |

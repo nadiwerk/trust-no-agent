@@ -4,10 +4,13 @@
  *
  * Two jobs, both driven by the event Claude Code puts on stdin:
  *
- *   SessionStart / PostCompact → inject the discipline floor (Iron Laws +
+ *   SessionStart → inject the discipline floor (Iron Laws +
  *     the MANDATORY section, derived from the live AGENTS.md so the injected
  *     block cannot drift from the rules it re-injects — the same invariant as
- *     scripts/reinject.mjs in the framework repo).
+ *     scripts/reinject.mjs in the framework repo). This single event covers
+ *     startup, resume, and compaction: both harnesses re-fire SessionStart with
+ *     `source: "compact"` after a compaction, and PostCompact cannot carry the
+ *     context (see the handler for the measurements).
  *
  *   UserPromptSubmit → classify the prompt against the three MANDATORY domains
  *     with the framework's own classifier (mandatory-gate.mjs) and inject a
@@ -29,30 +32,88 @@
  *   - THE FLOOR TEXT IS LOADED FROM THE ROUTER, NOT COPIED. If AGENTS.md is
  *     missing, the hook says nothing rather than injecting a stale copy.
  *
- *   - PRETOOL DENY IS THE ONE LOUD EXIT. PreToolUse on a classified
- *     irreversible action without fresh evidence exits 2 with the reason on
- *     stderr (the harness's blocking contract — assumed from the harness
- *     docs, live verification still open). Everything else about this hook
- *     stays fail-open: unparseable input, unknown shapes, and allowed calls
- *     all exit 0 silent. A veto that fires on hook confusion would teach the
- *     user to uninstall it.
+ *   - PRETOOL DENY IS THE ONE LOUD ANSWER. PreToolUse on a classified
+ *     irreversible action without fresh evidence returns a deny decision on
+ *     stdout (exit 0) — see denyPreTool for the shape and the live probes
+ *     behind it. Everything else about this hook stays fail-open: unparseable
+ *     input, unknown shapes, and allowed calls all exit 0 silent. A veto that
+ *     fires on hook confusion would teach the user to uninstall it.
  *
  * Usage (this is a hook, not a CLI):
  *   echo '{"hook_event_name":"UserPromptSubmit","prompt":"fix the crash"}' \
  *     | node gate-hook.mjs
  */
 
-import { readFileSync, existsSync, writeSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * Imports are DYNAMIC so a broken install is loud instead of silent.
+ *
+ * Origin 2026-11-03 (audit P0). These were static imports. A missing or broken
+ * sibling module — a partial payload, a deleted file, a syntax error next door
+ * — made Node exit 1 BEFORE main() ran and printed nothing on stdout, and
+ * main()'s own try/catch cannot catch a module-load throw (measured: a copy of
+ * this file without its siblings exited 1 with ERR_MODULE_NOT_FOUND). On Claude
+ * Code, "exit 1 without valid JSON" is a NON-BLOCKING hook error, so the floor
+ * and the veto vanished for the whole session while the session looked normal;
+ * `--self-check` lives in this same module and could not report it either.
+ * Codex's handling of exit 1 is unverified, which is reason enough not to rely
+ * on it. A load failure is now the documented warn-but-allow answer: exit 0
+ * with a user-visible `systemMessage` that names the gate as inactive.
+ */
+let readFileSync, existsSync, writeSync;
+let dirname, join;
+let fileURLToPath;
+let buildReinject, decideBefore, logVeto, observeAfter, parseSkillOverlays, composeFloor, parseStamp, vetoVerdict, matchesAnyCommand, gitTargetDir;
+let LOAD_ERROR = null;
+try {
+  ({ readFileSync, existsSync, writeSync } = await import('node:fs'));
+  ({ dirname, join } = await import('node:path'));
+  ({ fileURLToPath } = await import('node:url'));
+  ({ buildReinject } = await import('./reinject.mjs'));
+  ({ decideBefore, logVeto, observeAfter } = await import('./tna-gate.mjs'));
+  ({ parseSkillOverlays } = await import('./overlay-registry.mjs'));
+  ({ composeFloor } = await import('./floor-composer.mjs'));
+  ({ parseStamp } = await import('./onboarding.mjs'));
+  ({ vetoVerdict } = await import('./receipt-enforcement.mjs'));
+  ({ matchesAnyCommand, gitTargetDir } = await import('./action-gate.mjs'));
+} catch (err) {
+  LOAD_ERROR = err;
+}
 
-import { buildReinject } from './reinject.mjs';
-import { decideBefore, logVeto, observeAfter } from './tna-gate.mjs';
-import { parseSkillOverlays } from './overlay-registry.mjs';
-import { composeFloor } from './floor-composer.mjs';
-import { parseStamp } from './onboarding.mjs';
-import { vetoVerdict } from './receipt-enforcement.mjs';
-import { matchesAnyCommand, gitTargetDir } from './action-gate.mjs';
+/**
+ * The warning a load failure emits. `systemMessage` is the documented
+ * user-visible field on BOTH harnesses (Claude renders it without turning it
+ * into a decision; Codex carries it as a common output field), and exit 0
+ * blocks nothing. `--self-check` gets the same text as plain lines so the
+ * doctor can tell "installed and quiet" from "installed and broken".
+ */
+function loadFailureMessage() {
+  const detail = String(LOAD_ERROR?.message ?? LOAD_ERROR ?? 'unknown load error').split('\n')[0];
+  return `[trust-no-agent] the gate hook could not load its modules (${detail}). ` +
+    "This session's discipline floor and irreversible-action veto are INACTIVE. " +
+    'Reinstall the plugin or run node plugin/scripts/doctor.mjs, then restart the session.';
+}
+
+/**
+ * True when this file is the process entry point. A load failure may only
+ * exit the process when the HOOK is what the harness ran: imported as a
+ * library (the doctor's overlay scan), the module must fail the import so the
+ * caller can catch it. Measured 2026-11-03: without this guard the load-failure
+ * handler called process.exit(0) inside the doctor and truncated its report
+ * halfway — the shell-configured `systemMessage` even landed in the doctor's
+ * own stdout.
+ */
+const IS_ENTRY = typeof process.argv[1] === 'string' && process.argv[1].endsWith('gate-hook.mjs');
+
+if (LOAD_ERROR) {
+  if (!IS_ENTRY) throw LOAD_ERROR;  // let the importer decide (doctor reports it)
+  try {
+    const selfCheck = process.argv.includes('--self-check');
+    process.stdout.write((selfCheck ? loadFailureMessage() : JSON.stringify({ systemMessage: loadFailureMessage() })) + '\n');
+  } catch {
+    /* nothing left to report through */
+  }
+  process.exit(0);
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..');
@@ -311,17 +372,32 @@ function targetDirFor(input, cwd) {
 }
 
 /**
- * PreToolUse deny (the blocking contract, measured live on codex 0.159.2 —
- * probe14, 2026-10-22): exit 0 + stdout JSON `{"decision":"block","reason"}`.
- * The older exit-2+stderr path FAILS OPEN there (the exit-2 branch requires
- * can_apply_control_effects() and falls to the generic "hook exited with code
- * 2" Failed arm — probes 6-13 every commit landed); the stdout-JSON legacy
- * decision IS enforced and is also a documented Claude Code PreToolUse deny
- * shape, so one shape covers both harnesses. Synchronous stdout write so the
- * payload is flushed before exit on Windows.
+ * PreToolUse deny — the DOCUMENTED decision shape on both harnesses.
+ *
+ * Contract: exit 0 + stdout JSON
+ * `{"hookSpecificOutput":{"hookEventName":"PreToolUse",
+ *   "permissionDecision":"deny","permissionDecisionReason":"…"}}`.
+ *
+ * Why not the other two shapes:
+ *   - exit 2 + stderr FAILS OPEN on codex 0.159.2 (probes 6-13, 2026-10-22:
+ *     every commit landed — the exit-2 branch needs can_apply_control_effects()
+ *     and otherwise falls to the generic "hook exited with code 2" arm).
+ *   - the legacy top-level `{"decision":"block","reason":…}` was enforced there
+ *     (probe14: the model stopped), but Claude Code documents it as DEPRECATED
+ *     for PreToolUse, with `block`/`approve` mapping to `deny`/`allow`.
+ * Codex accepts `hookSpecificOutput.permissionDecision` as well, so this one
+ * shape is documented on both while keeping the exit-0 behaviour that was
+ * proven to hold. Synchronous stdout write so the payload is flushed before
+ * exit on Windows.
  */
 function denyPreTool(reason) {
-  writeSync(1, JSON.stringify({ decision: 'block', reason: `[trust-no-agent] ${reason}` }) + '\n');
+  writeSync(1, JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: `[trust-no-agent] ${reason}`,
+    },
+  }) + '\n');
   process.exit(0);
 }
 
@@ -348,7 +424,17 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
   try {
     if (event === 'UserPromptSubmit') {
       emit(event, buildPromptContext(String(payload.prompt || '')));
-    } else if (event === 'SessionStart' || event === 'PostCompact') {
+    } else if (event === 'SessionStart') {
+      // SessionStart is the ONLY delivery path for the floor, by measurement,
+      // not by preference (2026-11-03). Both harnesses fire it with
+      // `source: "compact"` after a compaction, and it accepts
+      // `hookSpecificOutput.additionalContext`; neither manifest wires
+      // PostCompact any more, because Claude discards `systemMessage`/`continue`
+      // on that event and documents additionalContext only for SessionStart,
+      // SubagentStart and PostModelSwitch, while Codex's PostCompact accepts the
+      // common output fields only. The old `|| event === 'PostCompact'` branch
+      // emitted JSON that both harnesses dropped — a hook that ran and did
+      // nothing, which reads exactly like a hook that worked.
       if (!consent || consent.components.floor !== false) emit(event, buildSessionStartContext());
     } else if (event === 'PreToolUse') {
       let verdict = null;

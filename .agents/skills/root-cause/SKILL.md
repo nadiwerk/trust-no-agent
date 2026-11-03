@@ -1,6 +1,6 @@
 ---
 name: root-cause
-description: "Debugging — find the root cause before proposing any fix. Use when the user reports a bug, error, failure, or unexpected behavior — trigger words: \"broken\", \"500\", \"error\", \"sometimes fails\", \"just add a try/catch\", \"fix it\", \"why is this happening\", \"it doesn't work\". Especially under time pressure, after a previous fix failed, or when the issue isn't fully understood."
+description: "Debugging — find the root cause before proposing any fix. Use when the user reports a bug, error, or failure: broken, 500, sometimes fails, why is this happening."
 ---
 
 # Root Cause

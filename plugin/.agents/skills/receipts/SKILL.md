@@ -1,6 +1,6 @@
 ---
 name: receipts
-description: "Use when the user claims work is done, fixed, passing, shipped, or asks to log/commit/PR it — before accepting any success claim. Trigger words: \"done\", \"shipped\", \"it works\", \"log it\", \"commit\", \"PR\", \"finished\", \"it's ready\". Requires running verification commands (typecheck, tests, lint, build) and confirming output before making any success claim. Receipts or it didn't happen. Failure handling lives in the make-it-so repair-receipt contract; this skill governs success claims only."
+description: "Use when the user says work is done, shipped, or fixed, or asks to commit or open a PR — run the verification commands first and read the output. Receipts or it didn't happen."
 ---
 
 # Receipts

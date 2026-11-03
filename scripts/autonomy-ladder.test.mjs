@@ -189,5 +189,34 @@ const iso = (d) => d.toISOString().slice(0, 10);
     `Los_Angeles=${west} Jakarta=${verdictIn('Asia/Jakarta')} UTC=${verdictIn('UTC')}`);
 }
 
+// H — row SHAPE. The parser reads cells by index (harness=1, Level=3), so a row
+// with an extra cell shifts nothing only when the extra sits at the END: the
+// Level cell stays correct and the drift is invisible. That is exactly what was
+// measured on 2026-11-03 — the Claude row carried its whole evidence block
+// TWICE (4 cells instead of 3), so a reader saw a duplicated wall of text while
+// every parser reported a healthy ladder. Shape is the parser's contract, so it
+// is checked at the parser's own seam.
+{
+  const compat = readFileSync(join(ROOT, 'docs', 'compatibility.md'), 'utf8');
+  const lines = compat.split('\n');
+  const headerIdx = lines.findIndex((l) => /Irreversible-action guarantee/.test(l));
+  const rows = [];
+  for (let i = headerIdx + 2; i < lines.length && lines[i].trim().startsWith('|'); i++) rows.push({ n: i + 1, line: lines[i] });
+  const shaped = rows.map(({ n, line }) => ({ n, cells: line.split('|').length - 2, harness: (line.split('|')[1] || '').trim() }));
+  const malformed = shaped.filter((r) => r.cells !== 3);
+  check('H1 every veto-table row has exactly 3 cells (Harness | guarantee | Level)',
+    malformed.length === 0,
+    malformed.map((r) => `line ${r.n} (${r.harness}) has ${r.cells} cells`).join('; '));
+  // A duplicated evidence block is the shape that hid: same sentence twice. Checked
+  // on content, not cell count, so it cannot be re-introduced by splitting cells.
+  const dup = rows.filter(({ line }) => {
+    const cells = line.split('|').map((c) => c.trim());
+    return cells.length > 4 && cells.slice(1, -1).some((c, i, all) => c.length > 200 && all.findIndex((o) => o === c) !== i);
+  });
+  check('H2 no veto-table row repeats a long evidence block verbatim',
+    dup.length === 0,
+    dup.map((r) => `line ${r.n} repeats a >200-char cell`).join('; '));
+}
+
 console.log(`\n${failures === 0 ? 'ALL PASS' : `FAIL: ${failures} expectation(s) broken.`}`);
 process.exit(failures === 0 ? 0 : 1);

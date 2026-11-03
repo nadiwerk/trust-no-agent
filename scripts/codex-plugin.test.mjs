@@ -127,8 +127,15 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
       }
     }
     check('F6 every declared hook file is a { hooks: { Event: [...] } } document', allParse, JSON.stringify([...events]));
-    check('F7 the set wires SessionStart, PostCompact, UserPromptSubmit and PreToolUse',
-      ['SessionStart', 'PostCompact', 'UserPromptSubmit', 'PreToolUse'].every((e) => events.has(e)),
+    // PostCompact is deliberately ABSENT (2026-11-03): Codex's PostCompact
+    // accepts only the common output fields (continue, stopReason,
+    // systemMessage, suppressOutput) — no additionalContext — so the entry that
+    // used to sit here ran a hook whose JSON was dropped. The floor reaches a
+    // compacted session through SessionStart with source:"compact" instead,
+    // which this manifest keeps unwidened. Asserting the absence pins the
+    // decision; asserting a 4-event list would re-certify the no-op.
+    check('F7 the set wires SessionStart, UserPromptSubmit and PreToolUse (and NOT the undeliverable PostCompact)',
+      ['SessionStart', 'UserPromptSubmit', 'PreToolUse'].every((e) => events.has(e)) && !events.has('PostCompact'),
       JSON.stringify([...events]));
     check('F8 every hook command resolves through ${PLUGIN_ROOT}',
       commands.length >= 4 && commands.every((c) => c.includes('${PLUGIN_ROOT}')), JSON.stringify(commands));

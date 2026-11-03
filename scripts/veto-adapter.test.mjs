@@ -177,6 +177,36 @@ for (const harnessName of ['pi', 'omp']) {
     'node scripts/eval.mjs',
     'cd repo && git commit -m x',
     'npm test; git push origin master',
+    // Widened 2026-11-03 with the canonical gate's own new coverage. A copy that
+    // lags here is a copy that silently allows what the canonical gate refuses:
+    // before this corpus grew, all of these returned irreversible:false on the
+    // pi/omp/dsh adapters while scripts/action-gate.mjs gated them.
+    'git.exe push origin master',
+    '"C:\\Program Files\\Git\\cmd\\git.exe" push origin master',
+    'rm -r -f dist',
+    'rm -fr dist',
+    'rm -f -r dist',
+    'rm --recursive --force dist',
+    'Remove-Item -Recurse -Force dist',
+    'del /s /q dist',
+    'rd /s /q dist',
+    'pnpm publish',
+    'yarn publish',
+    'yarn npm publish',
+    'gh pr merge 12 --squash',
+    'gh release create v1 --notes x',
+    'git push --dry-run',
+    'git commit --help',
+    'npm publish --dry-run',
+    'pnpm publish --dry-run',
+    'gh pr merge --help',
+    'git commit -m "--help"',
+    'git push -o --dry-run origin master',
+    'rm dist',
+    'del dist',
+    'Remove-Item -Force dist',
+    'gh pr view 12',
+    'pnpm install',
   ];
   for (const harnessName of ['pi', 'omp']) {
     const mod = await import(pathToFileURL(join(ROOT, 'veto-hooks', harnessName, 'tna-veto.ts')).href);
@@ -227,6 +257,39 @@ for (const harnessName of ['pi', 'omp']) {
   check(`${harnessName} T3 a look-alike path stays open`, sibling === undefined, JSON.stringify(sibling));
 
   rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- U. A patch is judged by its targets on every adapter (2026-11-03) ----
+// The canonical gate learned this the same day (action-gate Q series): an
+// `apply_patch` carries its diff in `command`, so a patch that UPDATED or
+// DELETED `.trust/progress.txt` rewrote the private ledger, and the adapters'
+// guard read only `path`/`filePath` — measured: both patch shapes returned no
+// block while `scripts/action-gate.mjs` gated them. A patch whose CONTEXT line
+// merely mentions an irreversible action must stay open on the adapters too:
+// text a tool will not execute is data.
+{
+  const patch = (...lines) => ['*** Begin Patch', ...lines, '*** End Patch'].join('\n');
+  for (const harnessName of ['pi', 'omp']) {
+    const adapter = (await import(pathToFileURL(join(ROOT, 'veto-hooks', harnessName, 'tna-veto.ts')).href)).default;
+    const h = makeHarness();
+    adapter(h.pi);
+    const dir = mkdtempSync(join(tmpdir(), `tna-${harnessName}-u-`));
+    for (const [body, label] of [
+      [patch('*** Update File: .trust/progress.txt', '@@', '-old', '+new'), 'Update File'],
+      [patch('*** Delete File: .trust/progress.txt'), 'Delete File'],
+      [patch('*** Update File: .trust/progress.txt', '@@', '+x', '*** Update File: src/a.ts', '+y'), 'ledger named first of two'],
+    ]) {
+      const v = await h.call('tool_call', { toolName: 'apply_patch', input: { command: body } }, { cwd: dir });
+      check(`${harnessName} U1 apply_patch ${label} of the ledger is blocked`, v?.block === true, JSON.stringify(v));
+    }
+    const open = await h.call('tool_call', {
+      toolName: 'apply_patch',
+      input: { command: patch('*** Update File: docs/guide.md', '@@', ' git push origin master', '+git push --force') },
+    }, { cwd: dir });
+    check(`${harnessName} U2 a patch that only MENTIONS the action stays open`,
+      !open || open.block !== true, JSON.stringify(open));
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

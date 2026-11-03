@@ -1,6 +1,6 @@
 ---
 name: breakpoint
-description: Stop execution like a debugger breakpoint — relentlessly interview the user about a plan, decision, or idea until shared understanding is reached, before any code runs. Use when the user wants to stress-test their thinking, before starting any large feature, or when the user says "interview me", "stress-test this plan", or asks to be grilled.
+description: Use when the user wants a plan stress-tested, is starting a large feature, or says "interview me" — interview them until shared understanding is reached, before any code runs.
 ---
 
 # Breakpoint

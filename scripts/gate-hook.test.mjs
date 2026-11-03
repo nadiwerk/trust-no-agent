@@ -25,7 +25,7 @@
  * it would test a different thing than what runs).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -170,24 +170,34 @@ const run = (stdin) => {
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll gate-hook expectations hold.');
 
 // ---- H. PreToolUse veto (hardening-general 04/AC2-AC3) ----
-// The blocking contract (measured live on codex 0.159.2, probe14 2026-10-22):
-// exit 2 + stderr fails open there — the exit-2 branch needs
-// can_apply_control_effects() and falls to the generic "hook exited with code
-// 2" Failed arm, so the commit LANDED. Exit 0 + stdout JSON
-// `{"decision":"block","reason":...}` IS enforced (probe14: model stopped, no
-// commit). That legacy shape is also a documented Claude Code PreToolUse deny
-// path, so one shape covers both harnesses. Exit 0 without a block decision
-// passes silent; errors and unknown shapes stay fail-open (exit 0) — the veto
-// closes on CLASSIFIED irreversible actions, never on hook confusion. Fixtures
-// drive the REAL CLI with temp cwds, never the repo.
+// The blocking contract: exit 0 + stdout JSON carrying
+// `hookSpecificOutput.permissionDecision:"deny"` and its reason. Measured
+// history stays load-bearing: exit 2 + stderr FAILS OPEN on codex (probes
+// 6-13, 2026-10-22 — the commit landed), and the legacy top-level
+// `{"decision":"block"}` was enforced there but Claude Code documents it as
+// DEPRECATED for PreToolUse. The hookSpecificOutput form is the documented
+// decision field on both harnesses (Codex accepts it alongside the legacy
+// one), so the deny rides exit 0 with THAT shape. Exit 0 without a deny is
+// silent; errors and unknown shapes stay fail-open (exit 0) — the veto closes
+// on CLASSIFIED irreversible actions, never on hook confusion. Fixtures drive
+// the REAL CLI with temp cwds, never the repo.
 const runPre = (payload) => {
   const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(payload), encoding: 'utf8' });
   return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? ''), stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 };
-// The deny shape on the new contract: exit 0 + stdout JSON
-// {"decision":"block","reason":"..."} — returns the parsed object or null.
+// The deny shape: exit 0 + stdout JSON carrying the DOCUMENTED decision field
+// `hookSpecificOutput.permissionDecision:"deny"` plus its reason. Claude Code
+// deprecates the top-level `decision` for PreToolUse (its `block`/`approve`
+// values map to `deny`/`allow`), and Codex accepts the hookSpecificOutput form
+// as well as the legacy one, so one shape still covers both harnesses while
+// riding the documented path on each. Returns the parsed object or null.
 const parseDeny = (stdout) => {
-  try { const p = JSON.parse(stdout); return p?.decision === 'block' ? p : null; } catch { return null; }
+  try {
+    const p = JSON.parse(stdout);
+    const hso = p?.hookSpecificOutput;
+    if (hso?.permissionDecision !== 'deny') return null;
+    return { reason: String(hso.permissionDecisionReason ?? ''), hookEventName: hso.hookEventName };
+  } catch { return null; }
 };
 // Combined-stream variant for runners that merge stdout+stderr into `out`.
 const denyReason = (r) => parseDeny(r.out)?.reason ?? null;
@@ -206,10 +216,13 @@ const passedDir = () => {
   // actually enforces — exit-2+stderr failed open there, probes 6-13), parsed
   // back here to stay honest about the shape, not just "exit 2 happened".
   let parsed = null;
-  try { parsed = JSON.parse(stdout); } catch {}
-  check('H1 commit without evidence denies via stdout JSON block decision',
-    code === 0 && parsed?.decision === 'block' && typeof parsed?.reason === 'string' && parsed.reason.length > 0,
-    `exit=${code} stdout=${JSON.stringify(stdout.slice(0, 200))}`);
+  try { parsed = parseDeny(stdout); } catch {}
+  check('H1 commit without evidence denies via hookSpecificOutput.permissionDecision',
+    code === 0 && parsed !== null && parsed.reason.length > 0 && parsed.hookEventName === 'PreToolUse',
+    `exit=${code} stdout=${JSON.stringify(stdout.slice(0, 240))}`);
+  check('H1b the legacy top-level decision field is gone (deprecated for PreToolUse on Claude)',
+    (() => { try { return JSON.parse(stdout)?.decision === undefined; } catch { return false; } })(),
+    stdout.slice(0, 200));
   check('H2 the denial names the missing evidence', /fresh test/i.test(out), out.slice(0, 200));
   check('H6 the denial is logged as one parseable veto-fire line',
     (() => { try { const o = JSON.parse(readFileSync(join(d, '.trust', 'tna-gate-log.jsonl'), 'utf8').trim().split('\n').pop()); return o.tool === 'Bash' && /git commit/.test(o.command); } catch { return false; } })());
@@ -626,10 +639,9 @@ const passedDir = () => {
     const r = runPreCmd(dir, 'git commit -m "feat: x"');
     // Deny rides the exit-0 stdout-JSON contract (see section H): the M-suite
     // asserts the same shape via its combined-stream runner.
-    let parsed = null;
-    try { parsed = JSON.parse(r.out); } catch {}
+    const denyOfM = (text) => parseDeny(text)?.reason ?? null;
     check('M3 a real commit at execution position still fires the receipt veto (control)',
-      r.status === 0 && parsed?.decision === 'block' && /receipt/i.test(String(parsed?.reason)),
+      r.status === 0 && denyOfM(r.out) !== null && /receipt/i.test(String(denyOfM(r.out))),
       `status=${r.status} out=${r.out.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
@@ -653,9 +665,7 @@ const passedDir = () => {
     });
     return { status: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') };
   };
-  const denyOf = (r) => {
-    try { const p = JSON.parse(r.out); return p?.decision === 'block' ? String(p.reason) : null; } catch { return null; }
-  };
+  const denyOf = (r) => parseDeny(r.out)?.reason ?? null;
   const today = new Date().toISOString().slice(0, 10);
   const VALID = [
     `## ${today}`,
@@ -793,6 +803,48 @@ const passedDir = () => {
   const post = hooks?.hooks?.PostToolUse ?? [];
   check('N1 hooks.json carries a PostToolUse entry', Array.isArray(post) && post.length > 0, JSON.stringify(Object.keys(hooks?.hooks ?? {})));
   check('N2 the PostToolUse entry calls gate-hook', JSON.stringify(post).includes('gate-hook.mjs'), JSON.stringify(post).slice(0, 200));
+}
+
+// ---- R. A broken install warns and stays fail-open (2026-11-03) ----
+// The hook's module imports were STATIC, so a missing or broken sibling module
+// (partial install, deleted payload file, syntax error next door) killed Node
+// with exit 1 BEFORE main() ran — measured: a hook copy without its siblings
+// exited 1 with ERR_MODULE_NOT_FOUND and printed nothing on stdout. Claude
+// Code treats "exit 1 without valid JSON" as a non-blocking error, so the
+// floor and the veto silently vanished for the whole session, and --self-check
+// (same module) could not report it either. The hook must instead exit 0 with
+// a user-visible `systemMessage` that says the gate is inactive: warn-but-
+// allow, never a silent exit 1.
+{
+  const broken = mkdtempSync(join(tmpdir(), 'gate-hook-broken-'));
+  copyFileSync(HOOK, join(broken, 'gate-hook.mjs'));
+  const spawnBroken = (payload) => {
+    const r = spawnSync(process.execPath, [join(broken, 'gate-hook.mjs')], {
+      input: JSON.stringify(payload), encoding: 'utf8',
+    });
+    let json = null;
+    try { json = JSON.parse(r.stdout || '{}'); } catch { /* reported below */ }
+    return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', json };
+  };
+  const prompted = spawnBroken({
+    hook_event_name: 'PreToolUse', tool_name: 'Bash',
+    tool_input: { command: 'git push origin master' }, cwd: broken,
+  });
+  check('R1 a load failure exits 0 (never a silent non-zero)',
+    prompted.code === 0, `exit=${prompted.code} stderr=${prompted.stderr.slice(0, 200)}`);
+  check('R2 a load failure emits parseable JSON on stdout',
+    prompted.stdout.trim() !== '' && prompted.json !== null, `out=${prompted.stdout.slice(0, 200)}`);
+  const message = prompted.json?.systemMessage ?? '';
+  check('R3 the warning is user-visible and names the inactive gate',
+    /trust-no-agent/.test(message) && /INACTIVE/.test(message), JSON.stringify(prompted.json).slice(0, 300));
+  check('R4 a load failure never denies the tool call',
+    prompted.json?.decision === undefined && prompted.json?.hookSpecificOutput?.permissionDecision === undefined,
+    JSON.stringify(prompted.json).slice(0, 300));
+  const started = spawnBroken({ hook_event_name: 'SessionStart', cwd: broken });
+  check('R5 a load failure warns on SessionStart too (the floor is gone)',
+    started.code === 0 && /trust-no-agent/.test(started.json?.systemMessage ?? ''),
+    `exit=${started.code} out=${started.stdout.slice(0, 200)}`);
+  rmSync(broken, { recursive: true, force: true });
 }
 
 process.exit(failures ? 1 : 0);

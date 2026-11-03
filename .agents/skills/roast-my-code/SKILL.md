@@ -1,6 +1,6 @@
 ---
 name: roast-my-code
-description: Review changes since a fixed point (commit, branch, tag, or merge-base) along three axes — Standards (does the code follow the repo's documented standards?), Spec (does the code match the originating spec/ticket?), and Security (does the change introduce a vulnerability?). Runs all three reviews as parallel subagents. Use when the user wants to review a branch, a PR, work-in-progress changes, or says "review since X".
+description: "Use when the user wants a branch or PR reviewed — review changes since a fixed point on three axes: Standards, Spec, Security, as parallel subagents."
 ---
 
 # Roast My Code

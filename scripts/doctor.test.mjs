@@ -697,5 +697,45 @@ const ledgerWithDate = (dateStr) =>
   check('R4 zero findings produce no rollup line (nothing to summarize)',
     empty === null, JSON.stringify(empty));
 }
+// ---- K12. A broken gate hook must not take the doctor down with it (2026-11-03) ----
+// The hook's own import guard makes a load failure warn instead of exiting 1,
+// but the doctor USED TO import scanSessionOverlays from that same module — so
+// exactly when the hook was broken, the tool whose job is to report the break
+// died on the same throw. Two expectations: the doctor still produces its
+// report and names the unloadable hook (behavioral, on a real copy of scripts/
+// with one dependency deleted), and it never statically imports the hook again
+// (source-level, so the regression cannot come back through a tidy-looking
+// import list).
+{
+  const { spawnSync } = await import('node:child_process');
+  const { cpSync, rmSync, mkdtempSync, readFileSync: readK12 } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join: joinK12, dirname: dirnameK12 } = await import('node:path');
+  const { fileURLToPath: fptK12 } = await import('node:url');
+  const hereK12 = dirnameK12(fptK12(import.meta.url));
+  const repoK12 = joinK12(hereK12, '..');
+  const tmp = mkdtempSync(joinK12(tmpdir(), 'doctor-broken-hook-'));
+  const scriptsCopy = joinK12(tmp, 'scripts');
+  cpSync(joinK12(repoK12, 'scripts'), scriptsCopy, { recursive: true, filter: (p) => !p.includes('tickets-fixture') });
+  // Remove the hook's own dependency, not the hook: the copy is a REAL partial
+  // install (a payload missing one referenced file), the failure under test.
+  rmSync(joinK12(scriptsCopy, 'reinject.mjs'));
+  const r = spawnSync(process.execPath, [joinK12(scriptsCopy, 'doctor.mjs')], {
+    cwd: tmp, encoding: 'utf8', timeout: 180000,
+  });
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '');
+  const lines = out.split('\n');
+  check('K12a the doctor still reports when the gate hook cannot load',
+    !/ERR_MODULE_NOT_FOUND/.test(out) && lines.some((l) => l.startsWith('FAIL') || l.startsWith('WARN')),
+    out.slice(0, 400));
+  check('K12b the unloadable hook is named as a failure',
+    lines.some((l) => l.startsWith('FAIL') && /gate hook/i.test(l)), out.slice(0, 600));
+  rmSync(tmp, { recursive: true, force: true });
+  const src = readK12(joinK12(repoK12, 'scripts', 'doctor.mjs'), 'utf8');
+  check('K12c doctor never statically imports the hook module (a load crash would kill the report)',
+    !/^import[^\n]*from ['"]\.\/gate-hook\.mjs['"]/m.test(src),
+    (src.match(/^import[^\n]*gate-hook[^\n]*$/m) || [''])[0]);
+}
+
 if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
 console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q).');

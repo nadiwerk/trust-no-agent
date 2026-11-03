@@ -148,6 +148,7 @@ const check = (label, cond, detail = '') => {
 {
   const allCommands = [
     'git commit -m "feat: x"', 'git push origin master', 'npm publish', 'rm -rf dist',
+    'pnpm publish', 'yarn publish', 'yarn npm publish', 'gh pr merge 12', 'gh release create v1',
   ].join(' ');
   const untested = [];
   for (const p of IRREVERSIBLE_PATTERNS) {
@@ -296,6 +297,212 @@ const check = (label, cond, detail = '') => {
     const got = gitTargetDir(cmd, cwd);
     check(`L1 gitTargetDir: ${label}`, got === want, `want=${want} got=${got}`);
   }
+}
+
+// ---- M. A Windows-style `git.exe` head is still git (2026-11-03) ----
+// Measured on the shipped 0.1.57 module: `git.exe push` and a quoted
+// `"C:\Program Files\Git\cmd\git.exe" commit` both returned gated:false.
+// `matchAtExecution` normalized the program name only to decide WHETHER to
+// strip git's global options, then rebuilt the head from the raw word, so the
+// `.exe` and path spelling leaked into the string the pattern table sees.
+// PowerShell and cmd resolve `git.exe` as ordinary usage on Windows, and the
+// action is identical to `git push` — a real push must not pass because of the
+// spelling of the program.
+{
+  const gated = [
+    { cmd: 'git.exe push origin master', label: 'bare git.exe push' },
+    { cmd: 'git.exe commit -m "feat: x"', label: 'bare git.exe commit' },
+    { cmd: '"C:\\Program Files\\Git\\cmd\\git.exe" push origin master', label: 'quoted absolute git.exe path' },
+    { cmd: '"C:\\Program Files\\Git\\cmd\\git.exe" -C . commit -m x', label: 'quoted absolute path plus global options' },
+    { cmd: '"C:/Program Files/Git/cmd/git.exe" push origin master', label: 'quoted forward-slash absolute path' },
+  ];
+  for (const { cmd, label } of gated) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`M1 a git.exe spelling still gates (${label})`, v.gated === true, JSON.stringify(v));
+  }
+  const open = classifyAction({ tool: 'bash', args: { command: 'git.exe push origin master' }, evidence: { testPassFresh: true } });
+  check('M2 fresh evidence opens a git.exe push', open.gated === false, JSON.stringify(open));
+  const readOnly = classifyAction({ tool: 'bash', args: { command: 'git.exe status' }, evidence: {} });
+  check('M3 read-only git.exe stays open', readOnly.gated === false, JSON.stringify(readOnly));
+}
+
+// ---- N. Recursive delete, whichever spelling (2026-11-03) ----
+// The table carried one literal, `rm -rf`, so every equivalent spelling walked
+// through: `rm -r -f` and `rm -fr` (measured open on 0.1.57), `rm -f -r`,
+// `rm -rfv`, `rm --recursive --force`, and the PowerShell/cmd forms
+// `Remove-Item -Recurse -Force` and `del /s /q`. The action is the same —
+// delete a tree — so the rule keys on the ACTION (any recursive delete),
+// never on one spelling of the flags. Force is not part of the rule: a
+// recursive delete is irreversible with or without it, and requiring a
+// particular flag ORDER is exactly the bug being fixed.
+{
+  const gated = [
+    { cmd: 'rm -r -f dist', label: 'separate -r -f' },
+    { cmd: 'rm -fr dist', label: 'clustered -fr' },
+    { cmd: 'rm -rf dist', label: 'clustered -rf' },
+    { cmd: 'rm -r dist', label: 'recursive without force' },
+    { cmd: 'rm -R dist', label: 'capital -R' },
+    { cmd: 'rm -f -r dist', label: 'reversed order' },
+    { cmd: 'rm -rfv dist', label: 'cluster with -v' },
+    { cmd: 'rm --recursive --force dist', label: 'long flags' },
+    { cmd: 'sudo rm -fr dist', label: 'behind an executing wrapper' },
+    { cmd: 'cd repo && rm -r -f dist', label: 'after a cd' },
+    { cmd: 'Remove-Item -Recurse -Force dist', label: 'PowerShell Remove-Item' },
+    { cmd: 'Remove-Item dist -Recurse', label: 'PowerShell flag after the path' },
+    { cmd: 'del /s /q dist', label: 'cmd del recursive+quiet' },
+    { cmd: 'rd /s /q dist', label: 'cmd rd recursive+quiet' },
+  ];
+  for (const { cmd, label } of gated) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`N1 a recursive delete is gated (${label})`, v.gated === true, JSON.stringify(v));
+  }
+  const open = [
+    { cmd: 'rm dist', label: 'plain rm' },
+    { cmd: 'rm -f dist', label: 'force only, no recursion' },
+    { cmd: 'rm -i dist', label: 'interactive rm' },
+    { cmd: 'del dist', label: 'cmd del, not recursive' },
+    { cmd: 'Remove-Item -Force dist', label: 'PowerShell force only' },
+    { cmd: 'rd dist', label: 'cmd rd of an empty dir' },
+  ];
+  for (const { cmd, label } of open) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`N2 a non-recursive delete stays open (${label})`, v.gated === false, JSON.stringify(v));
+  }
+  const evidenced = classifyAction({ tool: 'bash', args: { command: 'rm -fr dist' }, evidence: { testPassFresh: true } });
+  check('N3 fresh evidence opens a recursive delete', evidenced.gated === false, JSON.stringify(evidenced));
+}
+
+// ---- O. Publishing and remote state changes beyond npm (2026-11-03) ----
+// Measured open on 0.1.57: `pnpm publish`, `yarn npm publish`, `gh pr merge 12
+// --squash`, and `gh release create v1`. Each one changes state that cannot be
+// taken back with the same one command — a package on the registry, a merged
+// PR, a published release — so each belongs to the same boundary as
+// `npm publish`. Read-only gh subcommands and package-manager installs stay
+// fail-open: the boundary is the ACTION, not the program.
+{
+  const gated = [
+    { cmd: 'pnpm publish', label: 'pnpm publish' },
+    { cmd: 'pnpm publish --access public', label: 'pnpm publish with flags' },
+    { cmd: 'yarn publish', label: 'yarn publish' },
+    { cmd: 'yarn npm publish', label: 'yarn npm publish (berry)' },
+    { cmd: 'gh pr merge 12 --squash', label: 'gh pr merge' },
+    { cmd: 'gh pr merge --auto', label: 'gh pr merge --auto' },
+    { cmd: 'gh release create v1 --notes x', label: 'gh release create' },
+    { cmd: 'cd repo && pnpm publish', label: 'after a cd' },
+    { cmd: 'sudo gh pr merge 5', label: 'behind an executing wrapper' },
+  ];
+  for (const { cmd, label } of gated) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`O1 state-changing publish/merge/release is gated (${label})`, v.gated === true, JSON.stringify(v));
+  }
+  const open = [
+    { cmd: 'gh pr view 12', label: 'gh pr view' },
+    { cmd: 'gh pr create --fill', label: 'gh pr create (reversible)' },
+    { cmd: 'gh release list', label: 'gh release list' },
+    { cmd: 'gh repo view', label: 'gh repo view' },
+    { cmd: 'pnpm install', label: 'pnpm install' },
+    { cmd: 'yarn build', label: 'yarn build' },
+  ];
+  for (const { cmd, label } of open) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`O2 read-only gh and local package commands stay open (${label})`, v.gated === false, JSON.stringify(v));
+  }
+  const evidenced = classifyAction({ tool: 'bash', args: { command: 'pnpm publish' }, evidence: { testPassFresh: true } });
+  check('O3 fresh evidence opens a pnpm publish', evidenced.gated === false, JSON.stringify(evidenced));
+}
+
+// ---- P. A dry run and a help request are not the action (2026-11-03) ----
+// Measured gated on 0.1.57: `git push --dry-run`, `git commit --help`, and
+// `npm publish --dry-run`. None of them performs the irreversible action —
+// git documents --dry-run as "do everything except actually send", npm as
+// "everything publish would do except publish". Gating them punishes the
+// read-only way to CHECK the action, which is the behavior the framework
+// wants more of.
+//
+// The exemption is narrow on purpose. `--help` counts only in the FIRST
+// argument position, because `git commit -m "--help"` is a real commit whose
+// message says --help. `--dry-run` counts anywhere EXCEPT as the value of an
+// option that would still run the action — `git push -o --dry-run origin`
+// pushes with a push-option named --dry-run, so it stays gated.
+{
+  const open = [
+    { cmd: 'git push --dry-run', label: 'push --dry-run' },
+    { cmd: 'git push --dry-run origin master', label: 'push --dry-run with refspec' },
+    { cmd: 'git push origin master --dry-run', label: 'push, trailing --dry-run' },
+    { cmd: 'git commit --dry-run', label: 'commit --dry-run' },
+    { cmd: 'git commit --help', label: 'commit --help' },
+    { cmd: 'git commit -h', label: 'commit -h' },
+    { cmd: 'npm publish --dry-run', label: 'npm publish --dry-run' },
+    { cmd: 'pnpm publish --dry-run', label: 'pnpm publish --dry-run' },
+    { cmd: 'yarn npm publish --dry-run', label: 'yarn npm publish --dry-run' },
+    { cmd: 'gh pr merge --help', label: 'gh pr merge --help' },
+    { cmd: 'gh release create --help', label: 'gh release create --help' },
+  ];
+  for (const { cmd, label } of open) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`P1 a dry run or help request stays open (${label})`, v.gated === false, JSON.stringify(v));
+  }
+  const gated = [
+    { cmd: 'git commit -m "--help"', label: '--help as a commit message value' },
+    { cmd: 'git commit -m "--dry-run"', label: '--dry-run as a message value' },
+    { cmd: 'git push -o --dry-run origin master', label: '--dry-run as a push-option value (the push still happens)' },
+    { cmd: 'npm publish --tag --dry-run', label: '--dry-run as a dist-tag value' },
+    { cmd: 'git push --force', label: 'a plain force push' },
+    { cmd: 'git push --help-me-not', label: 'a word that merely starts with --help' },
+  ];
+  for (const { cmd, label } of gated) {
+    const v = classifyAction({ tool: 'bash', args: { command: cmd }, evidence: {} });
+    check(`P2 the exemption does not open a real action (${label})`, v.gated === true, JSON.stringify(v));
+  }
+}
+
+// ---- Q. A patch is judged by its TARGETS, never by its text (2026-11-03) ----
+// Measured on 0.1.57: `apply_patch` reads its diff from `command`, so the
+// irreversible-pattern matcher graded the PATCH TEXT. A diff whose context line
+// began with ` git push origin master` was gated (a false positive on
+// documentation), while a patch that UPDATED or DELETED `.trust/progress.txt`
+// was open (a real gap: the ledger guard covered only write/edit). The scanner
+// already refuses a git hook payload for the same reason — text a tool will not
+// execute is data. So: paths decide the ledger rule, and patch text never
+// reaches command matching.
+{
+  const patch = (...lines) => ['*** Begin Patch', ...lines, '*** End Patch'].join('\n');
+  const ledgerMessages = 'append-only';
+
+  const ledgerTargets = [
+    { body: patch('*** Update File: .trust/progress.txt', '@@', '-old line', '+new line'), label: 'Update File' },
+    { body: patch('*** Add File: .trust/progress.txt', '+first line'), label: 'Add File' },
+    { body: patch('*** Delete File: .trust/progress.txt'), label: 'Delete File' },
+    { body: patch('*** Update File: C:\\repo\\.trust\\progress.txt', '@@', '+x'), label: 'absolute Windows path' },
+    { body: patch('*** Update File: src/a.ts', '@@', '+x', '*** Update File: .trust/progress.txt', '+y'), label: 'second file in the same patch' },
+  ];
+  for (const { body, label } of ledgerTargets) {
+    const v = classifyAction({ tool: 'apply_patch', args: { command: body }, evidence: {} });
+    check(`Q1 a patch touching the ledger is gated (${label})`, v.gated === true, JSON.stringify(v));
+    check(`Q2 the denial explains the ledger rule (${label})`, v.reason.includes(ledgerMessages), v.reason);
+    const fresh = classifyAction({ tool: 'apply_patch', args: { command: body }, evidence: { testPassFresh: true } });
+    check(`Q3 evidence never opens the ledger patch gate (${label})`, fresh.gated === true, JSON.stringify(fresh));
+  }
+
+  const open = [
+    { body: patch('*** Update File: docs/guide.md', '@@', '-Before you continue, run git push.', '+Before you continue, run git push upstream.'), label: 'context line mentioning git push' },
+    { body: patch('*** Update File: docs/guide.md', '@@', ' git push origin master', '+git push --force'), label: 'diff text that reads like a command' },
+    { body: patch('*** Add File: scripts/helper.sh', '+npm publish'), label: 'a new file whose content is an irreversible command' },
+    { body: patch('*** Update File: src/a.ts', '@@', '-a', '+b'), label: 'ordinary source edit' },
+  ];
+  for (const { body, label } of open) {
+    const v = classifyAction({ tool: 'apply_patch', args: { command: body }, evidence: {} });
+    check(`Q4 a patch that executes nothing stays open (${label})`, v.gated === false, JSON.stringify(v));
+  }
+
+  // The ledger guard is about the TOOL writing the file, not one tool name:
+  // every editor-shaped tool that can replace the file wholesale must gate.
+  for (const tool of ['multiedit', 'notebookedit', 'str_replace_editor', 'MultiEdit', 'NotebookEdit']) {
+    const v = classifyAction({ tool, args: { filePath: '.trust/progress.txt' }, evidence: {} });
+    check(`Q5 ${tool} to the ledger is gated`, v.gated === true, JSON.stringify(v));
+  }
+  const multiOpen = classifyAction({ tool: 'multiedit', args: { filePath: 'src/a.ts' }, evidence: { testPassFresh: true } });
+  check('Q6 multiedit elsewhere stays open', multiOpen.gated === false, JSON.stringify(multiOpen));
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

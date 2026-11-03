@@ -34,6 +34,16 @@ export const IRREVERSIBLE_PATTERNS = [
   'git commit',
   'git push',
   'npm publish',
+  // Publishing and remote state changes beyond npm (2026-11-03). Measured
+  // open on 0.1.57: a package on the registry, a merged PR, and a published
+  // release are each as un-take-back-able as `npm publish`, and each is one
+  // command. `yarn publish` and `yarn npm publish` are distinct spellings
+  // (berry routes through `yarn npm publish`), so both are listed.
+  'pnpm publish',
+  'yarn publish',
+  'yarn npm publish',
+  'gh pr merge',
+  'gh release create',
   'rm -rf',
 ];
 
@@ -65,6 +75,24 @@ export const SHELL_TOOLS = new Set(['bash', 'shell', 'exec_command', 'pwsh', 'po
  * a cultivated `notes-on-progress.txt`-style sibling never matches.
  */
 export const LEDGER_PATH = '.trust/progress.txt';
+
+/**
+ * Tools that write a file wholesale, so the ledger guard must see all of them.
+ * `apply_patch` is here for its optional `filePath`; its diff is judged
+ * separately by `patchTargets` (it can name several files in one call).
+ * Measured 2026-11-03: the guard keyed on `write`/`edit` only, so `multiedit`,
+ * `notebookedit`, and `str_replace_editor` could replace the ledger.
+ */
+const LEDGER_WRITE_TOOLS = new Set(['write', 'edit', 'multiedit', 'notebookedit', 'str_replace_editor', 'apply_patch']);
+
+/** Every path a Codex `apply_patch` payload touches, in order. */
+function patchTargets(patch) {
+  const targets = [];
+  const re = /^\*\*\*\s*(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$/gim;
+  let m;
+  while ((m = re.exec(String(patch ?? ''))) !== null) targets.push(m[1]);
+  return targets;
+}
 
 /**
  * Bash append semantics (>>) are the CONTRACT for the ledger — additions
@@ -306,12 +334,86 @@ export function gitTargetDir(command, cwd = '') {
   return gatedTarget ?? lastTarget;
 }
 
+/**
+ * Recursive delete, whichever spelling the shell uses.
+ *
+ * The table carries one literal, `rm -rf`, and every equivalent spelling
+ * walked through it: `rm -r -f` and `rm -fr` measured open on 0.1.57, plus
+ * `rm -f -r`, `rm -rfv`, `rm --recursive --force`, and the Windows/PowerShell
+ * forms `Remove-Item -Recurse -Force` and `del /s /q`. The rule keys on the
+ * ACTION (delete a tree), never on a spelling or flag order. Force is not part
+ * of the rule: a recursive delete is irreversible either way.
+ *
+ * `rm` also takes short clusters (-r, -R, -rf, -fr, -rfv), so it gets the
+ * cluster rule. `Remove-Item` does NOT: its `-Force` contains an `r` and must
+ * never read as recursive — only the explicit recursive spellings count there.
+ */
+const RECURSIVE_DELETE_PROGRAMS = new Set(['remove-item', 'ri', 'del', 'erase', 'rd', 'rmdir']);
+const RECURSIVE_FLAG_SPELLINGS = new Set(['--recursive', '--recurse', '-recurse']);
+
+function recursiveDeleteAt(prog, words, start) {
+  if (prog !== 'rm' && !RECURSIVE_DELETE_PROGRAMS.has(prog)) return false;
+  for (let j = start + 1; j < words.length; j++) {
+    const flag = String(words[j] ?? '').toLowerCase();
+    if (flag === '--') break;
+    if (RECURSIVE_FLAG_SPELLINGS.has(flag) || flag === '/s') return true;
+    if (prog === 'rm' && /^-[a-z]+$/.test(flag) && flag.includes('r')) return true;
+  }
+  return false;
+}
+
+/**
+ * Options that CONSUME the next word, for the actions that have a documented
+ * dry-run. Used only to decide whether a `--dry-run` token is a flag or the
+ * VALUE of an option — `git push -o --dry-run origin` pushes with a push-option
+ * literally named `--dry-run`, so that spelling must stay gated.
+ */
+const DRY_RUN_VALUE_FLAGS = {
+  'git push': new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec', '--force-with-lease', '--force-if-includes']),
+  'git commit': new Set(['-m', '--message', '-F', '--file', '-C', '--reuse-message', '-c', '--reedit-message', '-t', '--template']),
+  'npm publish': new Set(['--tag', '--access', '--otp', '--registry', '--userconfig', '--workspace', '-w']),
+  'pnpm publish': new Set(['--tag', '--access', '--otp', '--registry', '--userconfig', '--workspace', '--report-summary', '--publish-branch']),
+  'yarn publish': new Set(['--tag', '--access', '--otp', '--new-version', '--message']),
+  'yarn npm publish': new Set(['--tag', '--access', '--otp', '--new-version', '--message']),
+};
+
+/**
+ * True when the invocation only PRINTS the action instead of performing it.
+ *
+ * `--help`/`-h` counts only in the FIRST argument position: `git commit -m
+ * "--help"` is a real commit whose message says --help. `--dry-run` counts
+ * anywhere except as the value of one of the options above, because git and
+ * the package managers document it as "do everything except the irreversible
+ * part". A program with no documented dry-run (gh, rm) gets no dry-run pass.
+ */
+function isReadOnlyInvocation(args, pattern) {
+  if (args.length === 0) return false;
+  const first = String(args[0]).toLowerCase();
+  if (first === '--help' || first === '-h') return true;
+  const valueFlags = DRY_RUN_VALUE_FLAGS[pattern];
+  if (!valueFlags) return false;
+  for (let j = 0; j < args.length; j++) {
+    if (String(args[j]).toLowerCase() !== '--dry-run') continue;
+    let prev = j > 0 ? String(args[j - 1]).toLowerCase() : '';
+    const eq = prev.indexOf('=');
+    if (eq > 0) prev = prev.slice(0, eq);
+    if (valueFlags.has(prev)) continue;  // a value, so the real action still runs
+    return true;
+  }
+  return false;
+}
+
 function matchAtExecution(command, depth = 0) {
   if (depth > 3) return null;
   for (const raw of splitSegments(stripHeredocBodies(command))) {
     const segment = raw.trim().replace(/[)`]+$/, '');
     if (!segment) continue;
-    const words = segment.split(/\s+/).filter(Boolean);
+    // Same word model as gitTargetDir: quotes consume their content, so a
+    // quoted Windows program path stays ONE word. Splitting on whitespace
+    // turned `"C:\Program Files\Git\cmd\git.exe" push` into `"C:\Program` +
+    // `Files\…\git.exe"` and the git program was never recognized
+    // (measured 2026-11-03).
+    const words = splitWords(segment);
     let i = 0;
     while (i < words.length && EXEC_WRAPPERS.has(words[i].toLowerCase())) {
       i++;
@@ -322,15 +424,30 @@ function matchAtExecution(command, depth = 0) {
     // A wrapped `git` hides its subcommand behind global options (`-C .`,
     // `--no-pager`, …). Normalize the head so the pattern table sees the
     // subcommand it actually runs.
-    const normalized = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '') === 'git'
-      ? [words[i], ...stripGitGlobalOptions(words.slice(i + 1))]
+    //
+    // The program name is normalized ONCE — path separators and a `.exe`
+    // suffix dropped — and the NORMALIZED form is what the pattern table sees.
+    // Rebuilding the head from the raw word let `git.exe push` and a quoted
+    // `"C:\…\git.exe" commit` reach the table as themselves, so both passed
+    // (measured 2026-11-03 on 0.1.57: ordinary PowerShell/cmd usage).
+    const prog = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '');
+    const normalized = prog === 'git'
+      ? ['git', ...stripGitGlobalOptions(words.slice(i + 1))]
       : words.slice(i);
     const head = normalized.join(' ').toLowerCase();
     for (const p of IRREVERSIBLE_PATTERNS) {
       const needle = String(p).toLowerCase();
-      if (head === needle || head.startsWith(`${needle} `)) return p;
+      if (!(head === needle || head.startsWith(`${needle} `))) continue;
+      // A help request or a dry run PRINTS the action; it does not perform it
+      // (P series: `git push --dry-run`, `git commit --help`, `npm publish
+      // --dry-run` were all gated on 0.1.57 — punishing the read-only way to
+      // check the action the gate exists for).
+      if (isReadOnlyInvocation(normalized.slice(needle.split(' ').length), needle)) continue;
+      return p;
     }
-    const prog = words[i].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.exe$/, '');
+    // The table holds the common spelling; the recursive-delete FAMILY is
+    // wider and must not depend on how the flags were arranged (N series).
+    if (recursiveDeleteAt(prog, words, i)) return 'recursive delete';
     if (INTERPRETERS.has(prog)) {
       const payload = /['"]([\s\S]*)['"]/.exec(segment);
       if (payload) {
@@ -364,9 +481,22 @@ export function classifyAction({ tool = '', args = {}, evidence = {} } = {}) {
   // private ledger is gated before any evidence check — fresh test evidence
   // cannot restore overwritten history. The contract's allowed form is the
   // bash append (>>), which stays fail-open (H5).
-  const writesLedger = ['write', 'edit'].includes(name) && filePath && isLedgerPath(filePath);
+  const writesLedger = LEDGER_WRITE_TOOLS.has(name) && filePath && isLedgerPath(filePath);
   if (writesLedger) {
     return { gated: true, reason: `the private ledger (${LEDGER_PATH}) is append-only — a ${name} overwrites it and is vetoed (ledger-overwrite incident 2026-10-18); append via bash >> or a staging file instead` };
+  }
+  // `apply_patch` carries a whole diff in `command`, so the command matcher
+  // graded PATCH TEXT: a context line that began with `git push` was gated
+  // (false positive on documentation) while a patch that UPDATED or DELETED
+  // the ledger was open (real gap). A patch executes no shell command — it
+  // writes the files it names — so its TARGETS decide, never its text
+  // (measured 2026-11-03 on 0.1.57).
+  if (name === 'apply_patch') {
+    const ledgerTarget = patchTargets(command).find(isLedgerPath);
+    if (ledgerTarget) {
+      return { gated: true, reason: `the private ledger (${LEDGER_PATH}) is append-only — an apply_patch rewrites it and is vetoed (ledger-overwrite incident 2026-10-18); append via bash >> or a staging file instead` };
+    }
+    return { gated: false, reason: 'an apply_patch writes the files it names and executes no shell command — gate open (text inside a patch is data)' };
   }
   // Bash overwrite/truncate forms naming the ledger path are gated (doubt
   // blocks, same AC7 principle as unknown-shell). Append (>>) stays open.

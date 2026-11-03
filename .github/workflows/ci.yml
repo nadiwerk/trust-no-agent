@@ -127,6 +127,70 @@ jobs:
       - name: Workflow file guard self-test
         run: node scripts/ci-guard.test.mjs
 
+      # ---- Suites that were tracked but never invoked (2026-11-03 audit) ----
+      # 19 of 48 `scripts/*.test.mjs` files appeared in no job: a test file that
+      # CI never runs is a comment with a shebang, and every harness gate in the
+      # list below was in that state. `ci-guard.mjs` M8 now derives this list
+      # from the filesystem and fails when ANY suite is unwired, so this block is
+      # the second half of the same boundary (the first half would have caught a
+      # future unwired file even if a contributor forgot this step).
+      - name: Adapter parity (pi / omp / dsh grammar vs the canonical gate)
+        run: node scripts/veto-adapter.test.mjs
+
+      - name: Veto tool coverage
+        run: node scripts/veto-tool-coverage.test.mjs
+
+      - name: dsh veto adapter
+        run: node scripts/dsh-veto.test.mjs
+
+      - name: dsh discipline hooks
+        run: node scripts/dsh-discipline.test.mjs
+
+      - name: dsh fix-list regression suite
+        run: node scripts/dsh-fixlist.test.mjs
+
+      - name: omp fix-list regression suite
+        run: node scripts/omp-fixlist.test.mjs
+
+      - name: pi discipline hooks
+        run: node scripts/pi-discipline.test.mjs
+
+      - name: pi recorder
+        run: node scripts/pi-recorder.test.mjs
+
+      - name: Harness-general regressions (manifest wiring, doctor, install)
+        run: node scripts/harness-general.test.mjs
+
+      - name: Router re-injection
+        run: node scripts/reinject.test.mjs
+
+      - name: Doctor adapter verdicts
+        run: node scripts/doctor-adapter.test.mjs
+
+      - name: Behavioral eval harness
+        run: node scripts/behavioral-eval.test.mjs
+
+      - name: Onboarding layers
+        run: node scripts/onboarding-layers.test.mjs
+
+      - name: Onboarding refresh
+        run: node scripts/onboarding-refresh.test.mjs
+
+      - name: Evidence recorder door
+        run: node scripts/record-evidence.test.mjs
+
+      - name: Recorder runners
+        run: node scripts/recorder-runners.test.mjs
+
+      - name: Update check
+        run: node scripts/update-check.test.mjs
+
+      - name: Update delivery
+        run: node scripts/update-delivery.test.mjs
+
+      - name: Update install
+        run: node scripts/update-install.test.mjs
+
   hooks:
     name: Git hooks gate
     runs-on: ubuntu-latest

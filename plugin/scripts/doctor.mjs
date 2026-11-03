@@ -27,12 +27,14 @@
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
 import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict } from './doctor-checks.mjs';
 import { parseStamp } from './onboarding.mjs';
-import { scanSessionOverlays } from './gate-hook.mjs';
+// The hook module is imported LAZILY (see the G hook-load section below): a
+// static import here meant the doctor died on the same load throw that made the
+// hook silent, i.e. exactly when its report mattered (2026-11-03).
 import { createHash } from 'node:crypto';
 import { detectHarness, adaptersFor, dshProfileDirs, detectInstalledAdapters } from './onboarding.mjs';
 
@@ -406,12 +408,52 @@ if (ledgerPath) {
 // (scanSessionOverlays), so the number the doctor prints is the number the
 // session would omit. Defects fail by name.
 {
-  const r = scanSessionOverlays(cwd);
+  let scanSessionOverlays = null;
+  try { ({ scanSessionOverlays } = await import('./gate-hook.mjs')); } catch { /* reported by the G section below */ }
+  const r = scanSessionOverlays ? scanSessionOverlays(cwd) : null;
   if (!r) {
     pass('overlay tier not present (optional — .trust/skills-overlay/)');
   } else {
     const ov = overlayVerdict({ errors: r.errors, entryCount: r.entries.length, omittedCount: r.omitted.length, tierPresent: existsSync(join(cwd, '.trust', 'skills-overlay')) });
     for (const l of ov.lines) { if (ov.level === 'fail') fail(l); else if (ov.level === 'warn') warn(l); else pass(l); }
+  }
+}
+
+// ---- G. The gate hook loads, proven OUT OF PROCESS (2026-11-03) ----
+// The hook fails open by design, so a hook that cannot even LOAD is invisible:
+// Node exits 1 before main() runs, and `--self-check` lives inside the same
+// module. A doctor that imports the hook cannot see it either — it dies on the
+// same throw (that is exactly what happened before this section existed). So
+// the proof spawns the hook in a SEPARATE process and reads the answer:
+//   - exit 0                            → loaded (the --self-check path ran)
+//   - exit 0 + a `systemMessage` warning → the hook itself reported a load
+//                                          failure and stayed fail-open
+//   - any non-zero exit                  → a real installation defect, named
+// A hook tree that is absent is not a defect here (adopter mode installs no
+// hooks); the C2 section already reports whether any gate is wired at all.
+{
+  const hookCandidates = [join(ROOT, 'scripts', 'gate-hook.mjs'), join(cwd, 'scripts', 'gate-hook.mjs')];
+  const hookPath = hookCandidates.find((p) => existsSync(p));
+  if (!hookPath) {
+    pass('gate hook not present in this install (nothing to load — see the C2 verdict)');
+  } else {
+    let probe = null;
+    try {
+      probe = spawnSync(process.execPath, [hookPath, '--self-check'], { cwd, encoding: 'utf8', timeout: 60000 });
+    } catch { probe = null; }
+    const out = `${probe?.stdout ?? ''}${probe?.stderr ?? ''}`;
+    if (!probe || probe.status === null) {
+      warn(`gate hook could not be probed (${probe?.error?.code ?? 'no result'}) — reachability unproven`);
+    } else if (probe.status !== 0) {
+      const why = (out.split('\n').find((l) => /Error|error/.test(l)) ?? out.split('\n')[0] ?? '').trim();
+      fail(`gate hook FAILS TO LOAD (exit ${probe.status}) — the floor and the veto are inactive this session :: ${why}`);
+    } else if (/could not load its modules/i.test(out)) {
+      fail(`gate hook reports a module load failure — the floor and the veto are INACTIVE :: ${out.split('\n')[0].trim()}`);
+    } else if (/router: NOT FOUND/i.test(out) || /classifier: NOT FOUND/i.test(out)) {
+      warn(`gate hook loads but resolves nothing: ${out.split('\n').filter((l) => /NOT FOUND/.test(l)).join(' | ')}`);
+    } else {
+      pass(`gate hook loads and resolves its inputs (exit 0, --self-check)`);
+    }
   }
 }
 

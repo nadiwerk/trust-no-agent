@@ -31,13 +31,33 @@
  * and the silent drift — run `--write` after editing any shared file.
  */
 import { existsSync, readdirSync, readFileSync, mkdirSync, copyFileSync, lstatSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const CANON_SKILL = join(ROOT, 'skills', 'meta', 'setup-tna');
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.trust', '.omx']);
+/** The canonical skill categories. Structure, mirroring skills/<cat>/<skill>/… . */
+const SKILL_CATEGORIES = ['discipline', 'engineering', 'meta'];
+
+/** Relative paths of every file under `dir` (no symlink following). */
+function walkFiles(dir, prefix = '') {
+  const out = [];
+  let names;
+  try { names = readdirSync(dir); } catch { return out; }
+  for (const name of names) {
+    if (SKIP_DIRS.has(name)) continue;
+    const p = join(dir, name);
+    let st;
+    try { st = lstatSync(p); } catch { continue; }
+    if (st.isSymbolicLink()) continue;
+    const rel = prefix ? `${prefix}/${name}` : name;
+    if (st.isDirectory()) out.push(...walkFiles(p, rel));
+    else out.push(rel);
+  }
+  return out;
+}
 
 // Relative path inside a setup-tna root -> canonical file (resolved from ROOT
 // or CANON_SKILL). These are the DISTRIBUTION CONTRACT, not a mirror list:
@@ -90,8 +110,18 @@ const discoverRoots = () => {
 
 // Mirror discovery (router + script mirrors) walks the REPO the script belongs
 // to, not the caller's cwd — a --write run inside a sandbox fixture tree must
-// stay hermetic and never touch repo files as a side effect.
-const MIRRORS_AVAILABLE = existsSync(join(CANON_SKILL, 'SKILL.md')) && existsSync(join(ROOT, 'AGENTS.md'));
+// stay hermetic and never touch repo files as a side effect. That promise was
+// prose only until 2026-11-03: MIRRORS_AVAILABLE ignored the cwd, so the W-series
+// `--write` in payload-sync.test.mjs — run from a temp fixture — repaired the
+// real repo's plugin/scripts and .opencode mirrors, silently rewriting three
+// tracked files and turning the drift check green on the NEXT run. The repo
+// mirror set now applies only when the script runs from inside the repo it
+// belongs to (direct invocation from the repo, or scripts/hooks calling it).
+const INSIDE_REPO = (() => {
+  const rel = relative(ROOT, process.cwd());
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+})();
+const MIRRORS_AVAILABLE = INSIDE_REPO && existsSync(join(CANON_SKILL, 'SKILL.md')) && existsSync(join(ROOT, 'AGENTS.md'));
 
 /**
  * Router mirrors: every AGENTS.md / WORKFLOW.md outside the repo root IS a
@@ -118,6 +148,82 @@ const discoverRouterMirrors = () => {
     }
   };
   walkAll(ROOT);
+  return out;
+};
+
+/**
+ * ORDINARY skill mirrors: every `<install>/skills/<category>/<skill>/…` file
+ * outside `skills/` itself is a mirror of the canonical skill tree.
+ *
+ * Origin 2026-11-03 (audit): discovery walked only directories named
+ * `setup-tna`, so eleven of the twelve skills had NO mirror guard. Measured
+ * drift: `expect-fail`, `fork-it` and `make-it-so` were content-different in
+ * `.agents/skills`, `.claude/skills` and `plugin/copilot/.agents/skills` while
+ * every setup-tna payload was clean — three copies of the skills an adopter
+ * actually loads, silently older than canonical. Structure, not a list: any
+ * `<cat>/<skill>/<file>` that exists canonically is checked, so a new skill or a
+ * new payload root is covered the moment it exists.
+ */
+const discoverSkillMirrors = () => {
+  const out = [];
+  // Canonical skills are `<cat>/<skill>/…` in the repo; an INSTALLED mirror is
+  // flat `<skill>/…` (onboarding copies each skill into the harness skills dir).
+  // Both shapes resolve to the same file set, so the map is keyed by skill NAME
+  // plus the file's own relative path — the category is a repo-only detail.
+  const canonicalSkills = new Map();   // `<skill>/<rel>` -> absolute path
+  const skillNames = new Set();
+  for (const cat of SKILL_CATEGORIES) {
+    let names;
+    try { names = readdirSync(join(ROOT, 'skills', cat)); } catch { continue; }
+    for (const skill of names) {
+      const root = join(ROOT, 'skills', cat, skill);
+      if (!existsSync(join(root, 'SKILL.md'))) continue;
+      skillNames.add(skill);
+      for (const relFile of walkFiles(root)) canonicalSkills.set(`${skill}/${relFile}`, join(root, relFile));
+    }
+  }
+  if (canonicalSkills.size === 0) return out;
+  const CANON = join(ROOT, 'skills');
+  const visit = (dir) => {
+    let names;
+    try { names = readdirSync(dir); } catch { return; }
+    for (const name of names) {
+      if (SKIP_DIRS.has(name)) continue;
+      const p = join(dir, name);
+      let st;
+      try { st = lstatSync(p); } catch { continue; }
+      // Junctions are local install state, never distribution mirrors (the same
+      // structural skip the payload walk uses).
+      if (st.isSymbolicLink()) continue;
+      if (!st.isDirectory()) continue;
+      if (p === CANON) continue;               // canonical itself
+      if (name === 'skills') {
+        // Flat install (`skills/<skill>/…`) AND categorized repo payloads
+        // (`skills/<cat>/<skill>/…`) are both valid mirror shapes.
+        for (const child of readdirSync(p)) {
+          if (SKIP_DIRS.has(child)) continue;
+          const childPath = join(p, child);
+          let childIsDir = false;
+          try { childIsDir = lstatSync(childPath).isDirectory(); } catch { continue; }
+          if (!childIsDir) continue;
+          const candidates = skillNames.has(child) ? [childPath] : SKILL_CATEGORIES.map((c) => join(childPath, c)).filter((c) => existsSync(c)).flatMap((catPath) => {
+            try { return readdirSync(catPath).map((s) => join(catPath, s)).filter((s) => existsSync(join(s, 'SKILL.md'))); } catch { return []; }
+          });
+          for (const mirrorRoot of candidates) {
+            const skill = mirrorRoot.replace(/^.*[\\/]/, '');
+            if (!skillNames.has(skill)) continue;
+            for (const relFile of walkFiles(mirrorRoot)) {
+              const canonical = canonicalSkills.get(`${skill}/${relFile}`);
+              if (canonical) out.push({ mirror: join(mirrorRoot, relFile), canonical });
+            }
+          }
+        }
+        continue;   // do not descend a skills dir again generically
+      }
+      visit(p);
+    }
+  };
+  visit(ROOT);
   return out;
 };
 
@@ -171,6 +277,9 @@ const discoverAdapterMirrors = () => {
   return out;
 };
 
+/** Ordinary skill mirrors (2026-11-03): see discoverSkillMirrors for the origin. */
+const discoverSkillMirrorSet = () => (MIRRORS_AVAILABLE ? discoverSkillMirrors() : []);
+
 const same = (a, b) => existsSync(a) && existsSync(b) && readFileSync(a).equals(readFileSync(b));
 
 const args = process.argv.slice(2);
@@ -183,6 +292,7 @@ if (list) {
   if (MIRRORS_AVAILABLE) {
     for (const m of discoverRouterMirrors()) console.log(`router mirror: ${relative(process.cwd(), m.mirror)}`);
     for (const m of discoverScriptMirrors()) console.log(`script mirror: ${relative(process.cwd(), m.mirror)}`);
+    for (const m of discoverSkillMirrorSet()) console.log(`skill mirror: ${relative(process.cwd(), m.mirror)}`);
   }
   process.exit(0);
 }
@@ -205,7 +315,7 @@ for (const root of roots) {
   }
 }
 if (MIRRORS_AVAILABLE) {
-  for (const { mirror, canonical } of [...discoverRouterMirrors(), ...discoverScriptMirrors(), ...discoverAdapterMirrors()]) {
+  for (const { mirror, canonical } of [...discoverRouterMirrors(), ...discoverScriptMirrors(), ...discoverAdapterMirrors(), ...discoverSkillMirrorSet()]) {
     if (same(mirror, canonical)) continue;
     drift++;
     if (write) { copyFileSync(canonical, mirror); repairs.push(relative(process.cwd(), mirror) || mirror); }

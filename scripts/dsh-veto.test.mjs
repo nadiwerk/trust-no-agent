@@ -159,6 +159,19 @@ check('P2 the adapter declares its service dependencies', Array.isArray(mod.inje
     'git -c user.name=x commit -m x', 'git --git-dir=.git commit -m x', 'npm publish', 'rm -rf dist',
     'git status', 'git -C . status', 'git --no-pager log --oneline -5', 'ls -la',
     'node scripts/eval.mjs', 'cd repo && git commit -m x', 'npm test; git push origin master',
+    // Widened 2026-11-03 with the canonical gate's new coverage (see the pi/omp
+    // parity corpus for the reasoning: a copy that lags allows what the
+    // canonical gate refuses).
+    'git.exe push origin master',
+    '"C:\\Program Files\\Git\\cmd\\git.exe" push origin master',
+    'rm -r -f dist', 'rm -fr dist', 'rm -f -r dist', 'rm --recursive --force dist',
+    'Remove-Item -Recurse -Force dist', 'del /s /q dist', 'rd /s /q dist',
+    'pnpm publish', 'yarn publish', 'yarn npm publish',
+    'gh pr merge 12 --squash', 'gh release create v1 --notes x',
+    'git push --dry-run', 'git commit --help', 'npm publish --dry-run',
+    'pnpm publish --dry-run', 'gh pr merge --help', 'git commit -m "--help"',
+    'git push -o --dry-run origin master',
+    'rm dist', 'del dist', 'Remove-Item -Force dist', 'gh pr view 12', 'pnpm install',
   ];
   const drift = [];
   for (const command of corpus) {
@@ -200,6 +213,35 @@ check('P2 the adapter declares its service dependencies', Array.isArray(mod.inje
     name: 'write', arguments: { path: join(dir, 'notes-on-progress.txt'), content: 'ok' }, agent,
   });
   check('T3 a look-alike path stays open', sibling?.kind === 'allow', JSON.stringify(sibling));
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- U. A patch is judged by its targets (2026-11-03) ----
+// Same boundary as the canonical gate and the pi/omp adapters: an
+// `apply_patch` carries its diff in `command`, so a patch that UPDATED or
+// DELETED `.trust/progress.txt` rewrote the private ledger and the adapter's
+// guard — reading only `path`/`file_path` — let it through. A patch whose
+// CONTEXT line merely mentions an irreversible action stays open: text a tool
+// will not execute is data, not an action.
+{
+  const patch = (...lines) => ['*** Begin Patch', ...lines, '*** End Patch'].join('\n');
+  const dir = mkdtempSync(join(tmpdir(), 'tna-dsh-u-'));
+  const h = makeCtx(dir);
+  mod.apply(h.ctx);
+  for (const [body, label] of [
+    [patch('*** Update File: .trust/progress.txt', '@@', '-old', '+new'), 'Update File'],
+    [patch('*** Delete File: .trust/progress.txt'), 'Delete File'],
+    [patch('*** Update File: .trust/progress.txt', '@@', '+x', '*** Update File: src/a.ts', '+y'), 'ledger named first of two'],
+  ]) {
+    const v = await h.fire('tools/pre-execute', { name: 'apply_patch', arguments: { command: body }, agent });
+    check(`U1 apply_patch ${label} of the ledger is denied`, v?.kind === 'deny', JSON.stringify(v));
+  }
+  const open = await h.fire('tools/pre-execute', {
+    name: 'apply_patch',
+    arguments: { command: patch('*** Update File: docs/guide.md', '@@', ' git push origin master', '+git push --force') },
+    agent,
+  });
+  check('U2 a patch that only MENTIONS the action stays open', !open || open.kind !== 'deny', JSON.stringify(open));
   rmSync(dir, { recursive: true, force: true });
 }
 

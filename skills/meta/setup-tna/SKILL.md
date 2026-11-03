@@ -1,6 +1,6 @@
 ---
 name: setup-tna
-description: Use when the user types /setup-tna, asks to onboard or install trust-no-agent in this project, or when a fresh-install signature is detected (the framework's skills are present but the router is not) — guides the whole onboarding in chat briefing, consent, router copy, skill mapping, and a doctor-lite proof
+description: Use when the user types /setup-tna, asks to install or onboard trust-no-agent here, or a fresh-install signature appears — runs consent, router copy, skill mapping, and a doctor proof.
 disable-model-invocation: true
 ---
 

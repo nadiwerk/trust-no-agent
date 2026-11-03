@@ -7,6 +7,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A gate that cannot load is silent no more.** `gate-hook.mjs` imported its
+  siblings statically, so a partial payload made Node exit 1 BEFORE `main()` ran
+  and print nothing on stdout — and a module-load throw is not something
+  `main()`'s try/catch can catch. Claude Code treats "exit 1 without valid JSON"
+  as a NON-BLOCKING hook error, so the floor and the veto vanished for the whole
+  session while the session looked normal, and `--self-check` lived in the same
+  module so it could not report it either. The imports are now dynamic: a load
+  failure exits 0 with a `systemMessage` naming the gate as INACTIVE and says
+  how to repair it (warn-but-allow, per the documented remedy). `doctor.mjs` no
+  longer statically imports the hook — it spawned nothing and died on the same
+  throw — and now proves the hook in a SEPARATE process (`--self-check`), where
+  a non-zero exit or a load warning is a named FAIL. Pinned by
+  `gate-hook.test.mjs` R1-R5 and `doctor.test.mjs` K12a-K12c.
+- **`PostCompact` was a floor injection neither harness could deliver.** Claude
+  Code gives PostCompact no decision control and DISCARDS its `systemMessage` and
+  `continue` (documented `additionalContext` events are SessionStart,
+  SubagentStart, PostModelSwitch); Codex's PostCompact accepts the common output
+  fields only. Both re-fire `SessionStart` with `source:"compact"` after a
+  compaction, which the repo's matcher-less SessionStart entry already receives.
+  The entry is removed from both manifests, the handler is gone, and
+  `harness-general.test.mjs` #7a-#7f now pins the ABSENCE plus the live
+  injection on `SessionStart/compact` (the old assertion only checked that a
+  `PostCompact` array existed — a shape assertion certifying a no-op).
+- **The classifier missed ordinary Windows and PowerShell spellings.**
+  `matchAtExecution` rebuilt the head from the raw word, so `git.exe push` and a
+  quoted `"C:\Program Files\Git\cmd\git.exe" commit` passed as no action at all;
+  it also split words on whitespace, so the quoted path was never one token. The
+  program name is normalized once (separators and `.exe` dropped) and words come
+  from the same quote-aware splitter `gitTargetDir` uses.
+- **Recursive delete is keyed on the ACTION, not one spelling.** The table held
+  the single literal `rm -rf`, so `rm -r -f`, `rm -fr`, `rm -f -r`,
+  `rm -rfv`, `rm --recursive --force`, `Remove-Item -Recurse -Force`, `del /s /q`
+  and `rd /s /q` were all open. They now gate, and non-recursive deletes
+  (`rm -f`, `del dist`, `Remove-Item -Force`) stay open. `Remove-Item -Force`
+  must never read as recursive — its `-Force` contains an `r`.
+- **Publishing and remote state changes beyond npm are gated.**
+  `pnpm publish`, `yarn publish`, `yarn npm publish`, `gh pr merge` and
+  `gh release create` were open; each changes state one command cannot take back.
+  Read-only gh subcommands (`gh pr view`, `gh pr create`, `gh release list`) and
+  local package commands (`pnpm install`, `yarn build`) stay open.
+- **A dry run and a help request are no longer gates.** `git push --dry-run`,
+  `git commit --help`, `npm publish --dry-run` and the pnpm/yarn/gh equivalents
+  were all vetoed — punishing the read-only way to CHECK the action. The
+  exemption is narrow: `--help` counts only in the first argument position
+  (`git commit -m "--help"` is a real commit) and `--dry-run` never counts as the
+  value of an option that would still run the action
+  (`git push -o --dry-run origin` pushes).
+- **An `apply_patch` is judged by its targets, never by its text.** A patch whose
+  CONTEXT line began with `git push` was vetoed (a false positive on
+  documentation), while a patch that UPDATED or DELETED `.trust/progress.txt` was
+  open — the ledger guard covered only `write`/`edit`. Patches now resolve their
+  `*** Add|Update|Delete File:` targets for the ledger rule and never reach
+  command matching; `multiedit`, `notebookedit` and `str_replace_editor` join the
+  ledger guard. The pi, omp and dsh adapters gained the same target check.
+- **The PreToolUse deny rides the DOCUMENTED decision field.** The hook emitted
+  the legacy top-level `{"decision":"block","reason"}`, which Claude documents as
+  DEPRECATED for PreToolUse (`block`/`approve` map to `deny`/`allow`). It now
+  emits `hookSpecificOutput.permissionDecision:"deny"` with
+  `permissionDecisionReason`, a form Codex also accepts, keeping the exit-0
+  behaviour the probes proved (exit 2 + stderr fails open on Codex). Pinned by
+  `gate-hook.test.mjs` H1/H1b; the live re-probe of the new field is an open IOU
+  recorded in `docs/compatibility.md`.
+- **`sync-payloads.mjs` repaired the real repo from a sandbox run.** The
+  hermeticity the comment promised was never implemented: `MIRRORS_AVAILABLE`
+  ignored the cwd, so the `--write` in `payload-sync.test.mjs` (run from a temp
+  fixture) rewrote this checkout's `plugin/scripts` and `.opencode` mirrors —
+  three tracked files silently changed, and the drift check went green on the
+  NEXT run. The repo mirror set now applies only when the script runs from inside
+  the repo it belongs to (D7 pins it).
+- **Eleven of twelve skill mirrors had no drift guard.** Discovery walked only
+  directories named `setup-tna`, so `expect-fail`, `fork-it` and `make-it-so`
+  were content-different in `.agents/skills`, `.claude/skills` and
+  `plugin/copilot/.agents/skills` while every setup-tna payload was clean (40
+  files drifted: 3 content, 37 EOL-only). Skill mirrors are now discovered by
+  structure in both shapes (flat install and categorized payload) and repaired.
+- **Nineteen of forty-eight suites never ran in CI.** `ci-guard.mjs` M7 hardcoded
+  the same 18 suites `ci.yml` already ran, so it could not see the opposite
+  problem: every harness adapter suite (`veto-adapter`, `dsh-veto`,
+  `dsh-fixlist`, `omp-fixlist`, `pi-discipline`, `pi-recorder`, `harness-general`,
+  `veto-tool-coverage`, `reinject`) plus eleven others appeared in no job. All 19
+  are wired, and new M8 derives the check from the filesystem and the workflow so
+  a new test file cannot be born unwired.
+- **Six skill descriptions blew the always-on budget.** `receipts` 505,
+  `roast-my-code` 421, `root-cause` 388, `breakpoint` 344, `setup-tna` 308,
+  `ship-log` 242 characters, inherited by every mirror. All are now under 200
+  with the trigger vocabulary intact (`trigger-eval.mjs` green), pinned by
+  `plugin.test.mjs` L1, and every classifier copy carries a drift pin so the
+  grammar cannot diverge again (`veto-adapter.test.mjs` N1 over 40 commands,
+  `dsh-veto.test.mjs` S1, both extended with the new coverage).
+- **`skills-lock.json` shape is pinned, not guessed.** No `computedHash` could be
+  reproduced with any of seven candidate algorithms and the `skills` CLI is not
+  installed here, so regenerating them would be an invented record. J6/J7 now
+  pin what IS verifiable: the lock lists exactly the canonical skills and every
+  `skillPath` is that skill's own `SKILL.md`.
+
+### Added
+
+- `docs/compatibility.md` §Known limits, measured — the `Bash|PowerShell` Claude
+  matcher (Write/Edit never reach the hook there), PostCompact's missing delivery
+  path, Codex's re-trust requirement after any hook change, and the per-file
+  token budget overrun on the classifier copies with its real fix (a split, not
+  an ignore line).
+
+### Changed
+
+- Two orphan documents (`docs/codex-test-prompt-2026-10-26.md`,
+  `docs/codex-testing-flow-2026-10-26.md`) moved to `docs/archive/`; they were
+  tracked with zero references.
+
 ## [0.1.57] - 2026-11-02
 
 ### Changed

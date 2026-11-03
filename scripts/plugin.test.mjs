@@ -323,6 +323,63 @@ const skills = canonicalSkills();
   for (const [name, e] of Object.entries(lock.skills || {})) {
     check(`J1 lock entry ${name} points at an existing file`, existsSync(join(ROOT, e.skillPath)), e.skillPath);
   }
+  // J6/J7 — the lock's SHAPE must match the canonical tree, not just resolve.
+  // Measured 2026-11-03: none of the 12 `computedHash` values could be
+  // reproduced with any of 7 candidate algorithms (raw file, LF-normalized,
+  // `git show HEAD:` blob, folder-hash with either separator, raw/LF folder
+  // hashes), and the `skills` CLI is not installed here — so regenerating them
+  // would be a guess dressed as a record. What CAN be pinned without guessing
+  // is that the lock describes the real tree: exactly the canonical skill set,
+  // one entry each, and every skillPath a SKILL.md inside that skill's own
+  // folder. That catches the failure the existence check alone misses — a lock
+  // that keeps pointing at a RENAMED or DELETED skill while still resolving.
+  {
+    const { readdirSync } = await import('node:fs');
+    const canonical = new Set();
+    for (const cat of ['discipline', 'engineering', 'meta']) {
+      for (const d of readdirSync(join(ROOT, 'skills', cat))) {
+        if (existsSync(join(ROOT, 'skills', cat, d, 'SKILL.md'))) canonical.add(d);
+      }
+    }
+    const locked = new Set(Object.keys(lock.skills || {}));
+    const missing = [...canonical].filter((s) => !locked.has(s));
+    const extra = [...locked].filter((s) => !canonical.has(s));
+    check('J6 the lock lists exactly the canonical skills (no missing, no ghosts)',
+      missing.length === 0 && extra.length === 0,
+      `missing=${missing.join(',')} extra=${extra.join(',')}`);
+    const badPath = Object.entries(lock.skills || {}).filter(([name, e]) => {
+      const norm = String(e.skillPath ?? '').replace(/\\/g, '/');
+      return !norm.endsWith(`/${name}/SKILL.md`) && norm !== `${name}/SKILL.md`;
+    });
+    check('J7 every skillPath is the skill\'s own SKILL.md (a lock pointing elsewhere is a stale record)',
+      badPath.length === 0, badPath.map(([n, e]) => `${n} -> ${e.skillPath}`).join(' | '));
+  }
+}
+
+// ---- L. Descriptions stay inside the context budget (2026-11-03 audit) ----
+// Skill descriptions are the framework's ONLY always-on cost (AGENTS.md §8), and
+// six had grown past 200 characters: receipts 505, roast-my-code 421,
+// root-cause 388, breakpoint 344, setup-tna 308, ship-log 242. Every mirror
+// inherits the bloat, so the tax is paid on every request on every harness.
+// 200 is the ceiling `skill-desc-audit.mjs` calls the target ("over 200 =
+// context tax"); it stays ADVISORY there because a description can be long and
+// still correct, but a NEW regression past it must fail here so the budget
+// cannot creep. The trigger vocabulary (trigger-eval.mjs) is checked separately
+// and must survive the trim.
+{
+  const { readdirSync: readdirL } = await import('node:fs');
+  const over = [];
+  for (const cat of ['discipline', 'engineering', 'meta']) {
+    for (const name of readdirL(join(ROOT, 'skills', cat))) {
+      const f = join(ROOT, 'skills', cat, name, 'SKILL.md');
+      if (!existsSync(f)) continue;
+      const m = readFileSync(f, 'utf8').match(/^description:\s*(.+)$/m);
+      if (!m) continue;
+      const len = m[1].trim().length;
+      if (len > 200) over.push(`${name} (${len})`);
+    }
+  }
+  check('L1 no skill description exceeds 200 characters', over.length === 0, over.join(', '));
 }
 
 // ---- K. Skill-count prose cannot go stale (origin: 2026-10-30 audit).

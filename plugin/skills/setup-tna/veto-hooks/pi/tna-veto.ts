@@ -38,7 +38,20 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 
-const IRREVERSIBLE_PATTERNS = ["git commit", "git push", "npm publish", "rm -rf"];
+const IRREVERSIBLE_PATTERNS = [
+  "git commit",
+  "git push",
+  "npm publish",
+  // Widened 2026-11-03 with the canonical gate (scripts/action-gate.mjs): each
+  // of these changes remote state that one command cannot take back, and each
+  // was measured OPEN on the shipped adapter while canonical gated it.
+  "pnpm publish",
+  "yarn publish",
+  "yarn npm publish",
+  "gh pr merge",
+  "gh release create",
+  "rm -rf",
+];
 
 /** Shell-execution tool names across harnesses (case-insensitive). */
 const SHELL_TOOLS = new Set(["bash", "powershell", "pwsh", "shell", "exec_command"]);
@@ -228,6 +241,24 @@ function writtenPath(input) {
   return input?.path ?? input?.filePath ?? input?.file_path ?? '';
 }
 
+/**
+ * Every path a Codex-style `apply_patch` payload targets, in order.
+ *
+ * Origin 2026-11-03 (audit): the ledger guard read only `path`/`filePath`, so a
+ * patch that UPDATED or DELETED `.trust/progress.txt` — carrying its diff in
+ * `command` — passed on every adapter, while the canonical gate blocked it. A
+ * patch names its targets in `*** Update File: <path>` headers; those are what
+ * the guard must read, never the diff text (a context line that mentions
+ * `git push` is documentation, not an action).
+ */
+function patchTargets(text: unknown): string[] {
+  const targets: string[] = [];
+  const re = /^\*\*\*\s*(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$/gim;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(String(text ?? ""))) !== null) targets.push(m[1]);
+  return targets;
+}
+
 /** Drop git global options so the subcommand lands in the head position. */
 function stripGitGlobalOptions(words) {
   let i = 0;
@@ -259,15 +290,116 @@ const INTERPRETERS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'pwsh', 'power
 const WRAPPER_VALUE_FLAGS = new Set(['-u', '-g', '-p', '-C', '-h', '-r', '-t', '-U', '-D', '--user', '--group', '--prompt', '--close-from', '--host', '--role', '--type', '--other-user', '--chdir']);
 
 /**
+ * Recursive delete, whichever spelling — ported from scripts/action-gate.mjs
+ * (canonical). The table carries one literal (`rm -rf`); the ACTION is any
+ * recursive delete. `rm -r -f`, `rm -fr`, `rm -f -r`, `rm --recursive`,
+ * `Remove-Item -Recurse`, `del /s` and `rd /s` all delete a tree and were all
+ * measured OPEN on the adapters before 2026-11-03.
+ *
+ * `rm` takes short clusters (-rf, -fr, -rfv), so any cluster containing `r`
+ * counts. `Remove-Item` does NOT: its `-Force` contains an `r` and must never
+ * read as recursive — only the explicit recursive spellings count there.
+ */
+const RECURSIVE_DELETE_PROGRAMS = new Set(['remove-item', 'ri', 'del', 'erase', 'rd', 'rmdir']);
+const RECURSIVE_FLAG_SPELLINGS = new Set(['--recursive', '--recurse', '-recurse']);
+
+function recursiveDeleteAt(program, words, start) {
+  if (program !== 'rm' && !RECURSIVE_DELETE_PROGRAMS.has(program)) return false;
+  for (let j = start + 1; j < words.length; j++) {
+    const flag = String(words[j] ?? '').toLowerCase();
+    if (flag === '--') break;
+    if (RECURSIVE_FLAG_SPELLINGS.has(flag) || flag === '/s') return true;
+    if (program === 'rm' && /^-[a-z]+$/.test(flag) && flag.includes('r')) return true;
+  }
+  return false;
+}
+
+/**
+ * Options that CONSUME the next word, for the actions that have a documented
+ * dry run. Used only to decide whether `--dry-run` is a FLAG or the VALUE of an
+ * option — `git push -o --dry-run origin` pushes with a push-option literally
+ * named `--dry-run`, so that spelling must stay gated (canonical, 2026-11-03).
+ */
+const DRY_RUN_VALUE_FLAGS: Record<string, Set<string>> = {
+  'git push': new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec', '--force-with-lease', '--force-if-includes']),
+  'git commit': new Set(['-m', '--message', '-F', '--file', '-C', '--reuse-message', '-c', '--reedit-message', '-t', '--template']),
+  'npm publish': new Set(['--tag', '--access', '--otp', '--registry', '--userconfig', '--workspace', '-w']),
+  'pnpm publish': new Set(['--tag', '--access', '--otp', '--registry', '--userconfig', '--workspace', '--report-summary', '--publish-branch']),
+  'yarn publish': new Set(['--tag', '--access', '--otp', '--new-version', '--message']),
+  'yarn npm publish': new Set(['--tag', '--access', '--otp', '--new-version', '--message']),
+};
+
+/**
+ * True when the invocation only PRINTS the action instead of performing it
+ * (canonical parity, 2026-11-03). `--help`/`-h` counts only in the FIRST
+ * argument position — `git commit -m "--help"` is a real commit whose message
+ * says --help. `--dry-run` counts anywhere except as an option's value.
+ */
+function isReadOnlyInvocation(args: string[], pattern: string): boolean {
+  if (args.length === 0) return false;
+  const first = String(args[0]).toLowerCase();
+  if (first === '--help' || first === '-h') return true;
+  const valueFlags = DRY_RUN_VALUE_FLAGS[pattern];
+  if (!valueFlags) return false;
+  for (let j = 0; j < args.length; j++) {
+    if (String(args[j]).toLowerCase() !== '--dry-run') continue;
+    let prev = j > 0 ? String(args[j - 1]).toLowerCase() : '';
+    const eq = prev.indexOf('=');
+    if (eq > 0) prev = prev.slice(0, eq);
+    if (valueFlags.has(prev)) continue;  // a value, so the real action still runs
+    return true;
+  }
+  return false;
+}
+
+/**
  * Execution-position matcher (prose that merely names an action never gates).
  * Runs on the SAME segmenter as the recorder: one tokenisation, so parity is a
  * fact rather than a convention (origin 2026-10-25 — the two sides drifted and
  * the recorder silently stopped matching what the veto still caught).
  */
+/**
+ * Words of one segment, with quotes consumed — `-C "a b"` is ONE value.
+ * Ported from scripts/action-gate.mjs splitWords (2026-11-03): splitting on
+ * whitespace turned a quoted Windows program path (`"C:\Program Files\Git\cmd\
+ * git.exe" push`) into fragments, so the git program was never recognized and a
+ * real push passed the adapter while canonical blocked it.
+ */
+function splitWords(segment: string): string[] {
+  const words: string[] = [];
+  let cur = "";
+  let quote: string | null = null;
+  let has = false;
+  const DQ_ESCAPES = new Set(["$", "`", '"', "\\", "\n"]);
+  for (let i = 0; i < segment.length; i++) {
+    const ch = segment[i];
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < segment.length && DQ_ESCAPES.has(segment[i + 1])) { cur += segment[++i]; has = true; continue; }
+      if (ch === '"') { quote = null; continue; }
+      cur += ch;
+      has = true;
+      continue;
+    }
+    if (quote === "'") {
+      if (ch === "'") { quote = null; continue; }
+      cur += ch;
+      has = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; has = true; continue; }
+    if (ch === "\\" && i + 1 < segment.length) { cur += segment[++i]; has = true; continue; }
+    if (/\s/.test(ch)) { if (cur || has) { words.push(cur); cur = ""; has = false; } continue; }
+    cur += ch;
+    has = true;
+  }
+  if (cur || has) words.push(cur);
+  return words;
+}
+
 export function classifyCommand(command, depth = 0) {
   if (depth > 3) return { irreversible: false, pattern: null };
   for (const raw of segments(command)) {
-    const words = raw.trim().replace(/[)`]+$/, "").split(/\s+/).filter(Boolean);
+    const words = splitWords(raw.trim().replace(/[)`]+$/, ""));
     if (words.length === 0) continue;
 
     // Skip exec wrappers, their flags (and a flag's VALUE), and VAR=value.
@@ -285,14 +417,22 @@ export function classifyCommand(command, depth = 0) {
     if (i >= words.length) continue;
 
     const program = words[i].toLowerCase().replace(/^.*[\\/]/, "").replace(/\.exe$/, "");
+    // The NORMALIZED program name is what the pattern table sees (2026-11-03):
+    // rebuilding the head from the raw word let `git.exe push` and a quoted
+    // `"C:\…\git.exe" commit` through on every adapter.
     const head = program === "git"
-      ? [words[i], ...stripGitGlobalOptions(words.slice(i + 1))]
+      ? ["git", ...stripGitGlobalOptions(words.slice(i + 1))]
       : words.slice(i);
     const joined = head.join(" ").toLowerCase();
     for (const pattern of IRREVERSIBLE_PATTERNS) {
-      if (joined === pattern || joined.startsWith(`${pattern} `)) {
-        return { irreversible: true, pattern };
-      }
+      if (!(joined === pattern || joined.startsWith(`${pattern} `))) continue;
+      // A help request or a dry run PRINTS the action; it does not perform it.
+      if (isReadOnlyInvocation(head.slice(pattern.split(" ").length), pattern)) continue;
+      return { irreversible: true, pattern };
+    }
+    // The table holds the common spelling; the recursive-delete FAMILY is wider.
+    if (recursiveDeleteAt(program, words, i)) {
+      return { irreversible: true, pattern: "recursive delete" };
     }
 
     // `bash -c "git commit"`: the quoted payload is a command line, so follow it.
@@ -462,6 +602,20 @@ export default function tnaVeto(pi) {
         block: true,
         reason: `tna-gate veto: the private ledger (.trust/progress.txt) is append-only — a ${toolName} overwrites it (ledger-overwrite incident 2026-10-18); append via a shell >> or a staging file instead`,
       };
+    }
+
+    // A patch carries its diff in `command`, so its TARGETS decide the ledger
+    // rule, never its text (2026-11-03: an Update/Delete File of the ledger
+    // passed here while the canonical gate blocked it).
+    if (toolName === "apply_patch") {
+      const ledgerTarget = patchTargets(event?.input?.command).find(isLedgerPath);
+      if (ledgerTarget) {
+        logVeto(resolveCwd(event, ctx), { tool: toolName, command: ledgerTarget });
+        return {
+          block: true,
+          reason: `tna-gate veto: the private ledger (.trust/progress.txt) is append-only — an apply_patch rewrites it (ledger-overwrite incident 2026-10-18); append via a shell >> or a staging file instead`,
+        };
+      }
     }
 
     if (SHELL_TOOLS.has(toolName)) {

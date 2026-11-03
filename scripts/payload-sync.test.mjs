@@ -53,6 +53,44 @@ const run = (args, cwd = ROOT) => {
   check('D6 router mirrors are discovered by structure (plugin copy + the canonical payload references copy)',
     /^router mirror: plugin[/\\]AGENTS\.md$/im.test(r.out) &&
     /router mirror: skills[/\\]meta[/\\]setup-tna[/\\]references[/\\]AGENTS\.md/im.test(r.out), r.out.slice(0, 600));
+
+  // D8. SKILL mirrors are guarded too (2026-11-03). The drift audit found three
+  // skills (`expect-fail`, `fork-it`, `make-it-so`) byte-different in
+  // `.agents/skills`, `.claude/skills` and `plugin/copilot/.agents/skills` while
+  // every setup-tna payload was clean — the generator's discovery only walked
+  // directories named `setup-tna`, so the other eleven skill mirrors had NO
+  // guard at all. The check must now name a drifted ordinary skill mirror, not
+  // just a setup-tna one.
+  {
+    const { readdirSync } = await import('node:fs');
+    const CATEGORIES = ['discipline', 'engineering', 'meta'];
+    const skills = [];
+    for (const cat of CATEGORIES) {
+      for (const d of readdirSync(join(ROOT, 'skills', cat))) {
+        if (existsSync(join(ROOT, 'skills', cat, d, 'SKILL.md'))) skills.push(d);
+      }
+    }
+    check('D8a the canonical skill tree is discoverable for mirror guarding', skills.length >= 12, skills.join(','));
+    const rl = run(['--list']);
+    const named = skills.filter((s) => s !== 'setup-tna' && new RegExp(`^skill mirror: [^\\n]*[/\\\\]${s}[/\\\\]SKILL\\.md$`, 'im').test(rl.out));
+    check('D8b --list names ordinary skill mirrors (not only setup-tna payloads)',
+      named.length > 0, `named=${named.join(',')} out=${rl.out.slice(0, 400)}`);
+  }
+  // D7. Hermeticity (observed 2026-11-03). A payload-sync test run repaired the
+  // REAL repo's plugin/scripts and .opencode mirrors as a side effect: the
+  // W-series `--write` ran from a sandbox fixture but the repo-level mirror set
+  // is resolved from the script's own location, so three tracked files were
+  // rewritten and the drift check went green on the NEXT run — a guard that
+  // quietly repaired what it was supposed to report. The repo mirror set is
+  // scoped to the repo it belongs to: a run from outside must not name it (the
+  // --write path shares the same gate).
+  {
+    const sandbox = mkdtempSync(join(tmpdir(), 'sync-hermetic-'));
+    const rl = run(['--list'], sandbox);
+    check('D7 a run from outside the repo names no repo router/script mirror',
+      !/^(router|script) mirror: /m.test(rl.out), rl.out.slice(0, 400));
+    rmSync(sandbox, { recursive: true, force: true });
+  }
 }
 
 // ---- D5f. Junction skip is structural (portable proof via fixture) ----

@@ -314,6 +314,45 @@ export async function checkWorkflow(text, opts = {}) {
       );
   }
 
+  // ---- M8: NO suite may be left out of CI (2026-11-03) ----
+  // M7's list above was hardcoded to the SAME 18 suites ci.yml already ran, so it
+  // could not notice the opposite problem — 19 of 48 `scripts/*.test.mjs` files
+  // were never invoked by any job at all (measured: 29 refs in ci.yml, 48 suite
+  // files on disk). A guard that lists what is already run pins the past; the
+  // check has to be derived from the filesystem and the workflow, so a NEW test
+  // file cannot be born unwired. Wired = the file path appears in any workflow.
+  {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const repoRoot = ROOT;
+    const scriptsDir = path.join(repoRoot, 'scripts');
+    const suiteFiles = fs.existsSync(scriptsDir)
+      ? fs.readdirSync(scriptsDir).filter((f) => f.endsWith('.test.mjs')).sort()
+      : [];
+    const wired = new Set();
+    const walkYaml = (dir) => {
+      let names;
+      try { names = fs.readdirSync(dir); } catch { return; }
+      for (const name of names) {
+        const p = path.join(dir, name);
+        let st;
+        try { st = fs.lstatSync(p); } catch { continue; }
+        if (st.isDirectory()) { walkYaml(p); continue; }
+        if (!/\.ya?ml$/i.test(name)) continue;
+        const text = fs.readFileSync(p, 'utf8');
+        for (const m of text.matchAll(/scripts\/([\w.-]+\.test\.mjs)/g)) wired.add(m[1]);
+      }
+    };
+    walkYaml(path.join(repoRoot, '.github', 'workflows'));
+    const unwired = suiteFiles.filter((f) => !wired.has(f));
+    if (unwired.length)
+      errors.push(
+        `workflow never runs ${unwired.length} suite(s): ${unwired.join(', ')} — a test file no job invokes is not a test but a comment with a shebang (2026-11-03 audit: 19 of 48 were in that state)`,
+      );
+    if (suiteFiles.length < 40)
+      errors.push(`only ${suiteFiles.length} suite file(s) found under scripts/ — the discovery is broken, so "all wired" would be a vacuous pass`);
+  }
+
   // The parser's verdict was absent; the structural walk is the verdict. Any
   // shape a YAML reader would reject (a duplicated key, a step that runs
   // nothing, a job-less workflow) is reported as `valid: false` — never left at

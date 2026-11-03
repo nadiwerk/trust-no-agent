@@ -366,12 +366,74 @@ for (const harness of ['pi', 'omp']) {
   check('#6c the recorder points at the same gate-hook script',
     JSON.stringify(codex.hooks?.PostToolUse ?? '').includes('gate-hook.mjs'));
 
-  check('#7a the Claude Code manifest wires PostCompact (floor re-injection)',
-    Array.isArray(claude.hooks?.PostCompact) && claude.hooks.PostCompact.length > 0,
-    Object.keys(claude.hooks ?? {}).join(','));
-  check('#7b it keeps SessionStart, PreToolUse and PostToolUse',
-    ['SessionStart', 'PreToolUse', 'PostToolUse'].every((k) => Array.isArray(claude.hooks?.[k])),
-    Object.keys(claude.hooks ?? {}).join(','));
+  // #7 — corrected 2026-11-03. The old expectation asserted that
+  // `plugin/hooks/hooks.json` HAS a `PostCompact` array: a shape assertion, and
+  // it certified a no-op. Measured against both harnesses' documented event
+  // contracts:
+  //   - Claude Code: `PostCompact` has NO decision control. Claude DISCARDS
+  //     `systemMessage` and `continue` on that event, its input is
+  //     `trigger` + `compact_summary`, and the events that accept
+  //     `hookSpecificOutput.additionalContext` are SessionStart, SubagentStart
+  //     and PostModelSwitch — PostCompact is not among them.
+  //   - Codex: `PostCompact` accepts only the common output fields
+  //     (`continue`, `stopReason`, `systemMessage`, `suppressOutput`) — no
+  //     `additionalContext`.
+  //   So the PostCompact entry could never deliver the floor; it was a hook that
+  //   ran, printed JSON, and had it dropped. The REAL re-injection path is
+  //   `SessionStart`, which both harnesses fire with `source: "compact"` after a
+  //   compaction — and the repo's SessionStart entry has no matcher, so it fires
+  //   for every source including `compact`.
+  check('#7a the Claude manifest does NOT wire PostCompact (its output cannot carry context)',
+    claude.hooks?.PostCompact === undefined,
+    `PostCompact=${JSON.stringify(claude.hooks?.PostCompact)?.slice(0, 160)}`);
+  check('#7b SessionStart stays wired and is NOT narrowed to a source (compact must reach it)',
+    Array.isArray(claude.hooks?.SessionStart) && claude.hooks.SessionStart.length > 0 &&
+    !JSON.stringify(claude.hooks.SessionStart).includes('"matcher"'),
+    JSON.stringify(claude.hooks?.SessionStart ?? '').slice(0, 240));
+  check('#7c the Codex manifest does NOT wire PostCompact either (common fields only)',
+    codex.hooks?.PostCompact === undefined,
+    `PostCompact=${JSON.stringify(codex.hooks?.PostCompact)?.slice(0, 160)}`);
+  check('#7d the Codex SessionStart entry carries no matcher (compact reaches it too)',
+    Array.isArray(codex.hooks?.SessionStart) && codex.hooks.SessionStart.length > 0 &&
+    !JSON.stringify(codex.hooks.SessionStart).includes('"matcher"'),
+    JSON.stringify(codex.hooks?.SessionStart ?? '').slice(0, 240));
+}
+
+// =====================================================================
+// #7e — the compact re-injection is PROVEN at the seam that delivers it
+// =====================================================================
+// A manifest-shape assertion cannot tell a working injection from a no-op (that
+// is how the PostCompact entry survived). This drives the REAL hook as the
+// harness would, with `source: "compact"`, and requires the floor to come back
+// on stdout as `hookSpecificOutput.additionalContext` — the field the harness
+// actually delivers. A `SessionStart` that emitted nothing = the discipline
+// floor would be gone for the rest of the session, which is the failure the
+// whole reinject mechanism exists to prevent.
+{
+  const { spawnSync } = await import('node:child_process');
+  const hook = join(ROOT, 'scripts', 'gate-hook.mjs');
+  for (const source of ['compact', 'startup']) {
+    const r = spawnSync(process.execPath, [hook], {
+      input: JSON.stringify({ hook_event_name: 'SessionStart', source }),
+      encoding: 'utf8', timeout: 60000, cwd: ROOT,
+    });
+    let ctx = '';
+    try { ctx = JSON.parse(r.stdout || '{}')?.hookSpecificOutput?.additionalContext || ''; } catch { /* reported below */ }
+    check(`#7e SessionStart/${source} re-injects the floor as additionalContext`,
+      r.status === 0 && ctx.length > 2000 && /Iron Law/i.test(ctx) && /MANDATORY/i.test(ctx),
+      `exit=${r.status} ctxLen=${ctx.length} out=${String(r.stdout ?? '').slice(0, 160)}`);
+  }
+  // The PostCompact handler must not reach the floor through this hook at all:
+  // with the entry unwired, a PostCompact payload is a payload nobody sends. If
+  // a future harness DOES support it, this expectation is the reminder to
+  // re-verify against that harness's docs first.
+  const pc = spawnSync(process.execPath, [hook], {
+    input: JSON.stringify({ hook_event_name: 'PostCompact', trigger: 'auto' }),
+    encoding: 'utf8', timeout: 60000, cwd: ROOT,
+  });
+  check('#7f the hook stays silent on PostCompact (no unwired event invents a delivery path)',
+    pc.status === 0 && String(pc.stdout ?? '').trim() === '',
+    `exit=${pc.status} out=${String(pc.stdout ?? '').slice(0, 160)}`);
 }
 
 // =====================================================================
