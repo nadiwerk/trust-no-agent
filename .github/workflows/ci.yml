@@ -127,6 +127,27 @@ jobs:
       - name: Workflow file guard self-test
         run: node scripts/ci-guard.test.mjs
 
+      # The file budget RATCHET. Before 2026-11-03 the budget guard was opt-in
+      # and wired nowhere, so this repo accumulated 80 over-budget files while
+      # every gate stayed green (docs/compatibility.md known limit 4). The
+      # baseline pins each existing offender's size as a CEILING: `--all` plus
+      # the baseline means an offender may shrink but never grow, and a NEW
+      # offender fails here. Without `--all` the job would only see the staged
+      # delta, which is exactly the blind spot that let the 80 accumulate.
+      - name: File budget ratchet
+        run: node scripts/file-budget.mjs --all
+
+      - name: File budget ratchet self-test
+        run: node scripts/file-budget.test.mjs
+
+      # The Codex recorder verdict is OPEN in docs/compatibility.md (measured
+      # dead on 0.163.0; the 0.166.0 re-probe was blocked on credentials). The
+      # probe SHAPE now lives in a script so it cannot be forgotten: its test
+      # asserts the verdict/exit-code mapping in every credential state, and it
+      # reports "UNPROVEN" (exit 3) rather than guessing when Codex cannot run.
+      - name: Codex recorder re-probe self-test
+        run: node scripts/codex-reprobe.test.mjs
+
       # ---- Suites that were tracked but never invoked (2026-11-03 audit) ----
       # 19 of 48 `scripts/*.test.mjs` files appeared in no job: a test file that
       # CI never runs is a comment with a shebang, and every harness gate in the

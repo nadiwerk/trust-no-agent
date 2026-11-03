@@ -23,3 +23,10 @@ root="$(git rev-parse --show-toplevel)"
 # CI went dark for v0.1.25 and v0.1.26 — this hook is where it becomes visible.
 "$root/scripts/ci-guard.test.mjs" 2>/dev/null || node "$root/scripts/ci-guard.test.mjs" || exit 1
 "$root/scripts/ci-guard.mjs" 2>/dev/null || node "$root/scripts/ci-guard.mjs" || exit 1
+# The file budget RATCHET: every over-budget file this repo already carries is
+# pinned in .filebudget-baseline.json at its measured size, so a change may
+# shrink one but never grow one, and a NEW offender is refused outright. Wired
+# here because it was opt-in and unwired until 2026-11-03 — the repo grew 80
+# offenders while every local gate stayed green (docs/compatibility.md known
+# limit 4). The pin file is the reviewed record; re-pinning is a separate commit.
+"$root/scripts/file-budget.mjs" 2>/dev/null || node "$root/scripts/file-budget.mjs" || exit 1

@@ -20,6 +20,16 @@
  *   exit 1   at least one staged file over budget (block), or bad --limit
  *   --all    audit every indexed file, not just the staged delta
  *   --limit=N  override the default 5,000-token budget
+ *   --report        print the measured over-budget set, ignore the baseline
+ *   --update-baseline  re-pin .filebudget-baseline.json from what is on disk
+ *
+ * The ratchet (why the guard finally has teeth on THIS repo): the staged-delta
+ * rule meant a repo that already carried offenders was never told — measured
+ * 2026-11-03: 80 files over budget, guard silent. Deleting them is a rewrite and
+ * listing them in `.filebudgetignore` hides them, so instead the baseline
+ * records each offender's size as a CEILING: an offender may shrink freely and
+ * may never grow, and a file absent from the baseline gets no mercy at all.
+ * Re-pinning is a deliberate, reviewable command, never an automatic pass.
  *
  * Ignored by default: lockfiles, maps/minified bundles, and common generated
  * directories — machine-generated content is not agent-authored prose. A
@@ -27,7 +37,7 @@
  * or `dir/` prefix per line), and binary content is skipped by sniffing.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_LIMIT = 5000;
@@ -76,15 +86,67 @@ const readIgnoreFile = (root) => {
   return { exact, prefixes };
 };
 
+const BASELINE_FILE = '.filebudget-baseline.json';
+
+/** Read the pinned ceilings. A malformed baseline is a hard error, never a pass. */
+const readBaseline = (root) => {
+  const p = join(root, BASELINE_FILE);
+  if (!existsSync(p)) return {};
+  let parsed;
+  try { parsed = JSON.parse(readFileSync(p, 'utf8')); }
+  catch (err) {
+    process.stderr.write(`file-budget: ${BASELINE_FILE} is not valid JSON — fix it before committing (${err.message})\n`);
+    process.exit(1);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    process.stderr.write(`file-budget: ${BASELINE_FILE} must be a flat object of path -> token ceiling\n`);
+    process.exit(1);
+  }
+  return parsed;
+};
+
+/**
+ * Measure the over-budget set: every candidate file whose size exceeds `limit`
+ * and is not ignorable/binary. The single source of truth for BOTH the block
+ * message and `--report`/`--update-baseline`, so a pin can never be written
+ * from a number no other code path can reproduce.
+ */
+const measure = (root, rels, limit, ig) => {
+  const out = [];
+  for (const rel of rels) {
+    if (ignored(rel) || matchesIgnore(rel, ig)) continue;
+    const abs = join(root, ...rel.split('/'));
+    let size;
+    try { size = statSync(abs).size; } catch { continue; } // deleted between stage and run
+    const tokens = Math.round(size / BYTES_PER_TOKEN);
+    if (tokens <= limit) continue;
+    let buf;
+    try { buf = readFileSync(abs); } catch { continue; }
+    if (isBinary(buf)) continue;
+    out.push({ rel, tokens });
+  }
+  return out;
+};
+
 const matchesIgnore = (rel, ig) =>
   ig.exact.has(rel) || ig.prefixes.some((pre) => rel.startsWith(pre));
+
+const writeBaseline = (root, pinned) => {
+  const sorted = {};
+  for (const k of Object.keys(pinned).sort()) sorted[k] = pinned[k];
+  writeFileSync(join(root, BASELINE_FILE), `${JSON.stringify(sorted, null, 2)}\n`);
+};
 
 const main = () => {
   const args = process.argv.slice(2);
   let limit = DEFAULT_LIMIT;
   let all = false;
+  let report = false;
+  let updateBaseline = false;
   for (const a of args) {
     if (a === '--all') all = true;
+    else if (a === '--report') report = true;
+    else if (a === '--update-baseline') updateBaseline = true;
     else if (a.startsWith('--limit=')) {
       const n = Number(a.slice('--limit='.length));
       if (!Number.isInteger(n) || n <= 0) {
@@ -100,38 +162,63 @@ const main = () => {
   try { root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim(); }
   catch { return; }
   const git = (a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
+  const ig = readIgnoreFile(root);
 
-  // Staged delta only (Added/Copied/Modified — deletions judge nothing).
-  const list = all
+  // --report and --update-baseline measure the WHOLE index: they answer "what is
+  // large right now", which is a different question from "what just changed".
+  const list = (all || report || updateBaseline)
     ? git(['ls-files']).split('\n')
     : git(['diff', '--cached', '--name-only', '--diff-filter=ACM']).split('\n');
   const rels = list.map((s) => s.trim()).filter(Boolean);
   if (rels.length === 0) return;
 
-  const ig = readIgnoreFile(root);
-  const offenders = [];
-  for (const rel of rels) {
-    if (ignored(rel) || matchesIgnore(rel, ig)) continue;
-    const abs = join(root, ...rel.split('/'));
-    let size;
-    try { size = statSync(abs).size; } catch { continue; } // deleted between stage and run
-    const tokens = Math.round(size / BYTES_PER_TOKEN);
-    if (tokens <= limit) continue;
-    let buf;
-    try { buf = readFileSync(abs); } catch { continue; }
-    if (isBinary(buf)) continue;
-    offenders.push({ rel, tokens, limit });
+  const offenders = measure(root, rels, limit, ig);
+
+  if (report) {
+    // Machine-friendly: `path tokens` per line, nothing else on stdout. The
+    // honesty checks in file-budget.test.mjs (H2-H4) parse this.
+    for (const o of offenders) process.stdout.write(`${o.rel} ${o.tokens}\n`);
+    return;
+  }
+
+  if (updateBaseline) {
+    const pinned = {};
+    for (const o of offenders) pinned[o.rel] = o.tokens;
+    writeBaseline(root, pinned);
+    process.stdout.write(`file-budget: pinned ${offenders.length} file(s) in ${BASELINE_FILE} — review this diff\n`);
+    return;
   }
 
   if (offenders.length === 0) return;
+
+  // The ratchet: a pinned file passes AT OR BELOW its ceiling and blocks above it.
+  const pinned = readBaseline(root);
+  const grown = [];
+  const unpinned = [];
   for (const o of offenders) {
-    process.stdout.write(`file-budget: ${o.rel} is ~${o.tokens} tokens (limit ${o.limit})\n`);
+    const ceiling = pinned[o.rel];
+    if (typeof ceiling !== 'number') unpinned.push(o);
+    else if (o.tokens > ceiling) grown.push({ ...o, ceiling });
+  }
+  if (grown.length === 0 && unpinned.length === 0) return;
+
+  for (const o of grown) {
+    process.stdout.write(`file-budget: ${o.rel} GREW to ~${o.tokens} tokens, past its pinned ceiling of ~${o.ceiling} (limit ${limit})\n`);
+  }
+  for (const o of unpinned) {
+    process.stdout.write(`file-budget: ${o.rel} is ~${o.tokens} tokens (limit ${limit})\n`);
   }
   process.stdout.write(`
 Split it before committing:
   - extract one cohesive concern into its own module and import what moved
   - data tables and fixtures belong in a data file beside the code, not inline
   - generated content belongs in a build step, never in source
+
+A file marked GREW must come back under its ceiling — it was already large and
+this change made it larger. If the growth is correct, re-pin deliberately and
+review that diff like any other decision:
+
+  node file-budget.mjs --update-baseline
 
 Legitimately large file? Ignore it for this repo: add its path (or a
 dir/ prefix) to .filebudgetignore at the repo root, one per line — or

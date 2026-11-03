@@ -165,6 +165,99 @@ check('A1 scripts/file-budget.mjs exists', existsSync(GUARD));
   rmSync(dir, { recursive: true, force: true });
 }
 
+// ---- G. The ratchet: pre-existing offenders are PINNED, growth is refused ----
+// Why this exists: the guard only ever judged the staged delta, so a repo with
+// 80 pre-existing over-budget files ran it 500+ times and was never once told.
+// Ignoring those files hides them; splitting all of them at once is a rewrite.
+// The ratchet is the third option — the baseline records each offender's size
+// as a CEILING, so an offender can shrink freely but can never grow, and the
+// guard becomes load-bearing the day it is wired in.
+const baselineOf = (dir, obj) => writeFileSync(join(dir, '.filebudget-baseline.json'), JSON.stringify(obj, null, 2));
+{
+  // G1: an over-budget file listed in the baseline at its current size passes.
+  const { dir } = mkRepo('fb-ratchet-ok-');
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG); // ~5250 tokens
+  baselineOf(dir, { 'src/big.ts': 5300 });
+  execFileSync('git', ['add', 'src/big.ts', '.filebudget-baseline.json'], { cwd: dir });
+  const r = runGuard(dir);
+  check('G1 a pinned over-budget file passes at its baseline', r.code === 0, `code=${r.code} out=${r.out.slice(0, 300)}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // G2: growth past the pinned ceiling blocks, and the message names BOTH numbers.
+  const { dir } = mkRepo('fb-ratchet-grow-');
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG); // ~5250 tokens
+  baselineOf(dir, { 'src/big.ts': 5300 });
+  execFileSync('git', ['add', 'src/big.ts', '.filebudget-baseline.json'], { cwd: dir });
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG + 'b'.repeat(8000)); // ~7250 tokens
+  execFileSync('git', ['add', 'src/big.ts'], { cwd: dir });
+  const r = runGuard(dir);
+  check('G2 growth past the pinned ceiling blocks (exit 1)', r.code === 1, `code=${r.code} out=${r.out.slice(0, 300)}`);
+  check('G2a the message names the baseline ceiling', /5,?300/.test(r.out), r.out.slice(0, 400));
+  check('G2b the message names the current size', /7,?2\d\d|7,?3\d\d|7,?4\d\d/.test(r.out), r.out.slice(0, 400));
+  check('G2c the message says how to re-pin deliberately', /--update-baseline/.test(r.out), r.out.slice(0, 400));
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // G3: a baseline entry for SOME OTHER file must not weaken the guard for an
+  // unlisted file. This is the failure mode that would make the ratchet a
+  // rubber stamp: "a baseline exists, therefore everything is excused".
+  const { dir } = mkRepo('fb-ratchet-other-');
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG);
+  writeFileSync(join(dir, 'src', 'other.ts'), SMALL);
+  baselineOf(dir, { 'src/other.ts': 999999 });
+  execFileSync('git', ['add', '-A'], { cwd: dir });
+  const r = runGuard(dir);
+  check('G3 an unrelated baseline entry does not excuse an unlisted offender', r.code === 1, `code=${r.code} out=${r.out.slice(0, 300)}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // G4: --update-baseline re-pins from what is on disk, and exits 0.
+  const { dir } = mkRepo('fb-ratchet-update-');
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG);
+  execFileSync('git', ['add', 'src/big.ts'], { cwd: dir });
+  const r = runGuard(dir, ['--update-baseline']);
+  check('G4 --update-baseline exits 0', r.code === 0, `code=${r.code} out=${r.out.slice(0, 300)}`);
+  const saved = existsSync(join(dir, '.filebudget-baseline.json'))
+    ? JSON.parse(readFileSync(join(dir, '.filebudget-baseline.json'), 'utf8')) : {};
+  check('G4a --update-baseline records the offender at its current size',
+    typeof saved['src/big.ts'] === 'number' && saved['src/big.ts'] >= 5250 && saved['src/big.ts'] <= 5350,
+    JSON.stringify(saved));
+  rmSync(dir, { recursive: true, force: true });
+}
+{
+  // G5: --report prints the current over-budget set ignoring the baseline, so a
+  // stale baseline cannot be re-pinned from a number nobody measured.
+  const { dir } = mkRepo('fb-ratchet-report-');
+  writeFileSync(join(dir, 'src', 'big.ts'), BIG);
+  baselineOf(dir, { 'src/big.ts': 999999 });
+  execFileSync('git', ['add', '-A'], { cwd: dir });
+  const r = runGuard(dir, ['--report']);
+  check('G5 --report lists an offender even when the baseline would excuse it',
+    r.code === 0 && /src\/big\.ts\s+~?\d+/.test(r.out), `code=${r.code} out=${r.out.slice(0, 300)}`);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- H. This repo's own baseline is honest (no stale entry, no silent gap) ----
+{
+  const basePath = join(ROOT, '.filebudget-baseline.json');
+  const haveBase = existsSync(basePath);
+  check('H1 the repo pins its over-budget files in .filebudget-baseline.json', haveBase, basePath);
+  if (haveBase) {
+    const pinned = JSON.parse(readFileSync(basePath, 'utf8'));
+    // --report is the measured truth; the baseline may only agree with it.
+    const r = spawnSync(process.execPath, [GUARD, '--report'], { cwd: ROOT, encoding: 'utf8' });
+    const measured = new Map((r.stdout || '').split('\n').map((l) => l.trim()).filter(Boolean)
+      .map((l) => { const [rel, tok] = l.split(/\s+/); return [rel, Number(String(tok).replace(/[^\d]/g, ''))]; }));
+    const missing = [...measured.keys()].filter((rel) => !(rel in pinned));
+    const stale = Object.keys(pinned).filter((rel) => !measured.has(rel));
+    const slack = [...measured.entries()].filter(([rel, tok]) => rel in pinned && pinned[rel] < tok);
+    check('H2 every measured offender is pinned (a new offender cannot slip in)', missing.length === 0, missing.slice(0, 5).join(', '));
+    check('H3 no stale pin (a file split below budget must be removed from the baseline)', stale.length === 0, stale.slice(0, 5).join(', '));
+    check('H4 no pin below its measured size (the ceiling is never a lie)', slack.length === 0, slack.slice(0, 5).map(([r2, t]) => `${r2} pin=${pinned[r2]} now=${t}`).join('; '));
+  }
+}
+
 // ---- N. Distribution: byte-identical in every setup-tna payload ----
 {
   const canonical = existsSync(GUARD) ? readFileSync(GUARD) : null;

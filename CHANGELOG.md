@@ -106,17 +106,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The file-budget guard became a ratchet, and it is wired in.** It was opt-in
+  and connected to nothing, so this repo accumulated **80** over-budget files
+  while every local gate stayed green — the guard only ever judged the staged
+  delta, and it never ran. Splitting 80 files at once is a rewrite and an
+  ignore line hides them, so `.filebudget-baseline.json` now pins each existing
+  offender at its **measured** size as a ceiling: an offender may shrink freely
+  but never grow, a file absent from the baseline gets no mercy, and re-pinning
+  is the deliberate `--update-baseline` command. `--report` prints the measured
+  set so a pin can never be written from a number nothing else reproduces, and
+  H2-H4 make a stale, missing, or below-measured pin a test failure. Wired into
+  `scripts/hooks/pre-commit` (staged delta) and CI (`--all`, the run that sees
+  the 80). Proven able to fail: 900 appended bytes produced `GREW to ~11,383
+  past its pinned ceiling of ~11,157` and exit 1.
+- **`scripts/codex-reprobe.mjs` — the Codex recorder verdict is now one
+  command.** The 0.163.0 measurement stands and the 0.166.0 re-probe was
+  blocked on credentials, which left an open verdict that depended on someone
+  remembering the probe shape. The script builds a temp `CODEX_HOME` with a
+  marker hook on both `PreToolUse` (the control) and `PostToolUse` (the
+  suspect) and returns a verdict: 0 recorder works, 1 recorder still broken,
+  2 hooks never delivered (explicitly not a recorder verdict), 3 codex cannot
+  run (unproven), 4 harness build failed. On this machine it correctly reports
+  exit 3.
 - `docs/compatibility.md` §Known limits, measured — the `Bash|PowerShell` Claude
   matcher (Write/Edit never reach the hook there), PostCompact's missing delivery
   path, Codex's re-trust requirement after any hook change, and the per-file
-  token budget overrun on the classifier copies with its real fix (a split, not
-  an ignore line).
+  token budget, now stated with its ratchet closure instead of as open work.
+- `autonomy-ladder.test.mjs` H1/H2 — every veto-table row must have exactly 3
+  cells and no row may repeat a >200-char evidence block. Measured 2026-11-03:
+  the Claude row carried its whole evidence block twice (4 cells), which every
+  index-based parser read as healthy.
 
 ### Changed
 
 - Two orphan documents (`docs/codex-test-prompt-2026-10-26.md`,
   `docs/codex-testing-flow-2026-10-26.md`) moved to `docs/archive/`; they were
   tracked with zero references.
+- The Claude veto-table row's deny-shape IOU is replaced by the live 2.1.316
+  result (deny proven, then allow proven), and the Codex row points at the
+  committed re-probe instead of at a description of one.
 
 ## [0.1.57] - 2026-11-02
 
