@@ -48,6 +48,15 @@ jobs:
       - name: TNA veto V2 adapter self-test
         run: node scripts/tna-gate-v2.test.mjs
 
+      - name: TNA done-gate V2 self-test (opencode)
+        run: node scripts/tna-done-gate-v2.test.mjs
+
+      - name: TNA reinjection V2 self-test (opencode)
+        run: node scripts/tna-reinject-v2.test.mjs
+
+      - name: TNA delegation gate V2 self-test (opencode)
+        run: node scripts/tna-delegate-v2.test.mjs
+
       - name: TNA evidence store self-test
         run: node scripts/tna-store.test.mjs
 
