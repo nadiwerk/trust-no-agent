@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet — 0.1.58 is the current release.
+### Added
+
+- **Devin hook adapter (`veto-hooks/devin/hook.mjs`).** Devin fires the Claude
+  Code lifecycle events with its own tool names, a `{success, output, error}`
+  tool response, and a `{"decision":"block"}` / exit-2 deny contract — it
+  ignores `hookSpecificOutput.permissionDecision`, so an unadapted veto printed
+  JSON and let the action through. The adapter translates both directions, runs
+  `gate-hook` and `reinject` from this checkout, and resolves project-owned
+  targets from `DEVIN_PROJECT_DIR` (else cwd). Fail-open throughout: a missing
+  target script is skipped before spawning, because `sh`/`python` exit 2 on a
+  missing file and Devin reads exit 2 as a veto. Pinned by
+  `scripts/devin-hook.test.mjs`.
 
 ## [0.1.58] - 2026-11-03
 
