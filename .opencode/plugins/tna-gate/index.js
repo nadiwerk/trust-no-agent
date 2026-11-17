@@ -23,7 +23,31 @@ import { decideBeforeWith, logVeto, logVetoWith, observeAfterWith } from './tna-
 import { doneGateVerdict } from './done-gate.mjs';
 import { buildFloorFromRouter, resolveRouterDir, FLOOR_KEY } from './reinjection.mjs';
 import { delegateVerdict } from './delegation-gate.mjs';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { decoratePrompt } from './prompt-gate.mjs';
+import { receiptVerdict } from './receipt-check.mjs';
+import { matchesAnyCommand } from './action-gate.mjs';
+import { restoreVerdict } from './restore-guard.mjs';
+import { compressToolResult } from './chisle-hook.mjs';
 import { makeStore } from './tna-store.mjs';
+
+const require_ = createRequire(import.meta.url);
+let chisle = null;
+try {
+  chisle = require_('./chisle/chisle-compress.js'); // vendored adapter (openCode compressForOpencode)
+} catch {
+  chisle = null; // compressor absent -> no compression, never break the pipeline
+}
+
+const RESTORE_PAIRS = [
+  ['AGENTS.md', 'AGENTS.md'],
+  ['ship-log.SKILL.md', '.claude/skills/ship-log/SKILL.md'],
+  ['jev-guardrail.md', 'docs/agents/jev-guardrail.md'],
+  ['codegraph-cli.md', 'docs/agents/codegraph-cli.md'],
+];
 
 export default {
   id: 'tna-gate',
@@ -32,9 +56,57 @@ export default {
     const directory = ctx.location?.directory ?? process.cwd();
     const store = makeStore({ fsDir: directory, storage: ctx.storage });
 
+    // Per-prompt MANDATORY routing (Claude `UserPromptSubmit` parity, 2026-11-17).
+    // V2 prompt hooks receive a mutable draft before skill resolution; append
+    // the flagged instruction once (the decorator is retry-safe via its marker).
+    // Admission must never break because a classifier failed -> fail-open.
+    let promptRegistration;
+    try {
+      promptRegistration = await ctx.session?.hook?.('prompt', (event) => {
+        if (!event?.prompt || typeof event.prompt.text !== 'string') return;
+        const decorated = decoratePrompt(event.prompt.text);
+        if (decorated !== event.prompt.text) event.prompt.text = decorated;
+      });
+    } catch {
+      /* no prompt hook on this service -> fail-open */
+    }
+
     const registration = await ctx.tool.hook('execute.before', async (input) => {
       const tool = String(input?.tool ?? '');
       const args = input?.input && typeof input.input === 'object' ? input.input : {};
+
+      // Receipt 4-block gate (Claude receipt-gate parity, 2026-11-17): the
+      // Claude checker reads ~/.claude/projects and is blind in an OpenCode
+      // session. Read the live session instead. Best-effort: an unreadable
+      // session list means "not judgeable" — the evidence precondition below
+      // still owns the irreversible action, so never break the tool call here.
+      try {
+        // Claude runs this ONLY on commands that EXECUTE an irreversible
+        // action (gate-hook.mjs: matchesAnyCommand). Applying it to every tool
+        // call would veto ordinary reads after a mid-turn "selesai" — a
+        // regression no parity work should introduce.
+        const command = String(args.command ?? args.description ?? '');
+        if (matchesAnyCommand(command)) {
+          const page = await ctx.session?.list?.({ directory, limit: 20 });
+          const sessions = Array.isArray(page) ? page : (page?.data ?? []);
+          const sessionID = sessions[0]?.id ?? sessions[0]?.sessionID;
+          if (sessionID) {
+            const messages = await ctx.session.context({ sessionID });
+            const rv = receiptVerdict(messages ?? []);
+            if (!rv.ok) {
+              await logVetoWith(store, {
+                harness: 'opencode-v2-receipt',
+                tool,
+                command,
+              });
+              throw new Error(`[tna-gate] receipt gate: the last turn lacks ${rv.missing.join(', ')} — close it with the 4 blocks before the next tool call`);
+            }
+          }
+        }
+      } catch (e) {
+        if (String(e?.message ?? e).includes('receipt gate:')) throw e;
+        /* unreadable session -> not judgeable, fail-open */
+      }
 
       // Delegation gate (Gap 3, 2026-11-15): a delegation prompt without the
       // discipline block is a delegation without its guards — subagents never
@@ -70,11 +142,20 @@ export default {
       try {
         const tool = String(event?.tool ?? '');
         const input = event?.input && typeof event.input === 'object' ? event.input : {};
+        // Chisle parity (2026-11-17): Claude cannot rewrite tool output from
+        // PostToolUse; V2 execute.after CAN mutate event.result. The vendored
+        // compressor already has an OpenCode adapter — this is the missing
+        // call. Compression never throws and never touches Read-class tools.
+        if (chisle?.compressForOpencode) {
+          compressToolResult(event.result, tool, (text) => {
+            try { return chisle.compressForOpencode(tool, text, {}); } catch { return null; }
+          });
+        }
         const exit = event?.result?.output?.exit ?? event?.result?.metadata?.exit;
         if (exit === undefined) return;
         await observeAfterWith(store, { tool, command: String(input.command ?? ''), pass: exit === 0 });
       } catch {
-        /* recording never breaks the session */
+        /* recording/compression never breaks the session */
       }
     });
 
@@ -175,12 +256,55 @@ export default {
       }
     })();
 
+    // Restore-tooling guard (Claude SessionStart parity, 2026-11-17). The
+    // Claude restore hook can silently overwrite an uncommitted router file;
+    // its decision table is ported verbatim as restoreVerdict. OpenCode has
+    // no restore hook to guard, so run the SAME decision at session start and
+    // log WARN/restore-needed to the audit mirror — no auto-write from here,
+    // because losing WIP is irreversible and a real revert is one git away.
+    const restoreLoop = (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          try {
+            if (event?.type !== 'session.created') continue;
+            for (const [snapshotRel, dstRel] of RESTORE_PAIRS) {
+              try {
+                const snapshot = readFileSync(join(directory, '.trust', 'keep', snapshotRel), 'utf8');
+                let disk = null;
+                try { disk = readFileSync(join(directory, dstRel), 'utf8'); } catch { /* missing */ }
+                let head = null;
+                try {
+                  head = execFileSync('git', ['show', `HEAD:${dstRel}`], { cwd: directory, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+                } catch { /* no HEAD copy -> snapshot is the only source */ }
+                const v = restoreVerdict({ disk, head, snapshot });
+                if (v.action === 'warn' || v.action === 'restored') {
+                  logVeto(directory, {
+                    harness: 'opencode-v2-restore',
+                    tool: dstRel,
+                    command: `${v.action}: ${v.reason}`,
+                  });
+                }
+              } catch {
+                /* one file's check never breaks the loop */
+              }
+            }
+          } catch {
+            /* per-event failure never breaks the loop */
+          }
+        }
+      } catch {
+        /* event stream unavailable — fail-open */
+      }
+    })();
+
     return () => {
       controller.abort();
       registration?.dispose?.();
       afterRegistration?.dispose?.();
+      promptRegistration?.dispose?.();
       idleLoop?.catch?.(() => {});
       reinjectLoop?.catch?.(() => {});
+      restoreLoop?.catch?.(() => {});
     };
   },
 };

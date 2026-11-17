@@ -1,0 +1,3 @@
+# Vendored third-party Chisle compressor (upstream code + LICENSE, not authored here).
+# Kept whole so the upstream self-tests remain a byte-identical reference.
+.opencode/plugins/tna-gate/chisle/

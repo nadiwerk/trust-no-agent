@@ -57,6 +57,9 @@ jobs:
       - name: TNA delegation gate V2 self-test (opencode)
         run: node scripts/tna-delegate-v2.test.mjs
 
+      - name: TNA discipline parity V2 self-test (opencode vs claude)
+        run: node scripts/tna-parity-v2.test.mjs
+
       - name: TNA evidence store self-test
         run: node scripts/tna-store.test.mjs
 
