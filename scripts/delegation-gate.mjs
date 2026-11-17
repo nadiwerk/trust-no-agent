@@ -35,6 +35,16 @@ export const REPO_RULES_FRAGMENTS = [
   'No touching files outside the allowed path list',
 ];
 
+// The repo's own builder emits the Indonesian form (Aturan repo: ...). Accept
+// both languages: a veto that rejects every compliant brief is a veto users
+// disable. Mirrored in ads-tracker/scripts/delegation-gate.mjs.
+const ID_RULE_FRAGMENTS = {
+  'Repo rules': 'Aturan repo',
+  verified: 'diverifikasi',
+  'No refactoring outside the requested scope': 'Jangan refactor di luar scope',
+  'No touching files outside the allowed path list': 'Jangan menulis/mengubah file di luar daftar path',
+};
+
 /** The six brief sections (router §5). Matched as line-start labels. */
 export const BRIEF_SECTIONS = [
   'TASK',
@@ -104,7 +114,8 @@ export function delegateVerdict(call) {
   const missing = [];
 
   for (const frag of REPO_RULES_FRAGMENTS) {
-    if (!prompt.includes(frag)) missing.push(`repo rules: "${frag}"`);
+    const idFrag = ID_RULE_FRAGMENTS[frag];
+    if (!prompt.includes(frag) && !(idFrag && prompt.includes(idFrag))) missing.push(`repo rules: "${frag}"`);
   }
   for (const section of BRIEF_SECTIONS) {
     if (sectionBody(prompt, section) === null) missing.push(`section ${section}`);
