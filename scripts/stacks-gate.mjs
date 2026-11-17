@@ -12,11 +12,19 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const REQUIRED_STACK_SKILLS = [
+  // pstack (HOW)
+  'no-comments',
+  'poteto-mode',
+  'technical-writing',
+  'unslop',
+  // tstack (PR ops)
   'babysit-pr',
   'batch-merge',
   'council',
   'engineering-small-prs',
+  'file-pr',
   'leaving-pr-comments',
+  // mstack (self-audit)
   'long-command-check',
   'subagent-split-check',
 ];

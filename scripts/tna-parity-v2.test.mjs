@@ -136,7 +136,7 @@ check('C stacks-gate module exists', !!sg && typeof sg.stacksVerdict === 'functi
 if (sg) {
   const empty = mkdtempSync(join(tmpdir(), 'tna-stacks-empty-'));
   const ev = sg.stacksVerdict(empty);
-  check('C2 empty skill dir reports all 7 stack skills missing', ev.missing.length === 7 && ev.ok === false, JSON.stringify(ev));
+  check('C2 empty skill dir reports all stack skills missing', ev.missing.length === 12 && ev.ok === false, JSON.stringify(ev));
   const fullDir = mkdtempSync(join(tmpdir(), 'tna-stacks-full-'));
   for (const name of ev.required ?? []) {
     mkdirSync(join(fullDir, name));
@@ -192,7 +192,7 @@ const { default: pluginF } = await import(plug('index.js'));
 {
   const proj = mkdtempSync(join(tmpdir(), 'tna-parity-restore-'));
   mkdirSync(join(proj, '.trust', 'keep'), { recursive: true });
-  writeFileSync(join(proj, 'AGENTS.md'), 'wip edit by this session\n');
+  writeFileSync(join(proj, 'AGENTS.md'), 'wip edit by this session\n' + 'x'.repeat(20010));
   writeFileSync(join(proj, '.trust', 'keep', 'AGENTS.md'), 'snapshot from HEAD\n');
   let after;
   const events = [{ type: 'session.created', data: { sessionID: 'ses_restore' } }];
@@ -210,6 +210,11 @@ const { default: pluginF } = await import(plug('index.js'));
     restoreLogged = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).some((l) => JSON.parse(l).harness === 'opencode-v2-restore');
   } catch { /* no log yet */ }
   check('F1 restore guard logs a WARN at session start', restoreLogged, logPath);
+  let sizeLogged = false;
+  try {
+    sizeLogged = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).some((l) => JSON.parse(l).harness === 'opencode-v2-agentsize');
+  } catch { /* no log yet */ }
+  check('F4 oversized project AGENTS.md is flagged at session start', sizeLogged, logPath);
 
   check('F2 plugin registers execute.after', typeof after === 'function');
   if (typeof after === 'function') {
@@ -217,6 +222,29 @@ const { default: pluginF } = await import(plug('index.js'));
     const result = { output: { text: big } };
     try { await after({ tool: 'shell', input: {}, result }); } catch { /* must not throw */ }
     check('F3 execute.after compresses oversized shell output', result.output.text.length < big.length, `${big.length} -> ${result.output.text.length}`);
+
+    // F5/F6/F7: full Chisle parity — dedup, mode flag, savings stats.
+    const stateDir = mkdtempSync(join(tmpdir(), 'tna-chisle-state-'));
+    process.env.CHISLE_STATE_DIR = stateDir;
+    const flagPath = join(stateDir, '.chisle-active');
+    process.env.CHISLE_FLAG_PATH = flagPath;
+    const rep = Array.from({ length: 200 }, (_, i) => `line ${i} ` + 'y'.repeat(90)).join('\n');
+    const ev1 = { tool: 'shell', sessionID: 'ses_dedup', id: 'call_1', input: {}, result: { output: { text: rep } } };
+    const ev2 = { tool: 'shell', sessionID: 'ses_dedup', id: 'call_2', input: {}, result: { output: { text: rep } } };
+    await after(ev1);
+    await after(ev2);
+    check('F5 identical repeated output is deduped per session', /byte-identical/.test(ev2.result.output.text), String(ev2.result.output.text).slice(0, 120));
+    const statsPath = join(stateDir, '.chisle-compress-stats.json');
+    let statsOk = false;
+    try { statsOk = JSON.parse(readFileSync(statsPath, 'utf8')).savedChars > 0; } catch {}
+    check('F6 savings are recorded to the OpenCode state dir', statsOk, statsPath);
+    writeFileSync(flagPath, 'off');
+    const offText = Array.from({ length: 200 }, (_, i) => `off ${i} ` + 'z'.repeat(90)).join('\n');
+    const offEv = { tool: 'shell', sessionID: 'ses_off', id: 'call_3', input: {}, result: { output: { text: offText } } };
+    await after(offEv);
+    check('F7 mode=off flag disables compression', offEv.result.output.text.length === offText.length, `${offText.length} -> ${offEv.result.output.text.length}`);
+    delete process.env.CHISLE_STATE_DIR;
+    delete process.env.CHISLE_FLAG_PATH;
   }
 }
 

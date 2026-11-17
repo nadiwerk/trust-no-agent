@@ -31,13 +31,16 @@ import { decoratePrompt } from './prompt-gate.mjs';
 import { receiptVerdict } from './receipt-check.mjs';
 import { matchesAnyCommand } from './action-gate.mjs';
 import { restoreVerdict } from './restore-guard.mjs';
+import { sizeVerdict } from './agents-size.mjs';
 import { compressToolResult } from './chisle-hook.mjs';
 import { makeStore } from './tna-store.mjs';
 
 const require_ = createRequire(import.meta.url);
 let chisle = null;
+let chisleCfg = null;
 try {
   chisle = require_('./chisle/chisle-compress.js'); // vendored adapter (openCode compressForOpencode)
+  chisleCfg = require_('./chisle/chisle-config.js'); // flag/mode/state-dir semantics
 } catch {
   chisle = null; // compressor absent -> no compression, never break the pipeline
 }
@@ -147,8 +150,26 @@ export default {
         // compressor already has an OpenCode adapter — this is the missing
         // call. Compression never throws and never touches Read-class tools.
         if (chisle?.compressForOpencode) {
+          // Full Chisle semantics on V2: the after-event carries sessionID +
+          // tool-call id (measured live 2026-11-17), which enables per-session
+          // dedup; the flag file replaces Claude's /chisle toggle; savings are
+          // recorded to OpenCode's own state dir, not the Claude dir.
+          let mode = chisleCfg?.getDefaultMode?.() ?? 'on';
+          try {
+            const flagPath = process.env.CHISLE_FLAG_PATH ?? join(chisleCfg.getOpencodeDir(), '.chisle-active');
+            const flag = chisleCfg?.readFlag?.(flagPath);
+            if (flag === 'on' || flag === 'off') mode = flag;
+          } catch { /* no flag file -> default mode */ }
+          const stateDir = chisleCfg?.getOpencodeStateDir?.() ?? undefined;
+          const chisleOpts = { sessionId: event?.sessionID, callId: event?.id, mode, stateDir };
           compressToolResult(event.result, tool, (text) => {
-            try { return chisle.compressForOpencode(tool, text, {}); } catch { return null; }
+            try {
+              const updated = chisle.compressForOpencode(tool, text, chisleOpts);
+              if (typeof updated === 'string' && updated.length < text.length) {
+                chisle.recordSavings?.(text.length - updated.length, stateDir);
+              }
+              return updated;
+            } catch { return null; }
           });
         }
         const exit = event?.result?.output?.exit ?? event?.result?.metadata?.exit;
@@ -267,6 +288,22 @@ export default {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
           try {
             if (event?.type !== 'session.created') continue;
+            // One-time per-session budget check: a project whose AGENTS.md
+            // exceeds the limit silently taxes EVERY request in that session.
+            // Log only — rewriting a shared router from a plugin is not safe.
+            try {
+              const raw = readFileSync(join(directory, 'AGENTS.md'), 'utf8');
+              const size = sizeVerdict(raw);
+              if (!size.ok) {
+                logVeto(directory, {
+                  harness: 'opencode-v2-agentsize',
+                  tool: 'AGENTS.md',
+                  command: `${size.chars} chars (~${size.estTokens} tok est.) > ${size.limit}`,
+                });
+              }
+            } catch {
+              /* no AGENTS.md in this project -> nothing to measure */
+            }
             for (const [snapshotRel, dstRel] of RESTORE_PAIRS) {
               try {
                 const snapshot = readFileSync(join(directory, '.trust', 'keep', snapshotRel), 'utf8');

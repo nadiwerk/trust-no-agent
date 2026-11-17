@@ -60,6 +60,12 @@ jobs:
       - name: TNA discipline parity V2 self-test (opencode vs claude)
         run: node scripts/tna-parity-v2.test.mjs
 
+      - name: AGENTS.md size guard self-test
+        run: node scripts/agents-size.test.mjs
+
+      - name: OpenCode global AGENTS budget self-test
+        run: node scripts/agents-global-budget.test.mjs
+
       - name: TNA evidence store self-test
         run: node scripts/tna-store.test.mjs
 
