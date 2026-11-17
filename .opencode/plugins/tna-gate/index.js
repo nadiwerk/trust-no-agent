@@ -24,13 +24,13 @@ import { doneGateVerdict } from './done-gate.mjs';
 import { buildFloorFromRouter, resolveRouterDir, FLOOR_KEY } from './reinjection.mjs';
 import { delegateVerdict } from './delegation-gate.mjs';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { decoratePrompt } from './prompt-gate.mjs';
 import { receiptVerdict } from './receipt-check.mjs';
 import { matchesAnyCommand } from './action-gate.mjs';
-import { restoreVerdict } from './restore-guard.mjs';
+import { restorePlan } from './restore-guard.mjs';
 import { sizeVerdict } from './agents-size.mjs';
 import { compressToolResult } from './chisle-hook.mjs';
 import { makeStore } from './tna-store.mjs';
@@ -72,6 +72,49 @@ export default {
       });
     } catch {
       /* no prompt hook on this service -> fail-open */
+    }
+
+    // /chisle command (better-than-Claude): Claude only toggles on/off. Here
+    // `status` also reports real savings from the OpenCode state dir. V2 has
+    // no slash commands of its own; ctx.command.transform is the documented
+    // seam. Fail-open when the service does not expose it.
+    let commandRegistration;
+    try {
+      commandRegistration = await ctx.command?.transform?.((editor) => {
+        editor.add({
+          name: 'chisle',
+          description: 'Chisle output compression: on / off / status',
+          execute: async ({ sessionID, prompt, delivery }) => {
+            const arg = String(prompt?.text ?? '').trim().toLowerCase();
+            const flagPath = process.env.CHISLE_FLAG_PATH ?? (chisleCfg ? join(chisleCfg.getOpencodeDir(), '.chisle-active') : '');
+            let reply;
+            if (arg === 'on' || arg === 'off') {
+              try {
+                mkdirSync(dirname(flagPath), { recursive: true });
+                writeFileSync(flagPath, arg);
+                reply = `Chisle mode: ${arg}`;
+              } catch (e) {
+                reply = `Chisle flag write failed: ${String(e?.message ?? e)}`;
+              }
+            } else {
+              let stats = null;
+              try {
+                const stateDir = chisleCfg?.getOpencodeStateDir?.();
+                stats = JSON.parse(readFileSync(join(stateDir, '.chisle-compress-stats.json'), 'utf8'));
+              } catch { /* no stats yet */ }
+              let mode = chisleCfg?.getDefaultMode?.() ?? 'on';
+              try {
+                const flag = chisleCfg?.readFlag?.(flagPath);
+                if (flag === 'on' || flag === 'off') mode = flag;
+              } catch { /* default */ }
+              reply = `Chisle: mode=${mode}, savedChars=${stats?.savedChars ?? 0}, events=${stats?.events ?? 0}`;
+            }
+            await ctx.session.prompt({ ...(prompt ?? {}), sessionID, text: reply, delivery });
+          },
+        });
+      });
+    } catch {
+      /* no command API -> flag file still works */
     }
 
     const registration = await ctx.tool.hook('execute.before', async (input) => {
@@ -313,14 +356,22 @@ export default {
                 try {
                   head = execFileSync('git', ['show', `HEAD:${dstRel}`], { cwd: directory, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
                 } catch { /* no HEAD copy -> snapshot is the only source */ }
-                const v = restoreVerdict({ disk, head, snapshot });
-                if (v.action === 'warn' || v.action === 'restored') {
-                  logVeto(directory, {
-                    harness: 'opencode-v2-restore',
-                    tool: dstRel,
-                    command: `${v.action}: ${v.reason}`,
-                  });
+                const v = restorePlan({ disk, head, snapshot });
+                // AUTONOMOUS ONLY for the two unambiguous cases: a missing
+                // file (prefer HEAD bytes) and a stale snapshot (disk matches
+                // HEAD). 'warn' never writes — WIP vs revert is ambiguous.
+                if (v.target && typeof v.content === 'string') {
+                  const dest = v.target === 'disk' ? join(directory, dstRel) : join(directory, '.trust', 'keep', snapshotRel);
+                  mkdirSync(dirname(dest), { recursive: true });
+                  writeFileSync(dest, v.content);
                 }
+                // Audit EVERY verdict (Claude's shell only prints); the log
+                // is the externally verifiable artifact for doctor/ledger.
+                logVeto(directory, {
+                  harness: 'opencode-v2-restore',
+                  tool: dstRel,
+                  command: `${v.action}${v.target ? ` -> ${v.target}` : ''}: ${v.reason}`,
+                });
               } catch {
                 /* one file's check never breaks the loop */
               }
@@ -339,6 +390,7 @@ export default {
       registration?.dispose?.();
       afterRegistration?.dispose?.();
       promptRegistration?.dispose?.();
+      commandRegistration?.dispose?.();
       idleLoop?.catch?.(() => {});
       reinjectLoop?.catch?.(() => {});
       restoreLoop?.catch?.(() => {});

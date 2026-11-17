@@ -23,3 +23,22 @@ export function restoreVerdict({ disk = null, head = null, snapshot = null } = {
   if (same(snapshot, head)) return { action: 'warn', reason: 'disk differs from HEAD — could be uncommitted work; TIDAK disentuh' };
   return { action: 'warn', reason: 'disk differs from both HEAD and snapshot — TIDAK disentuh' };
 }
+
+/**
+ * Better-than-Claude plan: Claude restore-tooling.sh copies the SNAPSHOT for a
+ * missing file, which can be older than HEAD. HEAD is authoritative here; the
+ * snapshot is only a fallback when git has no copy. The ambiguous "dirty disk"
+ * case still produces no write at all.
+ *
+ * @returns {{action:string, reason:string, target:'disk'|'snapshot'|null, content:string|null}}
+ */
+export function restorePlan({ disk = null, head = null, snapshot = null } = {}) {
+  const verdict = restoreVerdict({ disk, head, snapshot });
+  if (verdict.action === 'restored') {
+    return { ...verdict, target: 'disk', content: head ?? snapshot };
+  }
+  if (verdict.action === 'refreshed') {
+    return { ...verdict, target: 'snapshot', content: disk };
+  }
+  return { ...verdict, target: null, content: null };
+}

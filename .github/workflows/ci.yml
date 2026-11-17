@@ -63,6 +63,9 @@ jobs:
       - name: AGENTS.md size guard self-test
         run: node scripts/agents-size.test.mjs
 
+      - name: OpenCode better-than-Claude parity self-test
+        run: node scripts/tna-better-v2.test.mjs
+
       - name: OpenCode global AGENTS budget self-test
         run: node scripts/agents-global-budget.test.mjs
 
