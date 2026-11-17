@@ -60,7 +60,20 @@ if (pg) {
     const draft = { prompt: { text: 'perbaiki bug login' }, metadata: {} };
     promptCb(draft);
     check('A10 prompt hook injects the flagged instruction into the draft', /<tna-mandatory\b/.test(draft.prompt.text), draft.prompt.text);
+    const prDraft = { prompt: { text: 'tolong buat PR untuk perubahan ini', skills: [] }, metadata: {} };
+    promptCb(prDraft);
+    check('A16 prompt hook names the relevant stack skill in text (never mutates skills — causes HTTP 500)', /file-pr/.test(prDraft.prompt.text) && (prDraft.prompt.skills ?? []).length === 0, JSON.stringify({ text: prDraft.prompt.text?.slice(-160), skills: prDraft.prompt.skills }));
   }
+}
+
+// ---- A1b. Automatic stack-skill selection (pstack/tstack/mstack per prompt)
+const ss = await import(plug('stack-select.mjs')).catch(() => null);
+check('A11 stack-select module exists', !!ss && typeof ss.stackSkillsForPrompt === 'function');
+if (ss && typeof ss.stackSkillsForPrompt === 'function') {
+  check('A12 PR prompt selects file-pr', ss.stackSkillsForPrompt('Tolong buat PR ini').includes('file-pr'));
+  check('A13 delegation prompt selects subagent-split-check', ss.stackSkillsForPrompt('boleh delegasi ke subagent?').includes('subagent-split-check'));
+  check('A14 review-comment prompt selects leaving-pr-comments', ss.stackSkillsForPrompt('tinggalkan review comment').includes('leaving-pr-comments'));
+  check('A15 unrelated prompt selects nothing', ss.stackSkillsForPrompt('buka halaman settings').length === 0);
 }
 
 // ---- A2. Receipt 4-block check on commit (Claude receipt-gate parity)

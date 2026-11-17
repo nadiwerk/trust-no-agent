@@ -21,6 +21,8 @@
  */
 import { decideBeforeWith, logVeto, logVetoWith, observeAfterWith } from './tna-gate.mjs';
 import { doneGateVerdict } from './done-gate.mjs';
+import { doneEnforcementVerdict, fingerprintClaim, ledgerTouchedInTurn, modifiedFilesInTurn, CORRECTION_KEY, CORRECTION_PROMPT, LEDGER_CORRECTION_PROMPT } from './done-enforce.mjs';
+import { stackSkillsForPrompt } from './stack-select.mjs';
 import { buildFloorFromRouter, resolveRouterDir, FLOOR_KEY } from './reinjection.mjs';
 import { delegateVerdict } from './delegation-gate.mjs';
 import { createRequire } from 'node:module';
@@ -69,6 +71,22 @@ export default {
         if (!event?.prompt || typeof event.prompt.text !== 'string') return;
         const decorated = decoratePrompt(event.prompt.text);
         if (decorated !== event.prompt.text) event.prompt.text = decorated;
+        // Four-stack mandate made operational: select the matching skill at
+        // admission, so every relevant activity carries its stack guard.
+        try {
+          const extras = stackSkillsForPrompt(event.prompt.text);
+          if (extras.length) {
+            // NOTE (measured live 2026-11-17): mutating event.prompt.skills
+            // makes the service resolve each injected skill and throw
+            // Session.SkillNotFoundError, whose error object fails schema
+            // validation -> HTTP 500 on POST /prompt. Even valid installed
+            // IDs fail in a session whose location differs. Name the skill in
+            // the prompt text instead — same steering, no resolver risk.
+            event.prompt.text += `\n\n<tna-stack>Stack relevan untuk permintaan ini: ${extras.join(', ')}. Muat skill itu sebelum langkah terkait.</tna-stack>`;
+          }
+        } catch {
+          /* skill selection never breaks admission */
+        }
       });
     } catch {
       /* no prompt hook on this service -> fail-open */
@@ -250,23 +268,66 @@ export default {
             if (!sessionID) continue;
             const messages = await ctx.session.context({ sessionID });
             const v = doneGateVerdict(messages ?? []);
-            if (v.claim && !v.evidence) {
-              const entry = {
-                harness: 'opencode-v2-donegate',
-                tool: 'session.idle',
-                command: `[${sessionID}] ${v.claim}`,
-              };
-              await logVetoWith(store, entry);
-              // FS mirror, best-effort: storage is the proven durable surface,
-              // but no public API reads plugin storage — the FS copy is what
-              // doctor/audit/orchestrator can verify from outside. The vanish
-              // finding was proven on HOOK callbacks; the event loop's FS
-              // access is unmeasured, so this write is attempted and its
-              // failure is silent (storage remains the source of truth).
+            if (v.claim) {
+              if (!v.evidence) {
+                const entry = {
+                  harness: 'opencode-v2-donegate',
+                  tool: 'session.idle',
+                  command: `[${sessionID}] ${v.claim}`,
+                };
+                await logVetoWith(store, entry);
+                // FS mirror, best-effort: storage is the proven durable surface,
+                // but no public API reads plugin storage — the FS copy is what
+                // doctor/audit/orchestrator can verify from outside. The vanish
+                // finding was proven on HOOK callbacks; the event loop's FS
+                // access is unmeasured, so this write is attempted and its
+                // failure is silent (storage remains the source of truth).
+                try {
+                  logVeto(directory, entry);
+                } catch {
+                  /* mirror failure never breaks the session */
+                }
+              }
+
+              // ENFORCEMENT (Master 2026-11-17): a flag is not a gate. Re-enter
+              // the agent with a steer prompt so the bare claim cannot stand
+              // as the last word. Durable storage prevents a corrected claim
+              // from being corrected twice; a 2-per-session cap prevents loops.
               try {
-                logVeto(directory, entry);
+                const ledgerTouched = ledgerTouchedInTurn(messages);
+                const modifiedFiles = modifiedFilesInTurn(messages);
+                const base = doneEnforcementVerdict({ claim: v.claim, evidence: v.evidence, ledgerTouched, modifiedFiles });
+                const kind = base.kind;
+                if (kind) {
+                  const fp = fingerprintClaim(`${kind}|${sessionID}|${v.claim}`);
+                  const countKey = `donegate:${kind}:count:${sessionID}`;
+                  const correctedKey = `donegate:${kind}:corrected:${sessionID}`;
+                  const count = Number((await ctx.storage?.get?.(countKey)) ?? 0);
+                  const corrected = (await ctx.storage?.get?.(correctedKey)) ?? [];
+                  const check = doneEnforcementVerdict({
+                    claim: v.claim,
+                    evidence: v.evidence,
+                    ledgerTouched,
+                    modifiedFiles,
+                    correctionCount: count,
+                    corrected,
+                    fingerprint: fp,
+                  });
+                  if (check.enforce) {
+                    const prompt = kind === 'ledger' ? LEDGER_CORRECTION_PROMPT : CORRECTION_PROMPT;
+                    await ctx.session.instructions?.entry?.put?.({ sessionID, key: CORRECTION_KEY, value: prompt });
+                    await ctx.session.prompt?.({ sessionID, text: prompt, delivery: 'steer' });
+                    await ctx.storage?.set?.(countKey, count + 1);
+                    await ctx.storage?.set?.(correctedKey, [...(Array.isArray(corrected) ? corrected : []), fp]);
+                    logVeto(directory, {
+                      harness: 'opencode-v2-donegate-enforced',
+                      tool: 'session.execution.succeeded',
+                      command: `[${sessionID}] ${kind}: ${v.claim} -> re-prompt #${count + 1}`,
+                    });
+                  }
+                }
               } catch {
-                /* mirror failure never breaks the session */
+                /* enforcement failure must not break the session */
               }
             }
           } catch (e) {

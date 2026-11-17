@@ -15,4 +15,8 @@ check('G2 long working-style text is a pointer, not inline', /\.claude[\\/]AGENT
 check('G3 Trust No Agent floor pointer survives', /tna-floor\.md/.test(s));
 check('G5 Ponytail ladder is present in every OpenCode project', /The ladder/.test(s) && /shortcut:/.test(s));
 check('G4 model map survives (machine-specific, still needed)', /deepseek-v4\.1-flash/.test(s) && /semutcode/.test(s));
+const floorPath = 'C:/Users/Lenovo/.config/opencode/rules/tna-floor.md';
+const floor = readFileSync(floorPath, 'utf8');
+const LAWS = ['shared understanding', 'failing test', 'verifikasi fresh', 'sign-off'];
+check('G6 all four Iron Laws are explicit in the always-on floor', LAWS.every((k) => floor.toLowerCase().includes(k)), `${LAWS.filter((k) => !floor.toLowerCase().includes(k))}`);
 console.log(failures === 0 ? 'ALL GREEN' : `${failures} FAILURE(S)`);

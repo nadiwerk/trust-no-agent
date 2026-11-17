@@ -198,9 +198,11 @@ try {
   const logPath = join(projDir, '.trust', 'tna-gate-log.jsonl');
   check('done-gate flag is mirrored to the project FS log', ex(logPath), 'no .trust/tna-gate-log.jsonl written');
   if (ex(logPath)) {
-    const line = rf(logPath, 'utf8').trim().split('\n').pop();
-    const entry = JSON.parse(line);
-    check('FS mirror carries the done-gate harness tag', entry.harness === 'opencode-v2-donegate' && String(entry.command).includes('ses_fs'), line ?? '');
+    const entries = rf(logPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    // An enforcement audit entry may follow the flag entry — assert the flag
+    // is present, not that it is last (contract expanded 2026-11-17).
+    const flag = entries.find((e) => e.harness === 'opencode-v2-donegate');
+    check('FS mirror carries the done-gate harness tag', !!flag && String(flag.command).includes('ses_fs'), JSON.stringify(entries));
   }
 } catch (e) {
   check('FS mirror integration drivable', false, String(e));

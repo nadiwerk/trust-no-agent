@@ -51,6 +51,9 @@ jobs:
       - name: TNA done-gate V2 self-test (opencode)
         run: node scripts/tna-done-gate-v2.test.mjs
 
+      - name: TNA done-gate enforcement V2 self-test (opencode)
+        run: node scripts/tna-done-enforce-v2.test.mjs
+
       - name: TNA reinjection V2 self-test (opencode)
         run: node scripts/tna-reinject-v2.test.mjs
 
