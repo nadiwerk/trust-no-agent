@@ -91,6 +91,11 @@ if (rc) {
   const claim = [assistant('Selesai, beres sudah jadi.')];
   check('B4 bare completion claim has no receipt', rc.receiptVerdict(claim).ok === false, JSON.stringify(rc.receiptVerdict(claim)));
   check('B5 no assistant text is not judgeable -> not blocked', rc.receiptVerdict([]).ok === true, JSON.stringify(rc.receiptVerdict([])));
+  // The receipts skill's canonical template uses `**Verdict** —`, not the
+  // colon-inside-bold form. Both must pass — enforced shape, not one spelling.
+  const skillShape = [assistant('**Verdict** — selesai\n**Evidence** — lint exit 0\n**Open** — none\n**Next** — stop')];
+  check('B9 receipts-skill template shape passes the gate', rc.receiptVerdict(skillShape).ok === true, JSON.stringify(rc.receiptVerdict(skillShape)));
+  check('B10 canonical colon shape still passes', rc.receiptVerdict(full).ok === true);
 
   // Integration: fake ctx with a prompt hook and a commit attempt.
   const { mkdtempSync: mk } = await import('node:fs');

@@ -20,7 +20,7 @@
 import { lastAssistantText, findClaim } from './done-gate.mjs';
 
 export const BLOCKS = ['Verdict', 'Evidence', 'Open', 'Next'];
-export const blockPattern = (name) => new RegExp(`^\\s*\\*\\*${name}:\\*\\*`, 'm');
+export const blockPattern = (name) => new RegExp(`^\\s*\\*\\*${name}(?::)?\\*\\*`, 'm');
 
 /** @returns {{ok:boolean, missing:string[], text:string|null, claim:string|null}} */
 export function receiptVerdict(messages) {
