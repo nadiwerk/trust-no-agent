@@ -7,8 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.59] - 2026-11-24
+
+Absorb the measured workflow disciplines from the ads-tracker multi-harness
+ledger so pstack/tstack/mstack become optional rather than required.
+
 ### Added
 
+- **`output-trim` tool-output compression.** Deterministic, zero-LLM
+  compressor (head + tail + salvaged error lines) for oversized tool results;
+  elided text recovers via `.trust/output-trim-spill/`. Read/Edit/Write are
+  hard-blocked, every failure fails open, `OUTPUT_TRIM=0` and
+  `.trust/output-trim.json` are kill switches. Ships a standalone stdin
+  engine (`scripts/output-trim.mjs` + `output-trim-core.mjs`), a renamed
+  vendored OpenCode core, an `execute.after` adapter, and a `/output-trim`
+  session toggle. `docs/compatibility.md` maps the three wiring shapes.
+- **`pr-flow` skill.** PR lifecycle contract previously supplied by tstack:
+  right base, problem-first body, review discipline, ordered verified merges.
+- **`engineering-floor.md`** (lazy-referenced by `roast-my-code`): the pstack
+  code-quality baseline including the ladder decision order and
+  owner+expiry exceptions.
+- **New mechanical gates:** `goals.mjs` (`.trust/goals.md` standing-goal
+  validation), `automation-lint.mjs` (`.trust/automation.json` linted against
+  the decaying autonomy ladder — unattended-run contract in
+  `docs/specs/unattended-runs.md`), `orchestrator-brief.mjs` (one canonical
+  delegation-brief verdict wired into Claude `PreToolUse`, Codex hooks, and
+  the OpenCode gate shim — no more divergent copies), `roast-first.mjs`
+  (opt-in review-before-commit gate on measured churn paths),
+  `ledger-lint.mjs`, `pr-wait.mjs`.
+- **Recurrence clustering + recommended-domain gating** in `ledger-audit` /
+  `mandatory-gate`: repeated lesson patterns surface as rule candidates;
+  `pr-flow` is auto-recommended on PR-lifecycle work.
+- **Self-hardening:** `.gitattributes` enforces LF checkout for the shipped
+  shell hooks; `.devin/` session state is gitignored; `setup-tna` Step 5b
+  offers skill deny-list and tool-output caps for supporting harnesses.
 - **Devin hook adapter (`veto-hooks/devin/hook.mjs`).** Devin fires the Claude
   Code lifecycle events with its own tool names, a `{success, output, error}`
   tool response, and a `{"decision":"block"}` / exit-2 deny contract — it
@@ -19,6 +51,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   target script is skipped before spawning, because `sh`/`python` exit 2 on a
   missing file and Devin reads exit 2 as a veto. Pinned by
   `scripts/devin-hook.test.mjs`.
+- **Router §4:** ambiguous scope at `full`/`loop` requires restating the goal
+  in your own words first — a misread found at restatement costs a sentence,
+  found at review it costs the work.
+
+### Fixed
+
+- `orchestrator-brief --pretool` now emits the documented deny shape (exit 0
+  + `permissionDecision:"deny"` JSON); exit-2/stderr is proven fail-open on
+  Codex. Direct invocation works with relative `argv[1]` paths.
+- `PAYLOAD_MAP` gained `mandatory-gate.mjs` and `output-trim-core.mjs` —
+  cited-but-missing imports would have crashed fresh installs.
+- `tna-portable` copies the plugin directory recursively; the first
+  subdirectory (`output-trim/`) no longer dies on EPERM.
+
+Verified: pre-commit suite green on every commit (4 themed commits + merge),
+32 harness test files pass, all payloads byte-synced.
 
 ## [0.1.58] - 2026-11-03
 
@@ -1791,7 +1839,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.58...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.59...HEAD
+[0.1.59]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.58...v0.1.59
 [0.1.58]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.57...v0.1.58
 [0.1.57]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...v0.1.57
 [0.1.56]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.55...v0.1.56

@@ -12,12 +12,18 @@
       "name": "trust-no-agent",
       "source": "./plugin",
       "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 13 skills, and a mechanical enforcement layer (evidence-gated commit veto) that does not rely on the model choosing to load anything.",
-      "version": "0.1.58",
+      "version": "0.1.59",
       "author": {
         "name": "nadiwerk"
       },
       "category": "Developer Tools",
-      "keywords": ["discipline", "verification", "evidence", "veto", "receipts"]
+      "keywords": [
+        "discipline",
+        "verification",
+        "evidence",
+        "veto",
+        "receipts"
+      ]
     }
   ]
 }
