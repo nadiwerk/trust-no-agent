@@ -1,0 +1,5 @@
+# Hooks and shell scripts must keep LF endings: a Windows checkout with
+# core.autocrlf=true would otherwise export `bash` shebangs that silently
+# break on POSIX CI/deploy (measured incident: production cron died to a CRLF
+# shebang, ads-tracker 2026-09-20).
+* text=auto eol=lf

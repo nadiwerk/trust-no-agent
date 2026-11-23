@@ -17,7 +17,7 @@
  * evals); internal evaluation origin (ledger 2026-09-20) — no external code
  * or assets are used here.
  */
-import { classifyTask, MANDATORY_DOMAINS, KEYWORD_TABLES } from './mandatory-gate.mjs';
+import { classifyTask, MANDATORY_DOMAINS, RECOMMENDED_DOMAINS, KEYWORD_TABLES } from './mandatory-gate.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -185,6 +185,22 @@ const check = (label, cond, detail = '') => {
     'a broken pipeline', // root-cause: broken
     'why is this red', // root-cause: why is this
     'deploy to staging', // receipts: deploy
+    'open a pull request', // pr-flow: pull request
+    'run gh pr status', // pr-flow: gh pr
+    'the gh pr create command', // pr-flow: pr create
+    'open a pr draft', // pr-flow: open a pr
+    'open pr settings', // pr-flow: open pr
+    'buat pr baru', // pr-flow: buat pr
+    'buka pr lama', // pr-flow: buka pr
+    'merge pr stack', // pr-flow: merge pr
+    'merge the pr', // pr-flow: merge the pr
+    'merged pr 12', // pr-flow: merged pr
+    'a review comment thread', // pr-flow: review comment
+    'leave a pr comment', // pr-flow: pr comment
+    'pr review round', // pr-flow: pr review
+    'stacked pr chain', // pr-flow: stacked pr
+    'babysit the run', // pr-flow: babysit
+    'tinjau pr dulu', // pr-flow: tinjau pr
   ].join(' ').toLowerCase();
   const untested = [];
   for (const [skill, words] of Object.entries(KEYWORD_TABLES)) {
@@ -202,6 +218,31 @@ const check = (label, cond, detail = '') => {
     untested.length === 0, `untested: ${untested.join(', ')}`);
   check('F2 every domain has a non-empty keyword table',
     MANDATORY_DOMAINS.every((s) => Array.isArray(KEYWORD_TABLES[s]) && KEYWORD_TABLES[s].length > 0));
+}
+
+// ---- G. PR-lifecycle domain → pr-flow (RECOMMENDED, not an Iron-Law gate) ----
+{
+  const cases = [
+    ['open a pull request for this branch', true],
+    ['reply to the review comment thread on the pr', true],
+    ['merge the pr once checks are green', true],
+    ['babysit the ci run on this pr', true],
+    ['the stacked pr base is the parent branch', true],
+    ['buat pr dari branch ini', true],
+    ['tinjau pr sebelum merge', true],
+    ['the pr numbers in the report', false],
+    ['ship it and commit', false],
+    ['dont open a pull request yet', false],
+  ];
+  for (const [text, want] of cases) {
+    const v = classifyTask(text);
+    check(`G1 classify "${text}" → pr-flow=${want}`, v['pr-flow'] === want, JSON.stringify(v));
+  }
+  check('G2 pr-flow is RECOMMENDED, not MANDATORY',
+    !MANDATORY_DOMAINS.includes('pr-flow') && RECOMMENDED_DOMAINS.includes('pr-flow'));
+  check('G3 every domain has a non-empty keyword table',
+    [...MANDATORY_DOMAINS, ...RECOMMENDED_DOMAINS].every(
+      (s) => Array.isArray(KEYWORD_TABLES[s]) && KEYWORD_TABLES[s].length > 0));
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

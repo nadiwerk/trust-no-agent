@@ -358,3 +358,57 @@ export function overlayVerdict({ errors = [], entryCount = 0, omittedCount = 0, 
   if (!errors.length) lines.push(`${entryCount} overlay(s) validated (add-only; user:-marked in the floor)`);
   return { level, lines };
 }
+
+/**
+ * Hook-target liveness (C13). A hook config pointing at a file that does not
+ * exist is a dead gate wearing a green face — measured adopter incident
+ * (2026-11-16): .claude/settings.local.json invoked a delegation-brief script
+ * for days while the script existed only on another branch; every delegation
+ * ran ungated and every hook call failed silently.
+ *
+ * extractHookTargets walks a parsed hook-config object and collects every
+ * project-relative file a command string names:
+ *   - `${CLAUDE_PROJECT_DIR}/x`, `${DEVIN_PROJECT_DIR}/x`, `$CLAUDE_PROJECT_DIR/x`
+ *   - `node scripts/x`, `node .devin/scripts/x`, `node .trust/x`, `node .claude/x`
+ *   - `sh scripts/x`, `bash .trust/x`, `sh .claude/x`
+ * A target behind a `[ ! -f <path> ]`/`[ -f <path> ]` guard is OPTIONAL by the
+ * config's own declaration (conditional hook) and never counts as missing.
+ * Pure: returns {target, optional} pairs; existence is checked by the caller.
+ */
+export function extractHookTargets(config) {
+  const out = [];
+  const strings = [];
+  const walk = (v) => {
+    if (typeof v === 'string') strings.push(v);
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+  };
+  walk(config);
+
+  for (const cmd of strings) {
+    const guarded = new Set();
+    for (const m of cmd.matchAll(/\[\s*!?\s*-f\s+([^\s\]]+)\s*\]/g)) guarded.add(m[1]);
+    const push = (rel) => {
+      if (!rel) return;
+      const target = rel.replace(/^\.?\//, '').replace(/^["']|["']$/g, '');
+      if (!target || target.startsWith('/') || /^[A-Za-z]:/.test(target)) return;
+      out.push({ target, optional: guarded.has(rel) || guarded.has(`./${target}`) || guarded.has(target) });
+    };
+    for (const m of cmd.matchAll(/\$\{?[A-Z_]*PROJECT_DIR\}?([^\s"'`]+)/g)) push(m[1]);
+    for (const m of cmd.matchAll(/(?:^|[\s;|&])(?:node|sh|bash)\s+((?:\.\w+\/)?(?:scripts|\.devin\/scripts|\.trust|\.claude)\/[^\s"'`]+)/g)) push(m[1]);
+  }
+  const seen = new Set();
+  return out.filter((t) => (seen.has(t.target) ? false : (seen.add(t.target), true)));
+}
+
+/**
+ * hookTargetVerdict: missing = FAIL (dead gate), none configured = PASS
+ * (C2 owns "is any gate wired"), all present = PASS with the count.
+ */
+export function hookTargetVerdict({ missing = [], checked = 0, files = [] } = {}) {
+  if (missing.length)
+    return { level: 'fail', message: `hook target(s) missing — dead gate(s): ${missing.join(', ')} (a hook that names a file that does not exist fails silently)` };
+  if (!files.length) return { level: 'pass', message: 'no harness hook config found — nothing to liveness-check' };
+  if (!checked) return { level: 'pass', message: `hook config(s) present (${files.join(', ')}) but name no project-relative targets` };
+  return { level: 'pass', message: `${checked} hook target(s) exist on disk (${files.join(', ')})` };
+}

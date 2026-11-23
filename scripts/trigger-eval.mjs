@@ -4,7 +4,7 @@
  *
  * Origin: research-external-workflows (2026-10-20, Master adoption ruling
  * "jalankan semua 3 jalur", candidate #6 adopted from agent-skills' Tier 2):
- * TNA checked its 12 skill descriptions by prose rules only (trigger-pure,
+ * TNA checked its 13 skill descriptions by prose rules only (trigger-pure,
  * eval check #3) — the last prose-only layer in the registry. This script
  * adds the deterministic half: a lexical trigger/vocabulary check over the
  * descriptions, keyless and CI-safe (no tokens, no network, no model).
@@ -38,6 +38,7 @@ const TRIGGERS = {
   'no-thanks': ['review feedback', 'verify'],
   'roast-my-code': ['review', 'changes', 'branch', 'pr'],
   'ship-log': ['log', 'ledger', 'finished', 'completed'],
+  'pr-flow': ['pull request', 'pr', 'merge', 'review'],
   'breakpoint-variants': [],
   'save-as': ['spec', 'converged', 'written'],
   'fork-it': ['spec', 'tickets', 'breakdown'],

@@ -25,6 +25,7 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 | Bug / test failure / unexpected behavior | `root-cause` **MANDATORY** |
 | Before any "done" claim, commit, or PR | `receipts` **MANDATORY** |
 | Review requested / changes since a fixed point | `roast-my-code` |
+| Creating, reviewing, commenting on, or merging a pull request | `pr-flow` |
 | Review feedback received (from anyone) | `no-thanks` |
 | A ticket/feature finished | `ship-log` |
 | External skill proposed (registry check hit an outside skill) | open `docs/skill-vetting.md` — audit BEFORE the user's approval |
@@ -43,7 +44,7 @@ Three skills are **MANDATORY**, not advisory (self-trigger proven unreliable —
 
 These three are the Iron-Law gates. If a task triggers one, load it — do not rely on the description alone, do not "respond on the merits." `scripts/doctor.mjs` verifies the installation stays intact; the CI eval floor guards this section's presence.
 
-**Mechanical boundary.** `scripts/mandatory-gate.mjs` classifies task text against the three domains — a keyword signal to verify, never proof (`docs/specs/mandatory-gate.md`). **Audit trail:** every ledger entry in a MANDATORY domain carries a `Loaded: <skill>` line — missing it makes compliance indistinguishable from a dead skill (ledger-audit M1, doctor C7).
+**Mechanical boundary.** `scripts/mandatory-gate.mjs` classifies task text against the three domains plus RECOMMENDED domains (`pr-flow` on PR-lifecycle work — recommended load, not an Iron-Law gate) — a keyword signal to verify, never proof (`docs/specs/mandatory-gate.md`). **Audit trail:** every ledger entry in a MANDATORY domain carries a `Loaded: <skill>` line — missing it makes compliance indistinguishable from a dead skill (ledger-audit M1, doctor C7).
 
 ## 3. The chain (for `loop`-class work)
 
@@ -63,6 +64,7 @@ Rules:
 
 - **Facts are the agent's job** — look them up in the codebase, don't ask.
 - **Decisions are the user's job** — put each one to the user and wait.
+- **Ambiguous scope at `full`/`loop` → restate the goal in your own words first.** A misread goal found at restatement costs a sentence; found at review it costs the work.
 - Any decision the agent makes on its own gets a `Ruling:` line in the ledger — the lightweight form `Ruling: <decision> — <why>` is the default; the full `— <cost if wrong>` form for weighty calls (see `ship-log` §Rulings).
 
 ## 5. Delegation discipline
@@ -82,6 +84,8 @@ Filled: `VERIFY: node scripts/doctor.mjs · TIMEBOX: 10 minutes · PARTIAL: ERRO
 Subagent results are verified by the orchestrator — a report is a lead, not evidence. A verifier that cannot determine an outcome reports `uncertain` with a one-line reason. Parallel writers get one git worktree each; read-only parallel work runs without them.
 
 **Load the MANDATORY skills into every delegation that touches their domain** — behavior-changing code or tests carry `load_skills: ["expect-fail"]`; bug diagnosis `load_skills: ["root-cause"]`; done claims or commits `load_skills: ["receipts"]`. On a harness whose delegation tool lacks `load_skills`, the inline procedure carries a `Loaded: <skill>` line and the delegation prompt carries it too — an unloaded skill is a dead skill.
+
+**The brief gate is mechanical.** `node scripts/orchestrator-brief.mjs --pretool` validates every delegation prompt against this contract — six sections, repo rules, derived `Loading:` line, execution window, declared scope — and `buildBrief()` emits briefs that cannot forget the block. Unattended/automation runs follow `docs/specs/unattended-runs.md`: pre-authorized scope in `.trust/automation.json` (validated by `scripts/automation-lint.mjs` against the decaying autonomy ladder), receipts to artifacts, never mid-run questions.
 
 **Enforcement is an adapter matrix, not one API.** No single harness API carries enforcement, and a veto proof is **two-sided** — deny without fresh evidence, then a green test run, then the same action ALLOWED; a denial alone cannot tell a working gate from a permanent block. A veto is also **one of four layers**, not "TNA installed" (floor, mandatory-gate, veto, done-gate, plus the ledger append-only guard). Per-harness wiring, the two-sided proofs, the four-layer matrix, and the `record-test-evidence.mjs` door for harnesses whose `PostToolUse` never fires all live in `docs/compatibility.md`; harnesses without a live proof stay doc-first WARN. Where no adapter can run, the inline `Loaded:` fallback is the only layer, and its gap stays countable, never silent.
 
@@ -111,7 +115,7 @@ Rules inherited from eval findings (origins, rationale, undo: `docs/rule-inherit
 
 ## 7. Ledger
 
-Every completed unit of work is appended to the private ledger (`.trust/progress.txt`, gitignored) **before starting the next one** (the `ship-log` skill). Parallel writers: a worktree-local ledger is **provisional** — gitignored files do not survive `git worktree remove`; the canonical ledger lives in the coordinating checkout, and a ticket is not closed until its handoff lands there (see `ship-log`'s canonical-ledger contract). After a long pause, compaction, or fresh session: re-read todos + `progress.txt` + this file, state the next step — never resume from partial memory.
+Every completed unit of work is appended to the private ledger (`.trust/progress.txt`, gitignored) **before starting the next one** (the `ship-log` skill). Parallel writers: a worktree-local ledger is **provisional** — gitignored files do not survive `git worktree remove`; the canonical ledger lives in the coordinating checkout, and a ticket is not closed until its handoff lands there (see `ship-log`'s canonical-ledger contract). After a long pause, compaction, or fresh session: re-read todos + `progress.txt` + this file, state the next step — never resume from partial memory. Standing objectives live in `.trust/goals.md` — re-read on resume and by every unattended run; format and binding rules in `fork-it` §Standing goals, shape enforced by `scripts/goals.mjs`.
 
 **Router re-injection (compaction/resume guard).** Where the harness drops AGENTS.md after compaction, the Iron Laws and the MANDATORY section fall out of context. The closure is mechanical: `node scripts/reinject.mjs` prints the router's discipline floor (Iron Laws + MANDATORY section, derived from the live router so it cannot drift from it) **from both router files** — a caller that hands it a single file's text gets the other half named NOT FOUND and exit 1 rather than a half floor that passes as complete. On harnesses with a session-start/resume/compact hook, wire the injection there; otherwise re-print the block by hand as the first act after compaction or resume. Tested fail-first by `scripts/reinject.test.mjs`.
 

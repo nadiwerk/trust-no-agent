@@ -258,3 +258,24 @@ silently. No green fixture alone promotes any row.
 All rows above were verified against each harness's official documentation and repositories. Two verification waves: 2026-08-31 (OMO, Hermes Agent, omp/Senpi, OpenClaw) and a follow-up wave (Codex, [Claude Code] CLI, Gemini CLI, Zed). Items marked "unverified", "unknown", or "no evidence found" are stated as such — they were not assumed to be absent. A cross-tool note from the second wave: all Agent Skills standard tools converge on `~/.agents/skills/` + `.agents/skills/` as the shared path — that, alongside AGENTS.md, is the actual interoperability seam.
 
 Rows marked **live** were additionally executed end-to-end on that harness: OMO (this repo's daily driver; full eval battery in `evals/scenarios.md`), omp (install + smoke + task fan-out + /review, 2026-09-03), Codex (full 5-dimension audit on a repo copy, 2026-09-03), and ZCode (full 12-finding audit with 4 parallel dimension reviewers, 2026-09-03). These are receipts, not capability claims — a harness without a live row has been verified against docs only. The `evals/scenarios.md` scenario 13 self-trigger battery is the standing per-harness receipt; ZCode's 9-run run is pending there.
+## Tool-output compression (input axis of the context budget)
+
+`scripts/output-trim.mjs` compresses oversized tool results deterministically
+(scrub → elide with error salvage → per-session dedup; full output spills to
+`.trust/output-trim-spill/`). Wiring per hook contract:
+
+- **Output rewritable** (Claude-family `updatedToolOutput`, Copilot
+  `modifiedResult`): run it as a PostToolUse hook on the stdin payload — it
+  emits the documented JSON shape for each.
+- **Output not rewritable** (Devin): PreToolUse `updatedInput` wraps the
+  command in a run-and-compress shell wrapper — compression moves to the
+  source; only trimmed text reaches the model.
+- **execute.after** (OpenCode): the vendored engine in the tna-gate plugin
+  (`output-trim/output-trim-compress.js` via `output-trim-hook.mjs`) mutates
+  `event.result` directly, with `/output-trim` on|off|status.
+
+Invariants, enforced rather than defaulted: the read/write/edit tool family
+is never compressed (its output feeds exact-match edits); error lines are
+salvaged verbatim from any elided middle; `OUTPUT_TRIM=0` and
+`.trust/output-trim.json {"enabled": false}` both kill it; every failure
+path is fail-open.

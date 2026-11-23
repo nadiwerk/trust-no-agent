@@ -47,6 +47,10 @@ Declaring all three before starting is what separates a bounded loop from a stal
 
 ## Delegation discipline (subagents)
 
+### Should this be delegated?
+
+Delegate when the unit is **verifiable in isolation** (its `VERIFY` command settles it without the main thread's context), **bounded** (a fixed path list it may touch), and **context-heavy-but-narrow** (reads a lot to answer a little — audits, sweeps, mechanical migrations). Keep work in the main loop when it needs live judgment from the current conversation (design calls, ambiguous scope, user-in-the-loop decisions), when its seams are not yet mapped, or when it is `fast`-class — delegation overhead exceeds the work. A delegated unit whose output you cannot verify independently was never delegated; it was abandoned.
+
 When executing through subagents, every delegated prompt MUST include:
 
 - **The 3-line repo rules**: (1) every file change is verified (typecheck/test/error output) before being called done; (2) no refactoring outside the requested scope; (3) no touching files outside the allowed path list.

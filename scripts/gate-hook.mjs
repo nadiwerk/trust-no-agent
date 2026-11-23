@@ -281,11 +281,15 @@ const DOMAIN_INSTRUCTION = {
   receipts:
     'No "done"/"shipped"/"fixed" claim, commit, or PR without fresh verification evidence run in ' +
     'this session — load the `receipts` skill first. The agent\'s own claim is not evidence.',
+  'pr-flow':
+    'PR lifecycle work detected — load the `pr-flow` skill (recommended domain, not an Iron-Law ' +
+    'gate): right base, problem-first body, review discipline, ordered verified merges.',
 };
 
 let classify = null;
+let mandatoryDomains = [];
 try {
-  ({ classifyTask: classify } = await import(
+  ({ classifyTask: classify, MANDATORY_DOMAINS: mandatoryDomains } = await import(
     new URL('./mandatory-gate.mjs', import.meta.url).href
   ));
 } catch {
@@ -305,8 +309,11 @@ function buildPromptContext(prompt) {
     .map(([k]) => k);
   if (!hits.length) return null;
   const lines = hits.map((h) => `- **${h}** — ${DOMAIN_INSTRUCTION[h]}`);
+  const mandatoryOnly = hits.every((h) => mandatoryDomains.includes(h));
   return (
-    'trust-no-agent mandatory-gate flagged this request against the MANDATORY domains ' +
+    (mandatoryOnly
+      ? 'trust-no-agent mandatory-gate flagged this request against the MANDATORY domains '
+      : 'trust-no-agent gate flagged this request against a skill domain ') +
     '(keyword signal — verify, it is not proof of a violation):\n\n' +
     lines.join('\n') +
     '\n\nLoad each flagged skill before the work it governs. If a flag does not apply to what ' +

@@ -31,6 +31,12 @@
       "skillPath": "skills/discipline/no-thanks/SKILL.md",
       "computedHash": "30f1300041eda6507d19f42787dcbe826a82f56bfc281cf97706a920b6569d6a"
     },
+    "pr-flow": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/pr-flow/SKILL.md",
+      "computedHash": "5c46e22ec6a48882a2d9ef3bc277bf141b2d696d5abe47069b2decc143ed87f2"
+    },
     "receipts": {
       "source": "nadiwerk/trust-no-agent",
       "sourceType": "github",

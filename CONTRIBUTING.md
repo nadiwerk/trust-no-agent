@@ -7,7 +7,7 @@ mechanical gate before it is accepted.
 
 ## What this project is
 
-- A **markdown-only workflow framework** — 12 skills across three tiers
+- A **markdown-only workflow framework** — 13 skills across three tiers
   (engineering, discipline, meta) plus a router (`AGENTS.md` + `WORKFLOW.md`).
 - The identity is the **trust layer**: proven work (receipts, evidence gates,
   vetoes, the ledger). The built-in chain is one workflow option — bring-your-
@@ -154,7 +154,7 @@ If any fails, the PR is not mergeable. Run them locally before pushing.
 trust-no-agent/
 ├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
 ├── WORKFLOW.md          # core rules (non-negotiable)
-├── skills/              # the 12 skills, three tiers
+├── skills/              # the 13 skills, three tiers
 │   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
 │   │                    #   expect-fail, root-cause, roast-my-code
 │   ├── discipline/      #   receipts, no-thanks

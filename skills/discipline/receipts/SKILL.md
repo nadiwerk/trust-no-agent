@@ -118,6 +118,22 @@ Class rules:
 - **Receipt each part of a multi-part operation** — a fix spanning several tables/regions/channels is only "done" when every part shows its own state; a silently half-applied operation becomes the next incident's root cause.
 - **Partial success gets a recovery decision on record** — complete the remainder, roll back, or accept-and-log; the choice is stated with evidence, not defaulted to silence.
 
+## Delivery claims (merge, deploy, publish)
+
+A delivery claim names a terminal state, not a command's exit. `gh pr merge` printing an error does not prove the merge failed — and a deploy log's exit 0 does not prove the feature works. Proofs:
+
+| Claim | Proof required | Not sufficient |
+|-------|----------------|----------------|
+| PR merged | `gh pr view <pr> --json state,mergeCommit` — MERGED + the merge commit sha | `gh pr merge` exit code — its local fast-forward step fails AFTER the remote merge already succeeded |
+| PR checks green | `gh pr checks` shows ≥1 check AND none pending/in-progress | "checks ran" — zero registered checks is not-started, not done; an empty rollup is a pending state |
+| Deployed feature works | Probe the live artifact: HTTP status + rendered evidence (browser/screenshot) on the real URL, session-off for public routes | deploy log exit 0 — deploy success ≠ feature works: a public route behind auth middleware answers 307 while the deploy is green, and a day-level data hole shows only in the rendered UI |
+| Watched monitor finished | The watcher emitted a declared terminal event (green / failed / conflict / timeout) | silence — a watcher that cannot observe failure is a dead gate; never write an ad-hoc polling loop, use the tested watcher (`scripts/pr-wait.mjs`) or the harness's native wait |
+
+Class rules:
+
+- **The watcher is a gate too.** A polling loop that can end without emitting — a missing parser binary on the host, an empty check list read as "all done", a state name that never arrives — reports success over a check that never ran. Any watcher you wait on must name its terminal condition and have a proven fail path BEFORE you wait on it; a loop with no timeout and no failure branch is a stall wearing a monitor's name.
+- **Post-deploy is its own receipt.** For changes to UI or public routes, the receipt is not complete at merge — it closes on the production probe. If deploy verification is deferred to a later turn, `Open:` names it explicitly; the unit is not "done", it is "shipped, awaiting production probe".
+
 ## Labeled claims (prose discipline)
 
 Every prose claim in a receipt or report carries its evidence or its label in the same sentence: **measured** (you ran it), **inferred** (you reasoned from evidence), or **guess** (you are speculating). An unlabeled assertion is an opinion wearing a receipt's clothes. Examples:

@@ -7,6 +7,13 @@ root="$(git rev-parse --show-toplevel)"
 "$root/scripts/tickets.test.mjs" 2>/dev/null || node "$root/scripts/tickets.test.mjs" || exit 1
 "$root/scripts/doctor.test.mjs" 2>/dev/null || node "$root/scripts/doctor.test.mjs" || exit 1
 "$root/scripts/ledger-audit.test.mjs" 2>/dev/null || node "$root/scripts/ledger-audit.test.mjs" || exit 1
+"$root/scripts/ledger-lint.test.mjs" 2>/dev/null || node "$root/scripts/ledger-lint.test.mjs" || exit 1
+"$root/scripts/pr-wait.test.mjs" 2>/dev/null || node "$root/scripts/pr-wait.test.mjs" || exit 1
+"$root/scripts/roast-first.test.mjs" 2>/dev/null || node "$root/scripts/roast-first.test.mjs" || exit 1
+"$root/scripts/output-trim.test.mjs" 2>/dev/null || node "$root/scripts/output-trim.test.mjs" || exit 1
+"$root/scripts/goals.test.mjs" 2>/dev/null || node "$root/scripts/goals.test.mjs" || exit 1
+"$root/scripts/automation-lint.test.mjs" 2>/dev/null || node "$root/scripts/automation-lint.test.mjs" || exit 1
+"$root/scripts/orchestrator-brief.test.mjs" 2>/dev/null || node "$root/scripts/orchestrator-brief.test.mjs" || exit 1
 "$root/scripts/reinject.test.mjs" 2>/dev/null || node "$root/scripts/reinject.test.mjs" || exit 1
 "$root/scripts/behavioral-eval.test.mjs" 2>/dev/null || node "$root/scripts/behavioral-eval.test.mjs" || exit 1
 "$root/scripts/behavioral-eval.mjs" 2>/dev/null || node "$root/scripts/behavioral-eval.mjs" || exit 1

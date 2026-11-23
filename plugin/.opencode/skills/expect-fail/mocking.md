@@ -59,3 +59,13 @@ Per-operation surfaces also read better at the call site: the test names the end
 ## The mockability rent test
 
 Before designing for mockability, apply the same test the rest of this framework uses: **are you actually going to double this boundary?** If the external call happens once, is trivial to test against a real fixture, or never needs a fake — do not add an injection point for it. Seams earn their place the same way everything else in this repo does: by paying for themselves in tests that would otherwise be impossible.
+
+## Stub honesty — the double must model the real semantics
+
+A stub that is always happy certifies nothing. Each of these was a real incident where the test stayed green while the bug shipped:
+
+- **Reproduce the contract's failure modes, not just its return type.** `window.open` returns `null` when `noopener` sits in the feature string; `fetch` rejects and returns error statuses; cookie and session reads come back absent. If the real API can return null, throw, or reject, the stub must be able to do the same — and at least one test must drive that path. A `window.open` stub that always returns an object hid an entire bug class until production reported it.
+- **Test BOTH states of an external read.** A component that initializes from a URL parameter and then fetches needs the fetch-success AND the fetch-error paths exercised — a stub returning 200 forever hides overwrite bugs where the fetched value clobbers the URL-derived one. Writes one side, reads the other: every redirect/error value produced by one side needs a test reader on the other side.
+- **A skip evaluated at collection time is a silent off-switch.** `describe.skipIf(condition)` runs when the suite is COLLECTED, not when the test runs — a fix that passes "without env" can silently kill tests "with env". Verify the tests actually ran in every environment claimed (count them; a suite that collected 0 tests is a 0/0 green).
+- **Green for the wrong reason is worse than red.** An empty env var, a fixture that never loaded, a `bash` on PATH that resolves to a shell dropping environment — each can make a negative test "pass" without the failure path running. When a negative test goes green, ask whether the failure branch actually executed.
+- **Assert the call's arguments, not just that it happened.** A fetch stub that records invocation proves `fetch` was called; it does not prove the URL, method, or body were right. A request built against the wrong host still "calls fetch" — contract-asserting stubs check what was sent, side-effect-checking stubs are how a 404-producing URL ships green.

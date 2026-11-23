@@ -32,6 +32,7 @@ Every completed unit of work gets a ledger entry — before starting the next on
 
 ### Session Summary - <short title>
 - <Modified/Created/Fixed> '<path/file>' - <short description of the change>
+- Harness: <the harness running this session — claude|devin|opencode|codex|omp|pi|dsh|...>
 - Loaded: <MANDATORY skill used, e.g. "expect-fail"; omit only for work outside all three domains>
 - Context confirmed: <required for fixes driven by owner visual feedback — restate display context (desktop/mobile), the exact block, and the symptom before the fix; audited by scripts/ledger-audit.mjs M3>
 - Verification: <evidence, e.g. tsc EXIT 0; vitest 42/42 pass>
@@ -46,6 +47,10 @@ Every completed unit of work gets a ledger entry — before starting the next on
 - [x] **Performance**: no N+1 in loops, no heavy synchronous work in render path
 - [x] **Security**: no secrets in source, user input validated, no sensitive data in logs
 ```
+
+The dimensions' floor lives in `roast-my-code/engineering-floor.md` (boundaries, minimal diff, reader load, domain modeling, type discipline, comments, idempotency, honest tests) — check against it when marking `[x]`; an unchecked floor item is a `[ ]` with a reason, not a rubber stamp.
+
+**The `Harness:` line is mandatory on multi-harness projects.** Attribution is what makes per-harness quality auditable — an adopter audit (2026-11-19) found 82% of entries unattributed and per-harness comparison impossible; after the line was made required, compliance measured 51% by hand (prose rules are half-kept — `scripts/ledger-lint.mjs` reports the coverage gap mechanically). On a single-harness project the line is recommended, not required.
 
 **The `Loaded:` and `Next:` lines are mandatory, and their absence is a finding.** Both were prose contracts with mechanical readers before the template taught them: a domain-relevant entry with no `Loaded:` line is the silent-drop signal (scripts/ledger-audit.mjs M1, AGENTS.md §2), and an entry with no `Next:` line strands the next session (scripts/ledger-audit.mjs M7, docs/chat-receipt.md rule 4). The template is the writer's surface — when the template dropped these lines, entries written from it inherited the omission and the audit reported gaps for a format no one was taught. The ledger audit (scripts/ledger-audit.mjs) reports the template's missing lines, so the omission cannot silently return.
 
@@ -110,6 +115,16 @@ Gitignored files are per-worktree: a ledger written inside a git worktree dies w
 - Shared research notes (`fork-it`) follow the same rule: write to the canonical `.trust/`, outside every worktree, so all writers read one copy.
 
 Provisional logs remain useful mid-ticket (crash recovery inside the worktree); they are simply not durable. Durable = canonical. The ledger audit (scripts/ledger-audit.mjs) mechanically guards this contract's markers.
+
+## Tracked ledgers (project-root convention)
+
+The default `.trust/progress.txt` is private and gitignored — kept that way so history stays private. Some projects track a `progress.txt` at the repo root instead, so the history ships with the code. A legitimate convention — but a tracked ledger under parallel writers faces hazards a private one never does:
+
+- **Union-merge it.** Add `progress.txt merge=union` (and `progress-archive-*.txt merge=union`) to `.gitattributes`. Two writers appending to one tracked file produce a conflict on every merge otherwise, and a manual resolve can silently drop the newest entries.
+- **Keep `* text=auto eol=lf` in `.gitattributes` too.** Windows `core.autocrlf` exports CRLF shebangs (`bash\r`) into tracked shell/hook scripts that silently break on POSIX CI/deploy (measured: a production cron died to exactly this). One line in `.gitattributes` normalizes both directions.
+- **After resolving a ledger conflict, grep for the newest entries' titles before committing the resolve.** Line count and file size prove nothing — a `checkout --theirs`/`--ours` pick can drop entries written minutes ago with no trace.
+- **Restore/snapshot scripts must treat the ledger and its archives as append-only.** A `cp snapshot ledger` restore truncates history whenever the snapshot predates the file (measured: 53 entries deleted in one restore). Restore missing files only; on diverged content, print a `WARN` plus the exact recovery command — never overwrite.
+- **A duplicate entry is a finding, not history.** Entries whose heading AND body repeat byte-for-byte are merge artifacts (measured: ~29 on a real adopter ledger after a 3-way ledger merge). `scripts/ledger-lint.mjs` reports them — deduplicate by deleting the copies, keeping the earliest position.
 
 ## Why append-only
 

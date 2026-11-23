@@ -1,7 +1,7 @@
 {
   "name": "trust-no-agent",
   "version": "0.1.58",
-  "description": "Trust over speed for coding agents — the router (AGENTS.md + WORKFLOW.md), 12 discipline skills, and the mechanical enforcement layer: floor re-injection, per-prompt MANDATORY classification, and the evidence-gated tool veto.",
+  "description": "Trust over speed for coding agents — the router (AGENTS.md + WORKFLOW.md), 13 discipline skills, and the mechanical enforcement layer: floor re-injection, per-prompt MANDATORY classification, and the evidence-gated tool veto.",
   "author": {
     "name": "nadiwerk"
   },
@@ -25,7 +25,7 @@
   "interface": {
     "displayName": "Trust No Agent",
     "shortDescription": "Discipline the agent will not skip",
-    "longDescription": "Four Iron Laws, twelve discipline skills, and a mechanical boundary the model does not have to remember: the session-start floor is re-injected from the router, every prompt is classified against the MANDATORY domains (expect-fail, root-cause, receipts) with a LOAD directive injected when one is touched, and irreversible tool calls without fresh evidence are vetoed. Self-trigger measured 0/3 — the hooks exist because relying on the model to remember fails silently.",
+    "longDescription": "Four Iron Laws, thirteen discipline skills, and a mechanical boundary the model does not have to remember: the session-start floor is re-injected from the router, every prompt is classified against the MANDATORY domains (expect-fail, root-cause, receipts) with a LOAD directive injected when one is touched, and irreversible tool calls without fresh evidence are vetoed. Self-trigger measured 0/3 — the hooks exist because relying on the model to remember fails silently.",
     "developerName": "nadiwerk",
     "category": "Developer Tools"
   },

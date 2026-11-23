@@ -21,7 +21,7 @@ checks prove the wiring; you get a receipt.
 > **Human:** yes — and hooks on, map my review skill.
 > **Agent:** [runs the onboarding CLI with the forwarded answers, then the
 > doctor-lite checks] Verdict: DONE — stamp written, router identical to
-> payload, 12 skills detected.
+> payload, 13 skills detected.
 
 ## Scenario 2 — already onboarded, new skill arrives
 

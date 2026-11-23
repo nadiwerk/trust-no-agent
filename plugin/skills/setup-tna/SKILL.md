@@ -165,6 +165,27 @@ scripts/onboarding.mjs decides what each harness receives; a new adapter added
 to `veto-hooks/` without a row there is a layer no user gets. When you add one,
 add its row AND its expectation in scripts/onboarding-layers.test.mjs.
 
+## Step 5b — Optional hardening (offer, never write unasked)
+
+After the proof, OFFER these as named follow-ups — each is opt-in and each
+writes a visible config diff, so the human approves each separately:
+
+- `.gitattributes` with `progress.txt merge=union` (tracked-ledger projects)
+  and `* text=auto eol=lf` (any project whose hooks/scripts run on POSIX) —
+  both measured ledger/deploy incidents, not preferences.
+- Skill deny-by-default (`permission.skill.*: deny`) and tool-output caps
+  (`tool_output.max_lines/max_bytes`) where the harness exposes them —
+  mechanical enforcement for skill-vetting and context budget; shapes live
+  in docs/skill-vetting.md §Mechanical enforcement.
+- `scripts/roast-first.mjs` wired as a PreToolUse hook — review-before-commit
+  enforcement on measured churn sources (config `.trust/roast-first.json`).
+- `scripts/output-trim.mjs` wired as a PostToolUse hook where the harness can
+  rewrite tool output — deterministic compression of oversized tool results
+  (allowlisted tools only, read/write family hard-excluded, elided text
+  recoverable via `.trust/output-trim-spill/`); where PostToolUse cannot
+  rewrite output, the command-wrapper pattern in docs/compatibility.md
+  compresses at the source instead.
+
 ## Step 6 — Receipt
 
 Close with the 4-block receipt (Verdict / Evidence / Open / Next). The

@@ -12,7 +12,7 @@
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict, extractHookTargets, hookTargetVerdict } from './doctor-checks.mjs';
 
 // Pin the zone. A ledger heading is a CALENDAR DAY and `today` is an instant;
 // leaving the zone ambient makes every starvation fixture host-dependent, and
@@ -737,5 +737,54 @@ const ledgerWithDate = (dateStr) =>
     (src.match(/^import[^\n]*gate-hook[^\n]*$/m) || [''])[0]);
 }
 
+// ---- C13 hook-target liveness (dead-gate detection) ----
+{
+  // The measured adopter shape: settings JSON naming project-relative paths.
+  const cfg = {
+    hooks: {
+      SessionStart: [{ hooks: [{ type: 'command', command: 'node ${CLAUDE_PROJECT_DIR}/scripts/orchestrator-brief.mjs' }] }],
+      PreToolUse: [{ hooks: [{ type: 'command', command: 'sh .trust/restore-tooling.sh && node .devin/scripts/hook.mjs' }] }],
+    },
+    permissions: { allow: ['Bash(git status)'] },
+  };
+  const t = extractHookTargets(cfg).map((x) => x.target).sort();
+  check('C13a ${CLAUDE_PROJECT_DIR}/x and bare sh/node targets are extracted',
+    t.join(',') === '.devin/scripts/hook.mjs,.trust/restore-tooling.sh,scripts/orchestrator-brief.mjs', t.join(','));
+}
+{
+  // A [ ! -f ]-guarded target is optional by the config's own declaration.
+  const cfg = { hooks: { PreToolUse: [{ command: '[ ! -f scripts/opt.mjs ] && exit 0; node scripts/opt.mjs --go' }] } };
+  const t = extractHookTargets(cfg);
+  check('C13b guarded target is optional (conditional hook)', t.length === 1 && t[0].optional === true, JSON.stringify(t));
+}
+{
+  const cfg = { hooks: { PreToolUse: [{ command: 'node scripts/there.mjs' }] } };
+  const v = hookTargetVerdict({ missing: ['scripts/there.mjs'], checked: 1, files: ['.claude/settings.json'] });
+  check('C13c missing target is FAIL naming the file', v.level === 'fail' && /scripts\/there\.mjs/.test(v.message));
+}
+{
+  check('C13d all-present is PASS', hookTargetVerdict({ missing: [], checked: 3, files: ['.claude/settings.json'] }).level === 'pass');
+  check('C13e no hook config is PASS (C2 owns the wired question)', hookTargetVerdict({ missing: [], checked: 0, files: [] }).level === 'pass');
+}
+{
+  // End-to-end: a fixture project whose settings.local.json points at a file
+  // that does not exist must come back FAIL from the doctor itself.
+  const { mkdtempSync: mkK13, mkdirSync: mdK13, writeFileSync: wfK13, rmSync: rmK13 } = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  const { tmpdir: tdK13 } = await import('node:os');
+  const { join: joinK13, dirname: dnK13 } = await import('node:path');
+  const { fileURLToPath: fpK13 } = await import('node:url');
+  const hereK13 = dnK13(fpK13(import.meta.url));
+  const tmp = mkK13(joinK13(tdK13(), 'doctor-c13-'));
+  mdK13(joinK13(tmp, '.claude'), { recursive: true });
+  wfK13(joinK13(tmp, '.claude', 'settings.local.json'),
+    JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'node ${CLAUDE_PROJECT_DIR}/scripts/ghost.mjs' }] }] } }));
+  const r = spawnSync(process.execPath, [joinK13(hereK13, 'doctor.mjs')], { cwd: tmp, encoding: 'utf8', timeout: 180000 });
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '');
+  check('C13f doctor FAILs and names the dead gate target',
+    /FAIL.*hook target.*scripts\/ghost\.mjs/s.test(out), out.split('\n').filter((l) => l.startsWith('FAIL')).join(' | ').slice(0, 400));
+  rmK13(tmp, { recursive: true, force: true });
+}
+
 if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
-console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q).');
+console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q + C13).');

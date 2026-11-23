@@ -34,10 +34,60 @@
  * degrades to coverage gaps — never hard-fail on unprovable data.
  */
 
-import { classifyTask, MANDATORY_DOMAINS } from './mandatory-gate.mjs';
+import { classifyTask, MANDATORY_DOMAINS, RECOMMENDED_DOMAINS } from './mandatory-gate.mjs';
 import { auditLedgerReceipts } from './receipt-enforcement.mjs';
 
 export const RECENCY_DAYS = 14;
+
+/**
+ * Recurrence clustering floor (L12): a significant term appearing in the
+ * root_cause of this many DISTINCT lessons is a recurring failure class —
+ * not a one-off — and is surfaced as a rule-candidate finding. Three is the
+ * honest line: one lesson is an incident, two can be a coincidence, the third
+ * teaching of the same class means the lesson itself failed to change the
+ * failure. The audit proposes; the user decides (Iron Law 4).
+ */
+export const MIN_LESSON_RECURRENCE = 3;
+
+/**
+ * Generic vocabulary excluded from recurrence fingerprints (EN + ID). A
+ * recurring term must name a failure class (drizzle, hydration, viewport),
+ * not the grammar of writing lessons — otherwise "harus"/"must" would
+ * outrank every real signal.
+ */
+const LESSON_STOPWORDS = new Set([
+  // EN function words + the generic lesson grammar
+  'about', 'after', 'again', 'before', 'being', 'between', 'because', 'cannot',
+  'could', 'every', 'first', 'should', 'their', 'there', 'these', 'those',
+  'through', 'under', 'until', 'where', 'which', 'while', 'would', 'never',
+  'always', 'must', 'only', 'same', 'when', 'with', 'from', 'that', 'this',
+  'then', 'than', 'have', 'does', 'done', 'make', 'made', 'more', 'most',
+  'some', 'such', 'very', 'into', 'over', 'error', 'fail', 'fails', 'failed',
+  // ID function words + the generic lesson grammar — the ID half is load-
+  // bearing: a real 60-lesson adopter file (ads-tracker, 2026-11-23) put
+  // "sehingga" in 36 root_causes and "tanpa" in 27; without these the
+  // clusters are grammar, not failure classes.
+  'adalah', 'agar', 'akan', 'antara', 'atau', 'belum', 'bisa', 'dalam',
+  'dan', 'dapat', 'dari', 'dengan', 'harus', 'hanya', 'jadi', 'jangan',
+  'juga', 'karena', 'ketika', 'lebih', 'menjadi', 'namun', 'oleh', 'pada',
+  'para', 'perlu', 'saat', 'sebagai', 'sebelum', 'selalu', 'semua', 'setiap',
+  'seperti', 'setelah', 'suatu', 'sudah', 'supaya', 'tetapi', 'tidak',
+  'untuk', 'wajib', 'yang', 'yaitu', 'yakni', 'jika', 'bila', 'pula',
+  // measured noise from the same adopter file (grammar/meN- verbs, not classes)
+  'baris', 'berkas', 'bukan', 'dibaca', 'dijalankan', 'ditulis', 'entri',
+  'gagal', 'hasil', 'kegagalan', 'kedaluwarsa', 'koneksi', 'lolos', 'lokal',
+  'lulus', 'melaporkan', 'memakai', 'memalsukan', 'member', 'membuat',
+  'membuktikan', 'mencocokkan', 'menghapus', 'menimpa', 'menit', 'menuntut',
+  'menyimpan', 'memanggil', 'padahal', 'pernah', 'rusak', 'sebelumnya',
+  'sehingga', 'sementara', 'tampil', 'tanpa',
+]);
+
+/**
+ * Report cap: recurring-pattern findings name the TOP recurring classes,
+ * not every term above the floor — a findings list longer than a reader
+ * scans is the same failure as no findings.
+ */
+const MAX_RECURRING_FINDINGS = 5;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -367,13 +417,43 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
   // indexed: it cannot be attributed to any single repair, and a date-less
   // index would let one lesson satisfy every repair in the window.
   const lessonDates = new Set();
+  const lessonTerms = new Map(); // significant term -> Set of lesson indexes
   if (lessonsProvided) {
     // No `^` anchor in the line predicate: LESSON_LINE is a /gm regex whose
     // lastIndex persists, so `.test()` on successive matches would skip every
     // other lesson. matchAll resets it, and the predicate stays a plain check.
+    let lessonIndex = 0;
     for (const m of lessonsText.matchAll(LESSON_LINE)) {
       const d = m[0].match(LESSON_DATE);
       if (d) lessonDates.add(d[1]);
+      // L12 — collect the failure-class fingerprint in the same pass: the
+      // root_cause phrase's significant tokens (>=5 chars, not stopwords).
+      // Tokens index DISTINCT lessons — a term repeated inside one lesson
+      // still counts once.
+      const rc = (m[0].match(/root_cause\s*=\s*([^|\[]+)/i) || [null, ''])[1];
+      for (const term of rc.toLowerCase().split(/[^a-z0-9]+/)) {
+        if (term.length < 5 || LESSON_STOPWORDS.has(term)) continue;
+        if (!lessonTerms.has(term)) lessonTerms.set(term, new Set());
+        lessonTerms.get(term).add(lessonIndex);
+      }
+      lessonIndex++;
+    }
+    // L12 — recurrence clustering: the corrective tier teaches one lesson at
+    // a time, and nothing counts how often the SAME failure class gets
+    // taught. A term in MIN_LESSON_RECURRENCE+ distinct root_causes is a
+    // recurring class — a rule-inheritance or structural candidate surfaced
+    // to the user, never auto-promoted (Iron Law 4). Tier-level finding,
+    // ordered by count desc then alpha so output is deterministic.
+    const recurring = [...lessonTerms.entries()]
+      .filter(([, idxs]) => idxs.size >= MIN_LESSON_RECURRENCE)
+      .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
+      .slice(0, MAX_RECURRING_FINDINGS);
+    for (const [term, idxs] of recurring) {
+      findings.push({
+        date: 'tier',
+        kind: 'recurring-pattern',
+        message: `the term "${term}" appears in the root_cause of ${idxs.size} distinct lessons — a recurring failure class, not a one-off; it is a candidate for a permanent rule or a structural fix (docs/rule-inheritance.md, encode-twice): propose it to the user rather than teaching the same lesson a ${idxs.size + 1}th time`,
+      });
     }
   }
 
@@ -438,12 +518,12 @@ export function auditLedger({ ledgerText, today, recencyDays = RECENCY_DAYS, les
     // earning its keep. A body carrying `- Loaded:` is out of the gate's scope by
     // construction (it is not missing a trail), so it is never double-reported.
     const hasLoadedTrail = LOADED_LINE.test(body);
-    for (const skill of MANDATORY_DOMAINS) {
+    for (const skill of [...MANDATORY_DOMAINS, ...RECOMMENDED_DOMAINS]) {
       if (gateVerdict[skill] && !hasLoadedTrail)
         findings.push({
           date,
           kind: 'gated-loaded-gap',
-          message: `entry ${date} matches the mandatory-gate keyword pattern for "${skill}" but carries no "- Loaded:" line — this is a keyword-pattern signal to verify, not a proven violation; confirm the skill was loaded or add the Loaded: line (docs/specs/mandatory-gate.md, AGENTS.md §2)`,
+          message: `entry ${date} matches the gate keyword pattern for "${skill}"${RECOMMENDED_DOMAINS.includes(skill) ? ' (recommended domain, not Iron-Law)' : ''} but carries no "- Loaded:" line — this is a keyword-pattern signal to verify, not a proven violation; confirm the skill was loaded or add the Loaded: line (docs/specs/mandatory-gate.md, AGENTS.md §2)`,
         });
     }
 

@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict, extractHookTargets, hookTargetVerdict } from './doctor-checks.mjs';
 import { parseStamp } from './onboarding.mjs';
 // The hook module is imported LAZILY (see the G hook-load section below): a
 // static import here meant the doctor died on the same load throw that made the
@@ -45,7 +45,7 @@ const REPO_SKILLS = join(ROOT, 'skills');
 const FALLBACK_SKILLS = [
   'breakpoint', 'scribe', 'save-as', 'fork-it', 'make-it-so',
   'expect-fail', 'root-cause', 'roast-my-code', 'receipts', 'no-thanks', 'ship-log',
-  'setup-tna',
+  'pr-flow', 'setup-tna',
 ];
 
 const cwd = process.cwd();
@@ -131,6 +131,41 @@ try {
       }
     }
   }
+}
+
+// ---- C13. hook-target liveness — a hook naming a file that does not exist ----
+// is a dead gate with a green face. Measured adopter incident (2026-11-16):
+// settings.local.json invoked a delegation-brief script for days while the
+// script lived only on another branch — every delegation ungated, every
+// call silent. C2 checks hooks are WIRED; this check proves the files they
+// name exist. Applies in both modes whenever a hook config is present; a
+// `[ ! -f ]`-guarded target is optional by the config's own declaration.
+{
+  const HOOK_CONFIGS = [
+    join('.claude', 'settings.json'),
+    join('.claude', 'settings.local.json'),
+    join('.devin', 'hooks.v1.json'),
+    join('.devin', 'hooks.json'),
+    join('.codex', 'hooks.json'),
+    join('.opencode', 'hooks.json'),
+    join('.opencode', 'opencode.json'),
+    'hooks.json',
+  ];
+  const found = [];
+  const targets = [];
+  for (const rel of HOOK_CONFIGS) {
+    const p = join(cwd, rel);
+    if (!existsSync(p)) continue;
+    let parsed;
+    try { parsed = JSON.parse(readFileSync(p, 'utf8')); }
+    catch { warn(`hook config ${rel} is not readable JSON — its targets cannot be liveness-checked`); continue; }
+    found.push(rel);
+    for (const t of extractHookTargets(parsed)) targets.push(t);
+  }
+  const missing = targets.filter((t) => !t.optional && !existsSync(join(cwd, t.target))).map((t) => t.target);
+  const res = hookTargetVerdict({ missing, checked: targets.filter((t) => !t.optional).length, files: found });
+  if (res.level === 'fail') fail(res.message);
+  else pass(res.message);
 }
 
 // ---- C8. mandatory-gate: the mechanical boundary of MANDATORY routing ----

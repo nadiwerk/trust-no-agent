@@ -88,6 +88,29 @@ const undatedEntry = (lines) => `### Session Summary - unit\n${lines}\n`;
     JSON.stringify(res.findings));
 }
 
+// A6. PR-lifecycle entry without Loaded: → gated-loaded-gap naming pr-flow
+// (recommended domain — same keyword-signal mechanism, not an Iron-Law gap)
+{
+  const res = auditLedger({
+    ledgerText: entry('- Merged pr 41 into master after green checks'),
+    today: TODAY,
+  });
+  check('A6 pr-flow-domain entry without Loaded: is flagged for pr-flow',
+    res.findings.some((f) => f.kind === 'gated-loaded-gap' && f.message.includes('pr-flow')),
+    JSON.stringify(res.findings));
+}
+
+// A7. Same PR-lifecycle entry WITH Loaded: pr-flow → not flagged
+{
+  const res = auditLedger({
+    ledgerText: entry('- Merged pr 41 into master after green checks\n- Loaded: pr-flow'),
+    today: TODAY,
+  });
+  check('A7 pr-flow-domain entry with Loaded: is clean',
+    !res.findings.some((f) => f.kind === 'gated-loaded-gap' && f.message.includes('pr-flow')),
+    JSON.stringify(res.findings));
+}
+
 // A5. Literal-marker discipline: the domain match uses literal phrases, not a
 // loose regex — a cousin phrase must NOT trip the gap flag.
 {
@@ -1197,6 +1220,85 @@ console.log(failures ? `\nFAIL: ${failures} expectation(s) broke.` : '\nAll expe
   });
   check('O3 no verdict claim means nothing to judge (M9 stays silent)',
     !res.findings.some((f) => f.kind === 'fake-compliance'),
+    JSON.stringify(res.findings));
+}
+
+// ---- P. Recurrence clustering (L12): the same failure class taught 3+ times ----
+
+const lesson = (rc, date = '2026-09-08') =>
+  `Lesson: root_cause = ${rc} | correction = fix [${date}]`;
+
+// P1. A term in 3+ distinct root_causes → recurring-pattern finding naming it
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node x.test.mjs` 1/1, exit 0\n- Next: none'),
+    today: TODAY,
+    lessonsText: [
+      lesson('drizzle journal drift removed snapshot'),
+      lesson('drizzle-kit generated migration without snapshot'),
+      lesson('drizzle migrate future timestamp'),
+    ].join('\n'),
+  });
+  check('P1 term in 3 lessons is flagged recurring-pattern',
+    res.findings.some((f) => f.kind === 'recurring-pattern' && f.message.includes('"drizzle"')),
+    JSON.stringify(res.findings));
+  check('P1b the finding names the count',
+    res.findings.some((f) => f.kind === 'recurring-pattern' && f.message.includes('3 distinct lessons')),
+    JSON.stringify(res.findings));
+}
+
+// P2. The same term in only 2 lessons → no finding (below the floor)
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node x.test.mjs` 1/1, exit 0\n- Next: none'),
+    today: TODAY,
+    lessonsText: [
+      lesson('drizzle journal drift removed snapshot'),
+      lesson('drizzle-kit generated migration without snapshot'),
+    ].join('\n'),
+  });
+  check('P2 term in 2 lessons stays below the floor',
+    !res.findings.some((f) => f.kind === 'recurring-pattern'),
+    JSON.stringify(res.findings));
+}
+
+// P3. Generic grammar words are stoplisted — "harus"/"should" never cluster
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node x.test.mjs` 1/1, exit 0\n- Next: none'),
+    today: TODAY,
+    lessonsText: [
+      lesson('halaman harus dirender dulu'),
+      lesson('form harus divalidasi di boundary'),
+      lesson('cache harus di-invalidate saat migrate'),
+    ].join('\n'),
+  });
+  check('P3 stopwords never produce a recurring-pattern finding',
+    !res.findings.some((f) => f.kind === 'recurring-pattern' && f.message.includes('"harus"')),
+    JSON.stringify(res.findings));
+}
+
+// P4. lessonsText omitted → the seam degrades silently, no recurrence findings
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node x.test.mjs` 1/1, exit 0\n- Next: none'),
+    today: TODAY,
+  });
+  check('P4 lessonsText omitted → no recurrence findings',
+    !res.findings.some((f) => f.kind === 'recurring-pattern'),
+    JSON.stringify(res.findings));
+}
+
+// P5. A term repeated inside ONE lesson still counts as one lesson
+{
+  const res = auditLedger({
+    ledgerText: entry('- Loaded: receipts\n- Verification: `node x.test.mjs` 1/1, exit 0\n- Next: none'),
+    today: TODAY,
+    lessonsText: lesson('drizzle drizzle drizzle everything is drizzle') + '\n' +
+      lesson('entirely unrelated viewport sizing'),
+  });
+  check('P5 repetition inside one lesson never reaches the floor',
+    !res.findings.some((f) => f.kind === 'recurring-pattern'),
     JSON.stringify(res.findings));
 }
 

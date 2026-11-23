@@ -6,7 +6,7 @@ Vetting audits the **input** side - what ships with the skill. The verification 
 
 ## Two risk classes
 
-A skill is instructions; a script is an executable. The framework's own 12 skills ship 29 files under `skills/` (verified 2026-10-16): eleven are markdown-only, auditable by reading. The exception is the setup-tna skill, which ships exactly one executable — its onboarding CLI (scripts/onboarding.mjs) — so the chat onboarding runs the same tested writer the repo uses; that CLI writes only under the project's .trust/ directory, its --undo path re-validates overlay names against the write-time whitelist before any deletion, and its byte-identity to the root copy is pinned by eval check 47. A skill that ships scripts beyond that pattern is a different class: its scripts run **outside the repo's gates** - pre-commit hooks and CI see repo changes, not what a script does to the machine. Classify the skill first; the checklist weighs accordingly.
+A skill is instructions; a script is an executable. The framework's own 13 skills ship 42 files under `skills/` (verified 2026-11-24): twelve are markdown-only, auditable by reading. The exception is the setup-tna skill, which ships exactly one executable — its onboarding CLI (scripts/onboarding.mjs) — so the chat onboarding runs the same tested writer the repo uses; that CLI writes only under the project's .trust/ directory, its --undo path re-validates overlay names against the write-time whitelist before any deletion, and its byte-identity to the root copy is pinned by eval check 47. A skill that ships scripts beyond that pattern is a different class: its scripts run **outside the repo's gates** - pre-commit hooks and CI see repo changes, not what a script does to the machine. Classify the skill first; the checklist weighs accordingly.
 
 ## Safety checks - once, before first approval
 
@@ -39,3 +39,31 @@ Record the verdict in the ledger (ship-log) with the date and the pinned version
 
 - **Not an eval check.** This checklist is judgment work; the mechanical boundary already lives on the output side (the gates). If field use shows unvetted skills causing real damage, the next lever is a mechanical provenance check - deferred until proven needed (AGENTS.md §8: everything added pays rent).
 - **Not a block.** The registry still proposes external skills freely; vetting informs the user's approval and never replaces it.
+
+## Mechanical enforcement (deny-by-default)
+
+The audit above is judgment; on harnesses that support it, judgment gets a
+mechanical backstop — **external skills are denied by default and allowlisted
+only after vetting**. OpenCode shape (ads-tracker, measured in production):
+
+```json
+"permission": { "skill": { "<external-skill-name>": "deny", "<family>:*": "deny" } }
+```
+
+An unlisted skill stays available for the registry to propose; a listed-deny
+skill cannot be invoked without the config changing — which means the gate
+moves to a visible diff, exactly like rule-inheritance. Adopt this when the
+harness offers it; where it does not, the `unaudited` ledger state is the
+backstop (§states above).
+
+## Context-budget knobs at the config layer
+
+Context-budget discipline (AGENTS.md §8) is prose; harnesses that expose
+output caps make it mechanical. OpenCode example:
+
+```json
+"tool_output": { "max_lines": 500, "max_bytes": 20480 }
+```
+
+Cap tool output where the harness allows it — an uncapped tool result is
+unbounded always-on cost.

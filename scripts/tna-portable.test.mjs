@@ -12,7 +12,7 @@
  * behavior (copied copy denies a commit without evidence). Expected verdicts
  * are hand-written literals from the ticket intent.
  */
-import { mkdtempSync, readdirSync, readFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -60,7 +60,9 @@ const fakeCtx = (directory) => {
 // ---- B. Behavior from a relocated copy — the adopter path ----
 {
   const dest = mkdtempSync(join(tmpdir(), 'tna-portable-'));
-  for (const f of readdirSync(PLUGIN_DIR)) copyFileSync(join(PLUGIN_DIR, f), join(dest, f));
+  // Recursive: the vendored dir holds subdirectories (output-trim/) — a flat
+  // copyFileSync loop died on EPERM the day the first subdir landed.
+  cpSync(PLUGIN_DIR, dest, { recursive: true });
   mkdirSync(join(dest, '.trust'), { recursive: true });
   let plugin = null;
   let loadErr = null;

@@ -114,6 +114,22 @@ jobs:
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 
+      - name: Ledger integrity lint self-test
+        run: node scripts/ledger-lint.test.mjs
+
+      - name: PR watcher self-test
+        run: node scripts/pr-wait.test.mjs
+      - name: roast-first gate tests
+        run: node scripts/roast-first.test.mjs
+      - name: output-trim compression tests
+        run: node scripts/output-trim.test.mjs
+      - name: goals file validator self-test
+        run: node scripts/goals.test.mjs
+      - name: automation lint self-test
+        run: node scripts/automation-lint.test.mjs
+      - name: orchestrator brief gate self-test
+        run: node scripts/orchestrator-brief.test.mjs
+
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over
         # zero tickets exits 1. A fresh checkout has no .trust/ (gitignored), so
