@@ -1,0 +1,4 @@
+# Hooks and shell scripts must keep LF endings: a Windows checkout with
+# core.autocrlf=true would otherwise export `bash` shebangs that silently
+# break on POSIX CI/deploy.
+* text=auto eol=lf
