@@ -26,6 +26,7 @@ Bug path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`
 | `expect-fail` | No production code without a failing test first | [expect-fail.md](expect-fail.md) |
 | `root-cause` | No fixes without root-cause investigation first | [root-cause.md](root-cause.md) |
 | `roast-my-code` | Three-axis review: Standards, Spec, Security | [roast-my-code.md](roast-my-code.md) |
+| `pr-flow` | PR lifecycle — open, review, watch, merge, each verified | [pr-flow.md](pr-flow.md) |
 
 ### Discipline
 

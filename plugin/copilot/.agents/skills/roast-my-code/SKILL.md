@@ -58,6 +58,10 @@ Every smell reads *what it is* → *the fix*; match each against the diff:
 - **Middle Man** — a class/function that mostly delegates onward. → cut it, call the real target direct.
 - **Refused Bequest** — a subclass ignoring/overriding most of what it inherits. → drop the inheritance, use composition.
 
+**The engineering floor.** Beside the smell baseline, the Standards axis carries `engineering-floor.md` in this skill's directory — the how-it-was-built discipline (boundaries, minimal diff, reader load, domain modeling, type discipline, comments, idempotency, honest tests, AI tells). Same two rules: the repo wins, and tooling-enforced items are skipped. Paste it into the Standards prompt the same way the smell list is pasted — the subagent has no other access to it.
+
+**Order matters.** Roast BEFORE the commit, not after — audit-measured, 5/7 unreviewed commits were followed by a fix within 72h. `scripts/roast-first.mjs` makes the order mechanical on a project's measured churn paths (opt-in via `.trust/roast-first.json`): it denies the first `git commit` that touches them with the instruction to review first.
+
 ### 4. Spawn all three subagents in parallel
 
 Send a single message with three parallel subagent calls.
@@ -74,7 +78,7 @@ the highest-signal findings — say so in the aggregate.
 **Standards subagent prompt** — include:
 
 - The diff command and the commit list, complete.
-- The list of standards-source files from step 3, **plus the smell baseline from step 3 pasted in full** — the subagent has no other access to it.
+- The list of standards-source files from step 3, **plus the smell baseline and the engineering floor from step 3 pasted in full** — the subagent has no other access to either.
 - The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Assign a severity to each finding. Under 400 words."
 
 **Spec subagent prompt** — include:
