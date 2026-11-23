@@ -22,6 +22,16 @@
 export const MANDATORY_DOMAINS = ['expect-fail', 'root-cause', 'receipts'];
 
 /**
+ * RECOMMENDED domains — mechanically recommended, not Iron-Law gates. The
+ * three MANDATORY skills obligate a load on their domain; a recommended
+ * skill is the same keyword signal producing the same LOAD directive, but
+ * the domain is "this work is the skill's contract" rather than "a claim
+ * without it is a discipline violation". Kept out of MANDATORY_DOMAINS so
+ * every consumer iterating that list keeps the Iron-Law semantics.
+ */
+export const RECOMMENDED_DOMAINS = ['pr-flow'];
+
+/**
  * Keyword tables, EN + ID (owner decision: bilingual — real sessions mix
  * both). Word-boundary matched, case-insensitive. Keywords are chosen to
  * separate true domain work from incidental mentions: 'test' alone would
@@ -41,6 +51,11 @@ export const KEYWORD_TABLES = {
   'expect-fail': ['write a test', 'write tests', 'unit test', 'write a spec', 'tulis test', 'buat test', 'add unit tests', 'test-first'],
   'root-cause': ['bug', 'error', 'failing', 'failure', 'regression', 'perbaiki bug', 'debug', 'crash', 'why does', 'broke', 'broken', 'why is this'],
   receipts: ['commit', 'push', 'shipped', 'ship', 'merge', 'merged', 'pr', 'release', 'done', 'selesai', 'beres', 'catat', 'log it', 'deploy'],
+  // pr-flow is RECOMMENDED, not MANDATORY — the words are PR-lifecycle-
+  // specific by design. Bare 'pr' is left to receipts deliberately: it fires
+  // on "pr kg" and "pr numbers" as readily as on pull requests, and a
+  // recommended domain that false-fires teaches the user to ignore flags.
+  'pr-flow': ['pull request', 'gh pr', 'pr create', 'open a pr', 'open pr', 'buat pr', 'buka pr', 'merge pr', 'merge the pr', 'merged pr', 'review comment', 'pr comment', 'pr review', 'stacked pr', 'babysit', 'tinjau pr'],
 };
 
 /**
@@ -151,14 +166,15 @@ function matchesAny(text, keywords) {
 }
 
 /**
- * Classify a task's text against the MANDATORY domains.
+ * Classify a task's text against the MANDATORY and RECOMMENDED domains.
  * @param {string} text - the task/prompt/ledger-entry text to inspect
- * @returns {Record<'expect-fail'|'root-cause'|'receipts', boolean>}
+ * @returns {Record<string, boolean>} one boolean per domain in
+ *   MANDATORY_DOMAINS and RECOMMENDED_DOMAINS
  */
 export function classifyTask(text) {
   const t = String(text ?? '').toLowerCase();
   const v = {};
-  for (const skill of MANDATORY_DOMAINS) {
+  for (const skill of [...MANDATORY_DOMAINS, ...RECOMMENDED_DOMAINS]) {
     v[skill] = matchesAny(t, KEYWORD_TABLES[skill]);
   }
   return v;

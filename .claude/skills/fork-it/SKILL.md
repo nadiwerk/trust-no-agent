@@ -32,6 +32,9 @@ Look for opportunities to prefactor the code to make implementation easier: "Mak
 - A finished slice can be demoed or verified standing on its own
 - Each slice fits inside one fresh context window
 - Prefactoring happens before the slices start
+- Each slice is MERGEABLE on its own — it keeps the build green and the system working after it lands; reviewers may reject a PR on size alone, so a slice too large to review is a defect to re-split, not a milestone
+- Refactors and behavior changes never share a slice — each lands independently so every review answers one question ("is the refactor faithful?" vs "is the behavior right?")
+- A PR built on another open PR targets that PR's branch, never the default branch — or its diff carries the other PR whole and review stops being possible
 
 </vertical-slice-rules>
 
@@ -93,6 +96,24 @@ Parallel tickets need a defined output shape — files touched plus the acceptan
 Before dispatching, scan for hidden shared resources — the same files, tables, or environment state touched by two tickets. Fake independence produces merge conflicts, not speed. Same-shape micro-tickets batch into one dispatch instead of paying per-ticket overhead.
 
 When several tickets need the same codebase or external research, run one exploration pass before dispatch and save the findings as shared notes (e.g. `.trust/<slug>/research.md`, outside every worktree) — implementers receive a pointer to it instead of repeating the work. Research done once is free to every ticket; research done per-ticket is a duplicated cost with no shared memory.
+
+### Standing goals — `.trust/goals.md`
+
+A goal that outlives one session is a file, not a memory. Standing objectives live in `.trust/goals.md` (gitignored, beside the ledger) — one block per goal:
+
+```text
+## Goal: <name>
+Status: active | paused | done
+Accepts: <executable criterion>[, <executable criterion>...]
+Scope: <paths/systems this goal may touch>
+Never: <actions this goal never authorizes — even unattended>
+```
+
+- **Re-read on every resume and every unattended run** — the file is the state; memory of it is not.
+- **`Accepts` criteria are executable** — a command or observable check, the same bar as spec acceptance criteria.
+- **`Scope`/`Never` bind automation** — an unattended run may only work a goal whose `Scope` covers its task and whose `Never` list does not intersect its actions (docs/specs/unattended-runs.md).
+- **Status changes are user decisions** — the agent may propose "done" with evidence; only the user closes a goal (Iron Law 4).
+- `node scripts/goals.mjs` validates the shape — a malformed block is worse than no file, because a half-parsed scope is a silent authorization.
 
 ### Deferred queue — blocked work is held, never cancelled
 
