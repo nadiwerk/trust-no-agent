@@ -4,7 +4,7 @@
  *
  * 1. restore: Claude restores a missing file from a snapshot that may be older
  *    than HEAD. OpenCode prefers HEAD (authoritative) and audits EVERY verdict.
- * 2. /chisle: Claude has on/off only. OpenCode adds `status` reading the real
+ * 2. /output-trim: Claude has on/off only. OpenCode adds `status` reading the real
  *    savings stats — an extra capability, not just parity.
  *
  * Run: node scripts/tna-better-v2.test.mjs (exit 0 = green)
@@ -68,13 +68,13 @@ const { default: plugin } = await import(plug('index.js'));
   check('R6 restore verdict is audited', /opencode-v2-restore/.test(audit) && /restored/.test(audit), audit.slice(-200));
 }
 
-// Command registration: /chisle with on/off/status.
+// Command registration: /output-trim with on/off/status.
 {
-  const dir = mkdtempSync(join(tmpdir(), 'tna-chisle-cmd-'));
-  const flagPath = join(dir, '.chisle-active');
-  process.env.CHISLE_FLAG_PATH = flagPath;
-  writeFileSync(join(dir, '.chisle-compress-stats.json'), JSON.stringify({ savedChars: 4321, events: 2 }));
-  process.env.CHISLE_STATE_DIR = dir;
+  const dir = mkdtempSync(join(tmpdir(), 'tna-output-trim-cmd-'));
+  const flagPath = join(dir, '.output-trim-active');
+  process.env.OUTPUT_TRIM_FLAG_PATH = flagPath;
+  writeFileSync(join(dir, 'output-trim-stats.json'), JSON.stringify({ savedChars: 4321, events: 2 }));
+  process.env.OUTPUT_TRIM_STATE_DIR = dir;
   let registered = [];
   let promptText = '';
   const fakeCtx = {
@@ -90,18 +90,18 @@ const { default: plugin } = await import(plug('index.js'));
     },
   };
   await plugin.setup(fakeCtx);
-  const cmd = registered.find((c) => c.name === 'chisle');
-  check('C1 plugin registers a /chisle command', !!cmd, JSON.stringify(registered.map((c) => c.name)));
+  const cmd = registered.find((c) => c.name === 'output-trim');
+  check('C1 plugin registers a /output-trim command', !!cmd, JSON.stringify(registered.map((c) => c.name)));
   if (cmd) {
     await cmd.execute({ sessionID: 'ses1', prompt: { text: 'off' }, delivery: 'steer' });
-    check('C2 /chisle off writes the flag file', readFileSync(flagPath, 'utf8') === 'off');
+    check('C2 /output-trim off writes the flag file', readFileSync(flagPath, 'utf8') === 'off');
     await cmd.execute({ sessionID: 'ses1', prompt: { text: 'status' }, delivery: 'steer' });
-    check('C3 /chisle status reports real savings (better than Claude)', /4321/.test(promptText), promptText.slice(0, 160));
+    check('C3 /output-trim status reports real savings (better than Claude)', /4321/.test(promptText), promptText.slice(0, 160));
     await cmd.execute({ sessionID: 'ses1', prompt: { text: 'on' }, delivery: 'steer' });
-    check('C4 /chisle on restores the flag', readFileSync(flagPath, 'utf8') === 'on');
+    check('C4 /output-trim on restores the flag', readFileSync(flagPath, 'utf8') === 'on');
   }
-  delete process.env.CHISLE_FLAG_PATH;
-  delete process.env.CHISLE_STATE_DIR;
+  delete process.env.OUTPUT_TRIM_FLAG_PATH;
+  delete process.env.OUTPUT_TRIM_STATE_DIR;
 }
 
 console.log(failures === 0 ? 'ALL GREEN' : `${failures} FAILURE(S)`);

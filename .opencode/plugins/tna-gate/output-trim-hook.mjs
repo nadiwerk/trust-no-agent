@@ -1,8 +1,8 @@
 /**
- * chisle-hook — tool-output compression through OpenCode's `execute.after`.
+ * output-trim-hook — tool-output compression through OpenCode's `execute.after`.
  *
- * The vendored Chisle core already ships `compressForOpencode()` (ads-tracker
- * scripts/chisle/chisle-compress.js), but before 2026-11-17 nothing in the
+ * The vendored OutputTrim core already ships `compressForOpencode()` (ads-tracker
+ * scripts/output-trim/output-trim-compress.js), but before 2026-11-17 nothing in the
  * OpenCode plugin called it. Claude/Devin cannot rewrite tool output from
  * PostToolUse; OpenCode V2 CAN (`event.result = ...` in execute.after), so the
  * same compressor reaches the model here — a parity improvement, not a port

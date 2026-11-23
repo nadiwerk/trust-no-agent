@@ -33,3 +33,6 @@ node_modules/
 # in logVeto; this pattern keeps a future regression from hiding in git.
 \[object Object\]/
 \[object Object\]
+ 
+# Devin session state - written per project, never committed 
+.devin/ 

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// chisle — shared configuration resolver
+// output-trim — shared configuration resolver
 //
 // Resolution order for default mode:
-//   1. CHISLE_DEFAULT_MODE environment variable
-//   2. User config: $XDG_CONFIG_HOME/chisle/config.json, ~/.config/chisle/config.json
+//   1. OUTPUT_TRIM_DEFAULT_MODE environment variable
+//   2. User config: $XDG_CONFIG_HOME/output-trim/config.json, ~/.config/output-trim/config.json
 //   3. 'on'
 
 const fs = require('fs');
@@ -21,9 +21,9 @@ const LEGACY_MODES = ['lite', 'full', 'ultra'];
 
 // Returns the stale value and where it came from, or null. Never throws.
 function legacySetting() {
-  const env = process.env.CHISLE_DEFAULT_MODE;
+  const env = process.env.OUTPUT_TRIM_DEFAULT_MODE;
   if (env && LEGACY_MODES.includes(String(env).toLowerCase())) {
-    return { value: String(env).toLowerCase(), source: 'CHISLE_DEFAULT_MODE' };
+    return { value: String(env).toLowerCase(), source: 'OUTPUT_TRIM_DEFAULT_MODE' };
   }
   try {
     const p = path.join(getConfigDir(), 'config.json');
@@ -52,12 +52,12 @@ function getOpencodeDir(opts) {
 
 function getOpencodeStateDir(opts) {
   const env = (opts && opts.env) || process.env;
-  return env.CHISLE_STATE_DIR || getOpencodeDir(opts);
+  return env.OUTPUT_TRIM_STATE_DIR || getOpencodeDir(opts);
 }
 
 // GitHub Copilot CLI's own user-level state directory (mirrors the
 // CLAUDE_CONFIG_DIR precedent above). Copilot CLI already reads/writes hook
-// config under this same directory (~/.copilot/hooks/), so chisle's
+// config under this same directory (~/.copilot/hooks/), so output-trim's
 // dedup/spill/stats state lives alongside it rather than under ~/.claude,
 // which would be misleading for a machine that never runs Claude Code.
 function getCopilotDir() {
@@ -66,15 +66,15 @@ function getCopilotDir() {
 
 function getConfigDir() {
   if (process.env.XDG_CONFIG_HOME) {
-    return path.join(process.env.XDG_CONFIG_HOME, 'chisle');
+    return path.join(process.env.XDG_CONFIG_HOME, 'output-trim');
   }
   if (process.platform === 'win32') {
     return path.join(
       process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
-      'chisle'
+      'output-trim'
     );
   }
-  return path.join(os.homedir(), '.config', 'chisle');
+  return path.join(os.homedir(), '.config', 'output-trim');
 }
 
 function readModeFromConfigFile(configPath) {
@@ -90,7 +90,7 @@ function readModeFromConfigFile(configPath) {
 }
 
 function getDefaultMode() {
-  const envMode = process.env.CHISLE_DEFAULT_MODE;
+  const envMode = process.env.OUTPUT_TRIM_DEFAULT_MODE;
   if (envMode && VALID_MODES.includes(envMode.toLowerCase())) {
     return envMode.toLowerCase();
   }
@@ -100,13 +100,13 @@ function getDefaultMode() {
 }
 
 // ── Section suppression ─────────────────────────────────────────────────────
-// Optional config key letting a user drop Chisle's prose rules or code rules
+// Optional config key letting a user drop OutputTrim's prose rules or code rules
 // independently, while keeping the other. Config file only — no env override,
 // unlike defaultMode. Absent, malformed, or non-boolean always falls back to
 // enabled (true); never throws.
 //   { "sections": { "prose": false } }   // suppress prose rules, keep code
 
-// Headings from skills/chisle/SKILL.md, grouped by section.
+// Headings from skills/output-trim/SKILL.md, grouped by section.
 const PROSE_HEADINGS = [
   'Prose: Maximum Signal Per Token',
   'Output Format',
@@ -167,14 +167,14 @@ function filterSections(content, sections, proseHeadings, codeHeadings) {
 
 // ── Output-style detection ──────────────────────────────────────────────────
 // Claude Code's output-style mechanism also dictates prose structure, so an
-// active style and Chisle's prose section issue contradicting instructions with
+// active style and OutputTrim's prose section issue contradicting instructions with
 // no precedence between them (#15). `outputStyle` is a documented settings key
 // (schemastore: claude-code-settings.json), and `/output-style` persists the
 // selection to .claude/settings.local.json at the local project level, so the
 // active style IS readable — it just isn't in the SessionStart payload.
 //
 // Kept dependency-free on purpose: this file is copied standalone into
-// the OpenCode plugin's chisle-hooks/ directory, so it must not require anything
+// the OpenCode plugin's output-trim-hooks/ directory, so it must not require anything
 // outside itself.
 
 // Claude Code parses settings.json with strict JSON, but users do leave
@@ -261,7 +261,7 @@ function resolveSections(opts) {
 // Symlink-safe, atomic flag write with 0600 perms.
 // Defends against local attacker replacing predictable path with symlink to clobber other files.
 function safeWriteFlag(flagPath, content) {
-  const debug = process.env.CHISLE_DEBUG === '1';
+  const debug = process.env.OUTPUT_TRIM_DEBUG === '1';
   try {
     const flagDir = path.dirname(flagPath);
     fs.mkdirSync(flagDir, { recursive: true });
@@ -273,12 +273,12 @@ function safeWriteFlag(flagPath, content) {
         realFlagDir = fs.realpathSync(flagDir);
         const realStat = fs.statSync(realFlagDir);
         if (!realStat.isDirectory()) {
-          if (debug) process.stderr.write(`[chisle] safeWriteFlag: symlink target not a directory\n`);
+          if (debug) process.stderr.write(`[output-trim] safeWriteFlag: symlink target not a directory\n`);
           return;
         }
         if (typeof process.getuid === 'function') {
           if (realStat.uid !== process.getuid()) {
-            if (debug) process.stderr.write(`[chisle] safeWriteFlag: symlink target owned by different uid\n`);
+            if (debug) process.stderr.write(`[output-trim] safeWriteFlag: symlink target owned by different uid\n`);
             return;
           }
         } else {
@@ -287,7 +287,7 @@ function safeWriteFlag(flagPath, content) {
           const normalizedHome = path.resolve(home).toLowerCase();
           if (!normalizedReal.startsWith(normalizedHome + path.sep) &&
               normalizedReal !== normalizedHome) {
-            if (debug) process.stderr.write(`[chisle] safeWriteFlag: symlink target outside home dir\n`);
+            if (debug) process.stderr.write(`[output-trim] safeWriteFlag: symlink target outside home dir\n`);
             return;
           }
         }
@@ -305,7 +305,7 @@ function safeWriteFlag(flagPath, content) {
       if (e.code !== 'ENOENT') return;
     }
 
-    const tempPath = path.join(realFlagDir, `.chisle-active.${process.pid}.${Date.now()}`);
+    const tempPath = path.join(realFlagDir, `.output-trim-active.${process.pid}.${Date.now()}`);
     const O_NOFOLLOW = typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0;
     const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | O_NOFOLLOW;
     let fd;

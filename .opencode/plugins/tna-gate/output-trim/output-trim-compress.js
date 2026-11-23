@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// chisle — PostToolUse hook: tool-output compression (the input axis).
+// output-trim — PostToolUse hook: tool-output compression (the input axis).
 //
 // Prompt-side rules shrink what the agent WRITES; this shrinks what it READS.
 // Oversized tool results (Bash dumps, subagent reports, web fetches) get their
@@ -11,14 +11,14 @@
 // Two harnesses call into this same core:
 //   - Claude Code / Pi: `updatedToolOutput`, snake_case payload
 //     (tool_name, tool_response, session_id, tool_use_id), gated behind the
-//     /chisle on/off flag file (see chisle-config.js: getDefaultMode/readFlag).
+//     /output-trim on/off flag file (see output-trim-config.js: getDefaultMode/readFlag).
 //   - GitHub Copilot CLI: `modifiedResult.textResultForLlm`, camelCase flat
 //     payload (toolName, toolResult.textResultForLlm, sessionId). Copilot has
-//     no /chisle-equivalent mode toggle (no UserPromptSubmit-driven flag), so
+//     no /output-trim-equivalent mode toggle (no UserPromptSubmit-driven flag), so
 //     compression is always-on for Copilot once the hook is installed —
 //     exactly like the static ruleset Copilot already gets unconditionally
 //     (see README: "the always-on ruleset still ships to every other agent").
-//     CHISLE_COMPRESS=0 is still honored as the one kill switch for both.
+//     OUTPUT_TRIM_COMPRESS=0 is still honored as the one kill switch for both.
 //
 // Correctness guardrails (why this never touches Read/Edit/Write):
 //   - Read output feeds later Edit old_string matching — eliding it makes the
@@ -39,27 +39,27 @@
 // Plus dedup: a tool output byte-identical to that tool's immediately previous
 // output is replaced by a short marker — the content is already in context.
 //
-// Compression follows the /chisle flag for Claude/Pi (off → untouched); it is
+// Compression follows the /output-trim flag for Claude/Pi (off → untouched); it is
 // unconditional for Copilot (see above). Tunables via env, shared across all
 // three harnesses:
-//   CHISLE_COMPRESS=0                 — kill switch
-//   CHISLE_COMPRESS_SCRUB=0           — disable the lossless scrub tier
-//   CHISLE_COMPRESS_DEDUP=0           — disable duplicate-output markers
-//   CHISLE_COMPRESS_MAX_CHARS         — outputs at/under this size are not elided
-//   CHISLE_COMPRESS_HEAD_LINES        — lines kept from the top
-//   CHISLE_COMPRESS_TAIL_LINES        — lines kept from the bottom
-//   CHISLE_COMPRESS_TOOLS=Bash,Grep   — override the tool allowlist (both harnesses)
-//   CHISLE_COMPRESS_SPILL=0           — elide without writing the recovery copy
+//   OUTPUT_TRIM_COMPRESS=0                 — kill switch
+//   OUTPUT_TRIM_COMPRESS_SCRUB=0           — disable the lossless scrub tier
+//   OUTPUT_TRIM_COMPRESS_DEDUP=0           — disable duplicate-output markers
+//   OUTPUT_TRIM_COMPRESS_MAX_CHARS         — outputs at/under this size are not elided
+//   OUTPUT_TRIM_COMPRESS_HEAD_LINES        — lines kept from the top
+//   OUTPUT_TRIM_COMPRESS_TAIL_LINES        — lines kept from the bottom
+//   OUTPUT_TRIM_COMPRESS_TOOLS=Bash,Grep   — override the tool allowlist (both harnesses)
+//   OUTPUT_TRIM_COMPRESS_SPILL=0           — elide without writing the recovery copy
 //
-// Savings accrue in <stateDir>/.chisle-compress-stats.json for the statusline
-// (Claude/Pi: <claudeDir>; Copilot: <copilotDir>, see chisle-config.js).
-// Elided originals spill to <stateDir>/chisle-spill/ so the dropped middle can
+// Savings accrue in <stateDir>/output-trim-stats.json for the statusline
+// (Claude/Pi: <claudeDir>; Copilot: <copilotDir>, see output-trim-config.js).
+// Elided originals spill to <stateDir>/output-trim-spill/ so the dropped middle can
 // be grepped back instead of re-running the command; the newest 40 are kept.
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { getClaudeDir, getCopilotDir, getOpencodeStateDir, readFlag, getDefaultMode } = require('./chisle-config');
+const { getClaudeDir, getCopilotDir, getOpencodeStateDir, readFlag, getDefaultMode } = require('./output-trim-config');
 
 // One threshold. Env overrides all.
 // These are the values the old 'full' level used — the default,
@@ -72,7 +72,7 @@ const SAFE_TOOLS = ['Bash', 'Agent', 'WebFetch', 'WebSearch', 'Grep', 'Glob'];
 
 // The correctness invariant, enforced rather than merely defaulted: these tools'
 // output feeds later exact-match edits, so eliding it makes the model edit text
-// it never saw. CHISLE_COMPRESS_TOOLS is an override for the *allowlist*, not a
+// it never saw. OUTPUT_TRIM_COMPRESS_TOOLS is an override for the *allowlist*, not a
 // way to switch this off — the Pi extension (NEVER_COMPRESS) and the OpenCode
 // path (UNSAFE_TOOLS_OPENCODE) have always checked it first, and this is the
 // same guard for the Claude/Pi hook payloads.
@@ -82,7 +82,7 @@ const NEVER_COMPRESS = ['read', 'edit', 'write', 'multiedit', 'notebookedit', 'n
 // Same allowlist rule as SAFE_TOOLS: Copilot's Read/Edit/Write equivalents
 // are `view`/`create`/`edit` and are deliberately absent here too. Verified
 // against Copilot CLI's real tool set, not guessed — see the accompanying PR
-// description for the live-verification evidence (Beyin chisle-port project).
+// description for the live-verification evidence (Beyin output-trim-port project).
 const SAFE_TOOLS_COPILOT = ['bash', 'powershell', 'grep', 'glob', 'web_fetch', 'web_search', 'task'];
 // Copilot's Read/Edit/Write family, hard-blocked for the same reason as
 // NEVER_COMPRESS above — not merely absent from the allowlist.
@@ -148,18 +148,18 @@ function salvageLine(line) {
 function toolAllowed(name) {
   if (!name || typeof name !== 'string') return false;
   if (NEVER_COMPRESS.includes(name.toLowerCase())) return false;
-  const list = process.env.CHISLE_COMPRESS_TOOLS
-    ? process.env.CHISLE_COMPRESS_TOOLS.split(',').map(s => s.trim()).filter(Boolean)
+  const list = process.env.OUTPUT_TRIM_COMPRESS_TOOLS
+    ? process.env.OUTPUT_TRIM_COMPRESS_TOOLS.split(',').map(s => s.trim()).filter(Boolean)
     : SAFE_TOOLS;
-  return list.includes(name) || (!process.env.CHISLE_COMPRESS_TOOLS && name.startsWith('mcp__'));
+  return list.includes(name) || (!process.env.OUTPUT_TRIM_COMPRESS_TOOLS && name.startsWith('mcp__'));
 }
 
 // Same override semantics as toolAllowed, against Copilot's tool-name scheme.
 function copilotToolAllowed(name) {
   if (!name || typeof name !== 'string') return false;
   if (NEVER_COMPRESS_COPILOT.includes(name.toLowerCase())) return false;
-  const list = process.env.CHISLE_COMPRESS_TOOLS
-    ? process.env.CHISLE_COMPRESS_TOOLS.split(',').map(s => s.trim()).filter(Boolean)
+  const list = process.env.OUTPUT_TRIM_COMPRESS_TOOLS
+    ? process.env.OUTPUT_TRIM_COMPRESS_TOOLS.split(',').map(s => s.trim()).filter(Boolean)
     : SAFE_TOOLS_COPILOT;
   return list.includes(name);
 }
@@ -180,11 +180,11 @@ function opencodeToolAllowed(name) {
   if (!name || typeof name !== 'string') return false;
   const lower = name.toLowerCase();
   // Source-bearing and mutating tools are never compressed, even via
-  // CHISLE_COMPRESS_TOOLS: their output feeds exact-match edits, an invariant
+  // OUTPUT_TRIM_COMPRESS_TOOLS: their output feeds exact-match edits, an invariant
   // INSTALL.md promises rather than an overridable default.
   if (UNSAFE_TOOLS_OPENCODE.includes(lower)) return false;
-  if (process.env.CHISLE_COMPRESS_TOOLS) {
-    return process.env.CHISLE_COMPRESS_TOOLS
+  if (process.env.OUTPUT_TRIM_COMPRESS_TOOLS) {
+    return process.env.OUTPUT_TRIM_COMPRESS_TOOLS
       .split(',').map(s => s.trim()).filter(Boolean).includes(name);
   }
   return SAFE_TOOLS_OPENCODE.includes(lower);
@@ -195,7 +195,7 @@ function boundForOpencode(text, spillPath, maxChars) {
   if (text.length <= outputLimit) return text;
   if (outputLimit < 7) return safePrefix(text, outputLimit);
   const recover = spillPath ? ' Full output: ' + spillPath + ' (grep it, do not re-run)' : '';
-  let marker = '... [chisle: rebound compressed output to ' +
+  let marker = '... [output-trim: rebound compressed output to ' +
     outputLimit.toLocaleString('en-US') + ' chars.' + recover + '] ...';
   if (marker.length > outputLimit - 2) marker = safePrefix(marker, outputLimit - 7) + '] ...';
   const middle = [marker];
@@ -218,7 +218,7 @@ function boundForOpencode(text, spillPath, maxChars) {
 // The plugin passes output.output (already a plain string), so no extractText/
 // rebuild dance is needed — just gate on mode/kill-switch/allowlist and reuse
 // the shared scrub+elide core. stateDir keeps spill/recovery beside OpenCode's
-// config (CHISLE_STATE_DIR overrides, used by tests).
+// config (OUTPUT_TRIM_STATE_DIR overrides, used by tests).
 //
 // Fires for the common case: outputs under OpenCode's own on-disk store limits
 // (~50 KB / 2000 lines) arrive here FULL, both in tool.execute.after (whose
@@ -228,7 +228,7 @@ function boundForOpencode(text, spillPath, maxChars) {
 function compressForOpencode(toolName, text, opts) {
   opts = opts || {};
   if (opts.mode === 'off') return null;
-  if (process.env.CHISLE_COMPRESS === '0') return null;
+  if (process.env.OUTPUT_TRIM_COMPRESS === '0') return null;
   if (!opencodeToolAllowed(toolName)) return null;
   if (typeof text !== 'string' || !text) return null;
   const stateDir = opts.stateDir || getOpencodeStateDir();
@@ -237,7 +237,7 @@ function compressForOpencode(toolName, text, opts) {
   if (dup != null && dup.length < text.length) return boundForOpencode(dup, null, limits.maxChars);
   if (text.length <= SCRUB_MIN && text.length <= limits.maxChars) return null;
   const spillPath = text.length > limits.maxChars && toolName ? spill(text, toolName, stateDir) : null;
-  let updated = process.env.CHISLE_COMPRESS_SCRUB === '0' ? text : scrub(text);
+  let updated = process.env.OUTPUT_TRIM_COMPRESS_SCRUB === '0' ? text : scrub(text);
   if (updated.length > limits.maxChars && updated.split('\n').length > limits.headLines + limits.tailLines) {
     const elided = compress(updated, limits, spillPath);
     if (elided != null) updated = elided;
@@ -267,9 +267,9 @@ function envInt(name, fallback) {
 function limitsFor() {
   const base = THRESHOLDS;
   return {
-    maxChars: envInt('CHISLE_COMPRESS_MAX_CHARS', base.maxChars),
-    headLines: envInt('CHISLE_COMPRESS_HEAD_LINES', base.headLines),
-    tailLines: envInt('CHISLE_COMPRESS_TAIL_LINES', base.tailLines),
+    maxChars: envInt('OUTPUT_TRIM_COMPRESS_MAX_CHARS', base.maxChars),
+    headLines: envInt('OUTPUT_TRIM_COMPRESS_HEAD_LINES', base.headLines),
+    tailLines: envInt('OUTPUT_TRIM_COMPRESS_TAIL_LINES', base.tailLines),
   };
 }
 
@@ -340,7 +340,7 @@ function scrub(text) {
     while (j < lines.length && lines[j] === lines[i]) j++;
     const n = j - i;
     if (n >= REPEAT_MIN && lines[i].trim()) {
-      out.push(lines[i], `... [chisle: line repeated ${n}×] ...`);
+      out.push(lines[i], `... [output-trim: line repeated ${n}×] ...`);
     } else {
       for (let k = 0; k < n; k++) out.push(lines[i]);
     }
@@ -353,7 +353,7 @@ function scrub(text) {
     let j = i;
     while (j < out.length && noisy(out[j])) j++;
     if (j - i >= NOISE_MIN) {
-      kept.push(out[i], out[i + 1], `... [chisle: ${j - i - 3} more passing/progress lines like these] ...`, out[j - 1]);
+      kept.push(out[i], out[i + 1], `... [output-trim: ${j - i - 3} more passing/progress lines like these] ...`, out[j - 1]);
     } else {
       j = Math.max(j, i + 1);
       for (let k = i; k < j; k++) kept.push(out[k]);
@@ -375,13 +375,13 @@ function duplicateMarker(toolName, text, reference = 'previous') {
   const prior = reference === 'previous' ? 'the previous' : 'an earlier';
   const preview = lines.slice(0, 5)
     .map(l => l.length > MAX_SALVAGE_LINE ? safePrefix(l, MAX_SALVAGE_LINE - 1) + '…' : l);
-  return '[chisle: output byte-identical to ' + prior + ' ' + toolName + ' result — ' +
+  return '[output-trim: output byte-identical to ' + prior + ' ' + toolName + ' result — ' +
     text.length.toLocaleString('en-US') + ' chars / ' + lines.length +
     ' lines, unchanged. First lines:]\n' + preview.join('\n');
 }
 
 const DEDUP_SESSION_KEEP = 20;
-const DEDUP_DIR = 'chisle-dedup';
+const DEDUP_DIR = 'output-trim-dedup';
 
 // `root` (the user-owned state root) may itself be a symlink (e.g. dotfiles
 // managed with GNU stow), so it is resolved with stat — but every subdirectory
@@ -494,7 +494,7 @@ function pruneDedupSessions(dir) {
 // their prior storage path. Copilot passes getCopilotDir(); OpenCode passes
 // getOpencodeStateDir() and opts into per-session files for interleaved sessions.
 function dedupCheck(toolName, text, sessionId, toolUseId, stateDir, perSession) {
-  if (process.env.CHISLE_COMPRESS_DEDUP === '0') return null;
+  if (process.env.OUTPUT_TRIM_COMPRESS_DEDUP === '0') return null;
   if (!sessionId || typeof sessionId !== 'string') return null;
   if (text.length < DEDUP_MIN) return null;
   try {
@@ -502,7 +502,7 @@ function dedupCheck(toolName, text, sessionId, toolUseId, stateDir, perSession) 
     if (!dir) return null;
     const p = path.join(dir, perSession
       ? crypto.createHash('sha256').update(sessionId).digest('hex') + '.json'
-      : '.chisle-compress-last.json');
+      : '.output-trim-compress-last.json');
     let state;
     if (perSession) {
       const loaded = readDedupFile(p);
@@ -551,7 +551,7 @@ function dedupCheck(toolName, text, sessionId, toolUseId, stateDir, perSession) 
 // and the marker carries the path. Recovery becomes a targeted grep instead of
 // a re-run. Best-effort throughout: if the spill fails, the elision still
 // happens, it just loses the escape hatch.
-const SPILL_DIR = 'chisle-spill';
+const SPILL_DIR = 'output-trim-spill';
 const SPILL_KEEP = 40;
 
 function spillDir(stateDir) {
@@ -576,7 +576,7 @@ function pruneSpill(dir) {
 }
 
 function spill(text, toolName, stateDir) {
-  if (process.env.CHISLE_COMPRESS_SPILL === '0') return null;
+  if (process.env.OUTPUT_TRIM_COMPRESS_SPILL === '0') return null;
   try {
     const root = stateDir || getClaudeDir();
     const dir = spillDir(stateDir);
@@ -606,7 +606,7 @@ function compress(text, limits, spillPath) {
     const elided = text.length - 2 * keep;
     if (elided <= 0) return null;
     return safePrefix(text, keep) +
-      '\n... [chisle: elided ' + elided.toLocaleString('en-US') + ' chars from the middle.' + recover + '] ...\n' +
+      '\n... [output-trim: elided ' + elided.toLocaleString('en-US') + ' chars from the middle.' + recover + '] ...\n' +
       safeSuffix(text, keep);
   }
 
@@ -621,7 +621,7 @@ function compress(text, limits, spillPath) {
     if (candidate) salvaged.push(candidate);
   }
 
-  const marker = '... [chisle: elided ' + middle.length.toLocaleString('en-US') +
+  const marker = '... [output-trim: elided ' + middle.length.toLocaleString('en-US') +
     ' lines, kept first ' + headLines + ', last ' + tailLines +
     (salvaged.length ? ', and ' + salvaged.length + ' error-like line(s) below' : '') +
     '.' + recover + '] ...';
@@ -636,7 +636,7 @@ function recordSavings(saved, stateDir) {
   try {
     const root = stateDir || getClaudeDir();
     if (!secureDirectory(root, root)) return;
-    const p = path.join(root, '.chisle-compress-stats.json');
+    const p = path.join(root, 'output-trim-stats.json');
     const current = safeReadText(p);
     if (current.unsafe) return;
     let stats = { savedChars: 0, events: 0 };
@@ -655,7 +655,7 @@ function recordSavings(saved, stateDir) {
 // replay benchmark measures for Claude/Pi.
 function transform(text, limits, toolName, stateDir) {
   if (!text || text.length <= SCRUB_MIN) return null;
-  let t = process.env.CHISLE_COMPRESS_SCRUB === '0' ? text : scrub(text);
+  let t = process.env.OUTPUT_TRIM_COMPRESS_SCRUB === '0' ? text : scrub(text);
   if (t.length > limits.maxChars) {
     const elided = compress(t, limits, toolName ? spill(t, toolName, stateDir) : null);
     if (elided != null) t = elided;
@@ -698,13 +698,13 @@ function rebuildResponse(response, updated) {
 //
 // `mode` keeps meaning "off disables everything" for Claude/Pi, exactly as
 // before. For a Copilot-shaped payload the caller (main()) always passes
-// 'on' — Copilot has no /chisle toggle to read a flag file for — so this
+// 'on' — Copilot has no /output-trim toggle to read a flag file for — so this
 // function's Copilot branch below never actually sees 'off' in practice, but
 // still honors it if a future caller passes it explicitly.
 function processPayload(payload, mode) {
   if (!payload || typeof payload !== 'object') return null;
   if (!mode || mode === 'off') return null;
-  if (process.env.CHISLE_COMPRESS === '0') return null;
+  if (process.env.OUTPUT_TRIM_COMPRESS === '0') return null;
 
   if (isCopilotPayload(payload)) {
     const toolName = payload.toolName;
@@ -733,12 +733,12 @@ function main() {
       const payload = JSON.parse(input.replace(/^﻿/, ''));
       const copilot = isCopilotPayload(payload);
 
-      // Copilot has no /chisle mode-toggle mechanism (no UserPromptSubmit
+      // Copilot has no /output-trim mode-toggle mechanism (no UserPromptSubmit
       // hook wired for it yet, so there is nothing to flip a flag file with):
-      // it follows the default mode (CHISLE_DEFAULT_MODE or the shared
+      // it follows the default mode (OUTPUT_TRIM_DEFAULT_MODE or the shared
       // config, 'on' when unset), like OpenCode. Claude/Pi keep reading the
       // real flag file exactly as before.
-      const mode = copilot ? getDefaultMode() : readFlag(path.join(getClaudeDir(), '.chisle-active'));
+      const mode = copilot ? getDefaultMode() : readFlag(path.join(getClaudeDir(), '.output-trim-active'));
 
       const updated = processPayload(payload, mode);
       if (updated == null) return;

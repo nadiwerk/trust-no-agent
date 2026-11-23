@@ -34,17 +34,17 @@ import { receiptVerdict } from './receipt-check.mjs';
 import { matchesAnyCommand } from './action-gate.mjs';
 import { restorePlan } from './restore-guard.mjs';
 import { sizeVerdict } from './agents-size.mjs';
-import { compressToolResult } from './chisle-hook.mjs';
+import { compressToolResult } from './output-trim-hook.mjs';
 import { makeStore } from './tna-store.mjs';
 
 const require_ = createRequire(import.meta.url);
-let chisle = null;
-let chisleCfg = null;
+let outputTrim = null;
+let outputTrimCfg = null;
 try {
-  chisle = require_('./chisle/chisle-compress.js'); // vendored adapter (openCode compressForOpencode)
-  chisleCfg = require_('./chisle/chisle-config.js'); // flag/mode/state-dir semantics
+  outputTrim = require_('./output-trim/output-trim-compress.js'); // vendored adapter (openCode compressForOpencode)
+  outputTrimCfg = require_('./output-trim/output-trim-config.js'); // flag/mode/state-dir semantics
 } catch {
-  chisle = null; // compressor absent -> no compression, never break the pipeline
+  outputTrim = null; // compressor absent -> no compression, never break the pipeline
 }
 
 const RESTORE_PAIRS = [
@@ -92,7 +92,7 @@ export default {
       /* no prompt hook on this service -> fail-open */
     }
 
-    // /chisle command (better-than-Claude): Claude only toggles on/off. Here
+    // /output-trim command (better-than-Claude): Claude only toggles on/off. Here
     // `status` also reports real savings from the OpenCode state dir. V2 has
     // no slash commands of its own; ctx.command.transform is the documented
     // seam. Fail-open when the service does not expose it.
@@ -100,32 +100,32 @@ export default {
     try {
       commandRegistration = await ctx.command?.transform?.((editor) => {
         editor.add({
-          name: 'chisle',
-          description: 'Chisle output compression: on / off / status',
+          name: 'output-trim',
+          description: 'OutputTrim output compression: on / off / status',
           execute: async ({ sessionID, prompt, delivery }) => {
             const arg = String(prompt?.text ?? '').trim().toLowerCase();
-            const flagPath = process.env.CHISLE_FLAG_PATH ?? (chisleCfg ? join(chisleCfg.getOpencodeDir(), '.chisle-active') : '');
+            const flagPath = process.env.OUTPUT_TRIM_FLAG_PATH ?? (outputTrimCfg ? join(outputTrimCfg.getOpencodeDir(), '.output-trim-active') : '');
             let reply;
             if (arg === 'on' || arg === 'off') {
               try {
                 mkdirSync(dirname(flagPath), { recursive: true });
                 writeFileSync(flagPath, arg);
-                reply = `Chisle mode: ${arg}`;
+                reply = `OutputTrim mode: ${arg}`;
               } catch (e) {
-                reply = `Chisle flag write failed: ${String(e?.message ?? e)}`;
+                reply = `OutputTrim flag write failed: ${String(e?.message ?? e)}`;
               }
             } else {
               let stats = null;
               try {
-                const stateDir = chisleCfg?.getOpencodeStateDir?.();
-                stats = JSON.parse(readFileSync(join(stateDir, '.chisle-compress-stats.json'), 'utf8'));
+                const stateDir = outputTrimCfg?.getOpencodeStateDir?.();
+                stats = JSON.parse(readFileSync(join(stateDir, 'output-trim-stats.json'), 'utf8'));
               } catch { /* no stats yet */ }
-              let mode = chisleCfg?.getDefaultMode?.() ?? 'on';
+              let mode = outputTrimCfg?.getDefaultMode?.() ?? 'on';
               try {
-                const flag = chisleCfg?.readFlag?.(flagPath);
+                const flag = outputTrimCfg?.readFlag?.(flagPath);
                 if (flag === 'on' || flag === 'off') mode = flag;
               } catch { /* default */ }
-              reply = `Chisle: mode=${mode}, savedChars=${stats?.savedChars ?? 0}, events=${stats?.events ?? 0}`;
+              reply = `OutputTrim: mode=${mode}, savedChars=${stats?.savedChars ?? 0}, events=${stats?.events ?? 0}`;
             }
             await ctx.session.prompt({ ...(prompt ?? {}), sessionID, text: reply, delivery });
           },
@@ -206,28 +206,28 @@ export default {
       try {
         const tool = String(event?.tool ?? '');
         const input = event?.input && typeof event.input === 'object' ? event.input : {};
-        // Chisle parity (2026-11-17): Claude cannot rewrite tool output from
+        // OutputTrim parity (2026-11-17): Claude cannot rewrite tool output from
         // PostToolUse; V2 execute.after CAN mutate event.result. The vendored
         // compressor already has an OpenCode adapter — this is the missing
         // call. Compression never throws and never touches Read-class tools.
-        if (chisle?.compressForOpencode) {
-          // Full Chisle semantics on V2: the after-event carries sessionID +
+        if (outputTrim?.compressForOpencode) {
+          // Full OutputTrim semantics on V2: the after-event carries sessionID +
           // tool-call id (measured live 2026-11-17), which enables per-session
-          // dedup; the flag file replaces Claude's /chisle toggle; savings are
+          // dedup; the flag file replaces Claude's /output-trim toggle; savings are
           // recorded to OpenCode's own state dir, not the Claude dir.
-          let mode = chisleCfg?.getDefaultMode?.() ?? 'on';
+          let mode = outputTrimCfg?.getDefaultMode?.() ?? 'on';
           try {
-            const flagPath = process.env.CHISLE_FLAG_PATH ?? join(chisleCfg.getOpencodeDir(), '.chisle-active');
-            const flag = chisleCfg?.readFlag?.(flagPath);
+            const flagPath = process.env.OUTPUT_TRIM_FLAG_PATH ?? join(outputTrimCfg.getOpencodeDir(), '.output-trim-active');
+            const flag = outputTrimCfg?.readFlag?.(flagPath);
             if (flag === 'on' || flag === 'off') mode = flag;
           } catch { /* no flag file -> default mode */ }
-          const stateDir = chisleCfg?.getOpencodeStateDir?.() ?? undefined;
-          const chisleOpts = { sessionId: event?.sessionID, callId: event?.id, mode, stateDir };
+          const stateDir = outputTrimCfg?.getOpencodeStateDir?.() ?? undefined;
+          const outputTrimOpts = { sessionId: event?.sessionID, callId: event?.id, mode, stateDir };
           compressToolResult(event.result, tool, (text) => {
             try {
-              const updated = chisle.compressForOpencode(tool, text, chisleOpts);
+              const updated = outputTrim.compressForOpencode(tool, text, outputTrimOpts);
               if (typeof updated === 'string' && updated.length < text.length) {
-                chisle.recordSavings?.(text.length - updated.length, stateDir);
+                outputTrim.recordSavings?.(text.length - updated.length, stateDir);
               }
               return updated;
             } catch { return null; }

@@ -10,7 +10,7 @@
  *   prompt-gate.mjs    -> promptGateVerdict(text), decoratePrompt(text)
  *   receipt-check.mjs  -> receiptVerdict(messages)
  *   restore-guard.mjs  -> restoreVerdict({disk, head, snapshot})
- *   chisle-hook.mjs    -> compressToolResult(result, compress)
+ *   output-trim-hook.mjs    -> compressToolResult(result, compress)
  *   plugin             -> setup(fake ctx with session.hook / event.subscribe / tool.hook)
  *
  * Expected values are hand-written from intent, never from observed output.
@@ -180,9 +180,9 @@ if (rg) {
   check('D6 no snapshot -> skip', rg.restoreVerdict({ disk: 'new', head: 'new', snapshot: null }).action === 'skip');
 }
 
-// ---- E. Tool-output compression through execute.after (Chisle parity)
-const ch = await import(plug('chisle-hook.mjs')).catch(() => null);
-check('E chisle-hook module exists', !!ch && typeof ch.compressToolResult === 'function');
+// ---- E. Tool-output compression through execute.after (OutputTrim parity)
+const ch = await import(plug('output-trim-hook.mjs')).catch(() => null);
+check('E output-trim-hook module exists', !!ch && typeof ch.compressToolResult === 'function');
 if (ch) {
   const fake = (t) => `COMPRESSED(${t.length})`;
   const shapes = [
@@ -241,18 +241,18 @@ const { default: pluginF } = await import(plug('index.js'));
     try { await after({ tool: 'shell', input: {}, result }); } catch { /* must not throw */ }
     check('F3 execute.after compresses oversized shell output', result.output.text.length < big.length, `${big.length} -> ${result.output.text.length}`);
 
-    // F5/F6/F7: full Chisle parity — dedup, mode flag, savings stats.
-    const stateDir = mkdtempSync(join(tmpdir(), 'tna-chisle-state-'));
-    process.env.CHISLE_STATE_DIR = stateDir;
-    const flagPath = join(stateDir, '.chisle-active');
-    process.env.CHISLE_FLAG_PATH = flagPath;
+    // F5/F6/F7: full OutputTrim parity — dedup, mode flag, savings stats.
+    const stateDir = mkdtempSync(join(tmpdir(), 'tna-output-trim-state-'));
+    process.env.OUTPUT_TRIM_STATE_DIR = stateDir;
+    const flagPath = join(stateDir, '.output-trim-active');
+    process.env.OUTPUT_TRIM_FLAG_PATH = flagPath;
     const rep = Array.from({ length: 200 }, (_, i) => `line ${i} ` + 'y'.repeat(90)).join('\n');
     const ev1 = { tool: 'shell', sessionID: 'ses_dedup', id: 'call_1', input: {}, result: { output: { text: rep } } };
     const ev2 = { tool: 'shell', sessionID: 'ses_dedup', id: 'call_2', input: {}, result: { output: { text: rep } } };
     await after(ev1);
     await after(ev2);
     check('F5 identical repeated output is deduped per session', /byte-identical/.test(ev2.result.output.text), String(ev2.result.output.text).slice(0, 120));
-    const statsPath = join(stateDir, '.chisle-compress-stats.json');
+    const statsPath = join(stateDir, 'output-trim-stats.json');
     let statsOk = false;
     try { statsOk = JSON.parse(readFileSync(statsPath, 'utf8')).savedChars > 0; } catch {}
     check('F6 savings are recorded to the OpenCode state dir', statsOk, statsPath);
@@ -261,8 +261,8 @@ const { default: pluginF } = await import(plug('index.js'));
     const offEv = { tool: 'shell', sessionID: 'ses_off', id: 'call_3', input: {}, result: { output: { text: offText } } };
     await after(offEv);
     check('F7 mode=off flag disables compression', offEv.result.output.text.length === offText.length, `${offText.length} -> ${offEv.result.output.text.length}`);
-    delete process.env.CHISLE_STATE_DIR;
-    delete process.env.CHISLE_FLAG_PATH;
+    delete process.env.OUTPUT_TRIM_STATE_DIR;
+    delete process.env.OUTPUT_TRIM_FLAG_PATH;
   }
 }
 
