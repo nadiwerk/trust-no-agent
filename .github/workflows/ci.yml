@@ -188,6 +188,9 @@ jobs:
       - name: dsh veto adapter
         run: node scripts/dsh-veto.test.mjs
 
+      - name: Devin hook adapter
+        run: node scripts/devin-hook.test.mjs
+
       - name: dsh discipline hooks
         run: node scripts/dsh-discipline.test.mjs
 
