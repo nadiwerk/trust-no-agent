@@ -107,7 +107,11 @@ const main = () => {
   const shell = process.platform === 'win32';
   const which = spawnSync('codex', ['--version'], { encoding: 'utf8', shell });
   if (which.status !== 0) {
-    finish(3, 'UNPROVEN — codex binary not runnable', String(which.stderr || which.error || '').slice(0, 300));
+    finish(3, 'UNPROVEN — codex binary not runnable',
+      `codex could not be executed: ${String(which.stderr || which.error || '').slice(0, 300)}\n`
+      + 'This is an environment block, NOT a recorder verdict: nothing here says the\n'
+      + 'recorder works or fails. Install Codex (or fix PATH) and re-run this script.',
+      { version: 'unavailable' });
   }
   const version = String(which.stdout || '').trim();
 
