@@ -824,7 +824,7 @@ for (const [file, text] of [
       'OMO must carry a written verdict: veto adapter or why audit-only is the ceiling (AC4)'],
     [/live-proof plan/i,
       'omp/Devin must carry dated live-proof plans, not an open-ended doc-first (AC5)'],
-    [/review-by 2026-11-13/i,
+    [/review-by 2026-12-08/i,
       'the live-proof plans need a review-by date, or doc-first has no expiry (AC5)'],
   ]) {
     if (!marker.test(compatText))

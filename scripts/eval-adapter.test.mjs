@@ -105,7 +105,7 @@ for (const [label, re] of [
 for (const [label, re] of [
   ['OMO verdict written', /OMO verdict/i],
   ['omp/Devin live-proof plan', /live-proof plan/i],
-  ['review-by date set', /review-by 2026-11-13/i],
+  ['review-by date set', /review-by 2026-12-08/i],
 ]) {
   check(`38 ${label} in compatibility.md`, re.test(compat), String(re));
 }

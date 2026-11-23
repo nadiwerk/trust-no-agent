@@ -239,7 +239,7 @@ run beyond the verification commands. It works on any harness that reads
   OpenCode; the other five harnesses' deny contracts are wired from documented
   hook APIs but not yet proven by a live run — the compatibility matrix marks
   them doc-first until one fires
-  ([docs/compatibility.md](docs/compatibility.md), review-by 2026-11-13).
+  ([docs/compatibility.md](docs/compatibility.md), review-by 2026-12-08).
 
 ## Contributing
 

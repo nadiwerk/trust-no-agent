@@ -24,7 +24,7 @@ existing install.
 
 ## Solution
 
-From the adopter's point of view: run `node scripts/onboard.mjs` once.
+From the adopter's point of view: run `node scripts/onboarding.mjs` once.
 Onboarding: (1) shows a concise briefing of the router + floor (Iron Laws
 + the MANDATORY section) and the "what will change in your sessions"
 briefing — including your harness's row from compatibility.md and the
@@ -39,7 +39,7 @@ stamp (private, per-machine) + the approved overlays; (5) closes with a
 4-block receipt. `--map-only` re-runs the mapping when new skills are
 installed without asking for consent again; `--undo` reverses everything
 onboarding did. Existing installs (hooksPath + skills found, no stamp) are
-GRANDFATHERED: the doctor prints a warn "run onboard.mjs for stamp +
+GRANDFATHERED: the doctor prints a warn "run onboarding.mjs for stamp +
 briefing" and does not fail. The v1 package also carries: the per-harness
 briefing, the Codex hook-trust warning, the first-task rehearsal (a guided
 procedure: recite the 4 Iron Laws + one task through the receipt shape),
@@ -108,7 +108,7 @@ and the exit + update section.
 
 ## Decisions Already Made
 
-- **Front door**: `scripts/onboard.mjs`, human CLI; agents point at it, they
+- **Front door**: `scripts/onboarding.mjs`, human CLI; agents point at it, they
   never drive it. Non-interactive: `--yes` (default menu), `--map-only`
   (re-scan), `--undo` (reverse). (Round 1 Q1, round 3 Q10)
 - **Consent granularity**: per component — floor / hooks / overlays /
@@ -143,7 +143,7 @@ and the exit + update section.
   the overlays onboarding created, and hooksPath if onboarding set it.
   (Round 2 Q9)
 - **Existing installs**: grandfathered — hooksPath set + skills found + no
-  stamp = doctor WARN ("run onboard.mjs for stamp + briefing"), never fail.
+  stamp = doctor WARN ("run onboarding.mjs for stamp + briefing"), never fail.
   (Round 3 Q11)
 - **Module surface** (decisions, not paths): a pure planning seam (discovery
   + proposal + skip logic), a pure stamp seam (parse/serialize), a pure
@@ -238,7 +238,7 @@ and the exit + update section.
     mapped / pending / next), named. — automated test (output shape).
 12. (US14) The live doctor on a tree with no stamp and a working-install
     signal (hooksPath set OR skills found) prints the grandfather WARN
-    naming onboard.mjs and exits 0; with the stamp present the warning is
+    naming onboarding.mjs and exits 0; with the stamp present the warning is
     gone. — automated doctor test + live run.
 13. (US15) The doctor on a tree whose stamp declines the evidence gate
     records the declined component by name. — automated doctor test.

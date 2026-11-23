@@ -245,13 +245,18 @@ adapter is claimed until a hook/tool-gate surface is found on OMO; if one is
 found, it lands as a new adapter row with its own live proof, not as an edit
 to this verdict.
 
-**omp/Devin live-proof plan (AC5, review-by 2026-11-13):** each gets one
-attempted live denial run on or before review-by 2026-11-13, conditional on
+**omp/Devin live-proof plan (AC5, review-by 2026-12-08):** each gets one
+attempted live denial run on or before review-by 2026-12-08, conditional on
 access (omp: local harness present; Devin: subscription present). A run that
 denies promotes the row to veto with its evidence attached; a run that cannot
 happen (no access) keeps doc-first WARN and sets the next review-by date in
 this paragraph — the date moves only forward with a written reason, never
-silently. No green fixture alone promotes any row.
+silently. No green fixture alone promotes any row. **Missed window, recorded
+2026-11-24:** the 2026-11-13 review-by passed with no attempted run — sessions
+went to the release line (through v0.1.59). Both access conditions now hold on
+the maintainer machine (omp local install present; Devin session live), so the
+date moved to 2026-12-08 with the miss and its reason on the record, per this
+paragraph's own contract.
 
 ## Evidence integrity
 
