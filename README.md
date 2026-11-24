@@ -235,11 +235,11 @@ run beyond the verification commands. It works on any harness that reads
   forbids dishonest claims; output quality still comes from the model.
 - **It does not enforce itself.** Skills are text; what never depends on the
   model is the mechanical layer above — hooks, CI, and the doctor.
-- **Its veto is proven where it was tested.** The live denial proofs exist on
-  OpenCode; the other five harnesses' deny contracts are wired from documented
-  hook APIs but not yet proven by a live run — the compatibility matrix marks
-  them doc-first until one fires
-  ([docs/compatibility.md](docs/compatibility.md), review-by 2026-12-08).
+- **Its veto is proven where it was tested.** Live denial proofs exist on
+  OpenCode, Claude Code, Codex, omp, pi, dsh and Devin — the compatibility
+  matrix carries each run's receipts, and any harness without a live row
+  stays marked doc-first until one fires
+  ([docs/compatibility.md](docs/compatibility.md)).
 
 ## Contributing
 

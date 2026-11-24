@@ -76,6 +76,21 @@ const run = (target, payload, { cwd, env = {} }) => spawnSync(process.execPath, 
   check('impeccable gets Claude tool casing', p.tool_name === 'Edit');
 }
 
+{
+  // Devin's live PreToolUse payload carries NO cwd field (measured 2026-11-24:
+  // live denials left no gate-log entries, and a real commit into an
+  // evidence-less target landed). gate-hook's evidence verdict returns null
+  // without payload.cwd, so the adapter must inject the resolved PROJECT.
+  const p = transformPayload('gate-hook', {
+    hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' },
+  }).payload;
+  check('gate-hook payload gains cwd when Devin sends none', typeof p.cwd === 'string' && p.cwd.length > 0);
+  const kept = transformPayload('gate-hook', {
+    hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' }, cwd: '/real/session/dir',
+  }).payload;
+  check('an explicit payload.cwd is never overwritten', kept.cwd === '/real/session/dir');
+}
+
 // --- translateChildOutput: Claude deny -> Devin block -----------------------
 
 {
@@ -135,6 +150,17 @@ let s = ''; process.stdin.on('data', (d) => (s += d)).on('end', () => {
 
   const unknown = run('no-such-target', {}, { cwd: project });
   check('unknown target fails open', unknown.status === 0 && unknown.stdout === '');
+
+  // Evidence arm end-to-end: a bare project (no ledger, no state, no stamp)
+  // sends the payload shape Devin really sends — no cwd. The receipt rule
+  // owns only ledgered repos, so the deny must come from the missing
+  // fresh-evidence precondition.
+  const blocked = run('gate-hook', {
+    hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' },
+  }, { cwd: project });
+  check('e2e: evidence arm denies a commit without fresh evidence (no payload.cwd)',
+    blocked.status === 0 && blocked.stdout.includes('"decision":"block"') && blocked.stdout.includes('fresh test evidence'),
+    `status=${blocked.status} out=${blocked.stdout.slice(0, 200)}`);
 
   const re = run('reinject', { hook_event_name: 'SessionStart' }, { cwd: project });
   let ctx = null;

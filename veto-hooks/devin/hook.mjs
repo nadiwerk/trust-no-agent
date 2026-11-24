@@ -68,12 +68,19 @@ export function transformPayload(target, payload) {
       prompt: typeof input.task === 'string' ? input.task : '',
       description: typeof input.title === 'string' ? input.title : '',
     };
-  } else if (target === 'gate-hook' && p.hook_event_name === 'PostToolUse'
-    && p.tool_response && typeof p.tool_response === 'object') {
-    const tr = { ...p.tool_response };
-    if (typeof tr.output === 'string' && tr.stdout === undefined) tr.stdout = tr.output;
-    if (tr.exitCode === undefined && typeof tr.success === 'boolean') tr.exitCode = tr.success ? 0 : 1;
-    p.tool_response = tr;
+  } else if (target === 'gate-hook') {
+    // Devin's live payloads carry no cwd (measured 2026-11-24: live denials
+    // left no gate-log entries and a commit into an evidence-less target
+    // landed). gate-hook's evidence verdict returns null without payload.cwd
+    // — fail-open — so inject the resolved project dir. A real payload.cwd
+    // is never overwritten.
+    if (typeof p.cwd !== 'string' || !p.cwd) p.cwd = PROJECT;
+    if (p.hook_event_name === 'PostToolUse' && p.tool_response && typeof p.tool_response === 'object') {
+      const tr = { ...p.tool_response };
+      if (typeof tr.output === 'string' && tr.stdout === undefined) tr.stdout = tr.output;
+      if (tr.exitCode === undefined && typeof tr.success === 'boolean') tr.exitCode = tr.success ? 0 : 1;
+      p.tool_response = tr;
+    }
   } else if (target === 'impeccable' && typeof p.tool_name === 'string') {
     p.tool_name = CLAUDE_TOOL[p.tool_name] ?? p.tool_name;
   }
