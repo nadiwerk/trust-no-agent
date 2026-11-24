@@ -92,6 +92,8 @@ const PAYLOAD_MAP = [
   // kill. It is distributed like the other adapters: the payload carries the
   // file, the adopter's hooks.v1.json wires it.
   ['veto-hooks/devin/hook.mjs', join(ROOT, 'veto-hooks', 'devin', 'hook.mjs')],
+  ['veto-hooks/antigravity/hook.mjs', join(ROOT, 'veto-hooks', 'antigravity', 'hook.mjs')],
+  ['veto-hooks/gemini/hook.mjs', join(ROOT, 'veto-hooks', 'gemini', 'hook.mjs')],
 ];
 
 const walk = (dir, acc = []) => {

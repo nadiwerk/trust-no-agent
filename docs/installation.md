@@ -491,6 +491,27 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
 # Skills:
 cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/     # user
 cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
+# Veto adapter (veto level, doc-first — live check open on free-tier):
+#   .gemini/settings.json "hooks":
+#     "BeforeTool": [{ "hooks": [{ "type": "command",
+#       "command": "node <trust-no-agent>/veto-hooks/gemini/hook.mjs", "timeout": 20000 }] }]
+#     "AfterTool":  [{ "hooks": [ ...same command... ] }]
+```
+
+### Antigravity CLI (`agy`)
+```bash
+# AGENTS.md: project context file. Skills:
+cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/     # user
+cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
+# Veto adapter (veto level, PROVEN LIVE two-sided on agy 1.5.14):
+#   .agents/hooks.json (project) or ~/.gemini/config/hooks.json (global):
+#     "tna-veto": {
+#       "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command",
+#         "command": "node <trust-no-agent>/veto-hooks/antigravity/hook.mjs", "timeout": 20 }] }],
+#       "PostToolUse": [{ "matcher": "*", "hooks": [ ...same command... ] }]
+#     }
+# CAUTION: agy reads missing/garbled/crashed hook output as a DENY — only wire
+# the adapter (it prints an explicit allow), never a bare script.
 ```
 
 ### Zed
