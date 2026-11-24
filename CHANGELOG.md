@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.60] - 2026-11-24
+
+Two new veto-proven harnesses, a measured fast-path in the session
+gate-hook, and a fail-open fix caught by running the live proof itself.
+
+### Added
+
+- **Antigravity CLI + Gemini CLI veto adapters**
+  (`veto-hooks/antigravity/hook.mjs`, `veto-hooks/gemini/hook.mjs`). Both
+  join the byte-equality payload contract with fail-first tests; the
+  Antigravity adapter is proven live two-sided on `agy` 1.5.14 (commit
+  denied without evidence → test run recorded via PostToolUse → commit
+  allowed). Gemini is wired doc-first — Google stopped serving Gemini CLI
+  on the free tier (IneligibleTierError since 2026-06-18), so a live proof
+  is owed on a licensed install. A `TOOL_MAP` translates native tool names
+  (`run_command`→`bash`, `write_to_file`→`write`) so PostToolUse evidence
+  recording covers them.
+- **`receipt.mjs` — receipt skeleton generator + `--check`.** Emits the
+  4-block receipt shape and validates the newest ledger entry with the
+  same `validateReceipt` the gate uses — zero drift between what you write
+  and what is enforced.
+- **Central `review-pins.mjs`.** One site owns the `review-by` literal;
+  `eval.mjs` and `eval-adapter.test.mjs` read it instead of pinning their
+  own copies.
+- **Devin adapter joins `PAYLOAD_MAP`.** The last adapter outside the
+  byte-equality contract is now drift-checked by `payload-sync`.
+
+### Changed
+
+- **Gate-hook fast-path (~40% cheaper non-gated calls).** Verdict modules
+  and `mandatory-gate` lazy-load only on the hook events that need them; a
+  conservative `mayGatePreTool` pre-filter (strict superset of the
+  classifier, quote/escape-normalised) skips the evidence arm for commands
+  that cannot gate. Measured: `exec ls` PreToolUse ~59ms vs ~98ms baseline
+  on Windows.
+- **`compatibility.md` slimmed.** Per-harness live-proof receipts moved
+  verbatim to `docs/evidence/<harness>.md`; the matrix keeps the pinned
+  literals and points at each evidence file.
+
+### Fixed
+
+- **Devin `gate-hook` fail-open hole.** Live Devin `PreToolUse` payloads
+  carry no `cwd`; `buildPreToolVerdict` returned null and the evidence arm
+  silently allowed irreversible commands. The adapter injects the project
+  root before forwarding — hole closed, proven live in-session.
+- **README harness counts.** Prose counts drifted from the matrix —
+  corrected to eight live-proven wired harnesses plus doc-first Gemini.
+- **Onboarding doc + deploy-pages hardening.** Names the real onboarding
+  CLI, moves the AC5 review-by forward, and SHA-pins the Pages deploy
+  action.
+
 ## [0.1.59] - 2026-11-24
 
 Absorb the measured workflow disciplines from the ads-tracker multi-harness
@@ -1839,7 +1890,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.59...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.60...HEAD
+[0.1.60]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.59...v0.1.60
 [0.1.59]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.58...v0.1.59
 [0.1.58]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.57...v0.1.58
 [0.1.57]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.56...v0.1.57
