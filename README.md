@@ -158,14 +158,15 @@ The parts that never depend on the model choosing to comply:
   actions wait for sign-off.
 - **Veto** — irreversible actions are denied, not discouraged: `git commit`,
   `git push`, `npm publish`, `rm -rf` are blocked until fresh test evidence
-  exists (see the TNA gates below). The veto layer reaches five harnesses
-  (OpenCode, Claude Code, Codex, OMP, Pi), each
-  with a real deny contract where proven.
+  exists (see the TNA gates below). The veto layer reaches eight harnesses
+  with a live-proven deny (OpenCode, Claude Code, Codex, OMP, Pi,
+  DeepSeek Harness, Devin, Antigravity CLI), plus a doc-first Gemini CLI
+  adapter awaiting a licensed install for live proof.
 - **TNA gates** — the named enforcement core behind the veto: `tna-gate`
   records session evidence (which test commands ran and whether they exited
   clean) in `.trust/tna-gate-state.json`, and `action-gate` classifies
-  irreversible commands against that record. The same core runs on all five
-  harnesses, so the veto follows you across tools.
+  irreversible commands against that record. The same core runs on every
+  wired harness, so the veto follows you across tools.
 - **Engagement criteria** — the chain engages by counting (more than one file,
   a design choice, an unknown-cause bug), never by mood.
 - **Workflow choice** — the onboarding asks which workflow you use (built-in
@@ -224,8 +225,8 @@ Recovered findings become router rules (gated, scoped, reversible:
 
 The core ships as markdown: no MCP servers, no background tasks, nothing to
 run beyond the verification commands. It works on any harness that reads
-`AGENTS.md`; verified matrix across ten harnesses with evidence levels:
-[docs/compatibility.md](docs/compatibility.md).
+`AGENTS.md`; verified matrix plus a per-harness veto map with evidence
+levels: [docs/compatibility.md](docs/compatibility.md).
 
 ## Honest limits
 
