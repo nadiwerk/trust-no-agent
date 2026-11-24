@@ -68,13 +68,16 @@ try {
   ({ readFileSync, existsSync, writeSync } = await import('node:fs'));
   ({ dirname, join } = await import('node:path'));
   ({ fileURLToPath } = await import('node:url'));
+  // The EAGER set is exactly what the exported SYNC functions need —
+  // scanSessionOverlays/canonicalSessionFloor are called synchronously by
+  // the doctor, so their dependencies cannot wait for a lazy load. The
+  // verdict half (tna-gate, action-gate, receipt-enforcement, onboarding)
+  // loads on demand via loadGate(): measured 2026-11-24, module import tax
+  // was ~36 ms of every ~98 ms hook call, paid by tool events that could
+  // never reach the gate.
   ({ buildReinject } = await import('./reinject.mjs'));
-  ({ decideBefore, logVeto, observeAfter } = await import('./tna-gate.mjs'));
   ({ parseSkillOverlays } = await import('./overlay-registry.mjs'));
   ({ composeFloor } = await import('./floor-composer.mjs'));
-  ({ parseStamp } = await import('./onboarding.mjs'));
-  ({ vetoVerdict } = await import('./receipt-enforcement.mjs'));
-  ({ matchesAnyCommand, gitTargetDir } = await import('./action-gate.mjs'));
 } catch (err) {
   LOAD_ERROR = err;
 }
@@ -104,8 +107,8 @@ function loadFailureMessage() {
  */
 const IS_ENTRY = typeof process.argv[1] === 'string' && process.argv[1].endsWith('gate-hook.mjs');
 
-if (LOAD_ERROR) {
-  if (!IS_ENTRY) throw LOAD_ERROR;  // let the importer decide (doctor reports it)
+/** The warn-but-allow answer for a load failure — entry point only. */
+function emitLoadFailure() {
   try {
     const selfCheck = process.argv.includes('--self-check');
     process.stdout.write((selfCheck ? loadFailureMessage() : JSON.stringify({ systemMessage: loadFailureMessage() })) + '\n');
@@ -113,6 +116,43 @@ if (LOAD_ERROR) {
     /* nothing left to report through */
   }
   process.exit(0);
+}
+
+if (LOAD_ERROR) {
+  if (!IS_ENTRY) throw LOAD_ERROR;  // let the importer decide (doctor reports it)
+  emitLoadFailure();
+}
+
+/**
+ * The verdict half, loaded on demand. A `false` from mayGatePreTool means
+ * neither buildPreToolVerdict nor receiptVerdict could return a verdict, so
+ * these modules are never imported on the fast path — and a load failure
+ * found only here reports through the same warn-but-allow contract as an
+ * eager one. The classifier keeps its designed-inert semantics: absent, the
+ * prompt half is quiet, never a LOAD_ERROR.
+ */
+let GATE_READY = false;
+async function loadGate() {
+  if (GATE_READY) return;
+  GATE_READY = true;
+  try {
+    ({ decideBefore, logVeto, observeAfter } = await import('./tna-gate.mjs'));
+    ({ parseStamp } = await import('./onboarding.mjs'));
+    ({ vetoVerdict } = await import('./receipt-enforcement.mjs'));
+    ({ matchesAnyCommand, gitTargetDir } = await import('./action-gate.mjs'));
+  } catch (err) {
+    LOAD_ERROR = err;
+  }
+  if (process.env.TNA_DEBUG_HOOK) {
+    try { writeSync(2, '[gate-hook] verdict modules: tna-gate.mjs action-gate.mjs receipt-enforcement.mjs onboarding.mjs\n'); } catch { /* debug only */ }
+  }
+  try {
+    ({ classifyTask: classify, MANDATORY_DOMAINS: mandatoryDomains } = await import(
+      new URL('./mandatory-gate.mjs', import.meta.url).href
+    ));
+  } catch {
+    classify = null; // no classifier → this hook's prompt half is inert, session half still works
+  }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -288,13 +328,6 @@ const DOMAIN_INSTRUCTION = {
 
 let classify = null;
 let mandatoryDomains = [];
-try {
-  ({ classifyTask: classify, MANDATORY_DOMAINS: mandatoryDomains } = await import(
-    new URL('./mandatory-gate.mjs', import.meta.url).href
-  ));
-} catch {
-  classify = null; // no classifier → this hook's prompt half is inert, session half still works
-}
 
 function buildPromptContext(prompt) {
   if (!classify || !prompt) return null;
@@ -379,6 +412,41 @@ function targetDirFor(input, cwd) {
 }
 
 /**
+ * The fast-path pre-filter: a STRICT SUPERSET of everything the verdict path
+ * can gate, so `false` proves both verdicts would return null and skipping
+ * the load is observably identical to running it. The needle set covers the
+ * irreversible literals (commit/push/publish/merge/release), the recursive-
+ * delete program family (rm, del, erase, rd, rmdir, remove-item, ri — wider
+ * than the `rm -rf` literal), and the ledger path. Quotes and backslashes are
+ * erased before matching because the classifier's splitWords consumes them:
+ * `git com'mit'` IS a gated commit, so the filter must see it too.
+ * Overmatches cost one module load and are free; an undermatch is a fail-open
+ * hole — gate-hook-fastpath.test.mjs runs the real classifier as the oracle.
+ */
+const PRE_GATE_HINT = /commit|push|publish|merge|release|progress\.txt|\brm\b|\bdel\b|\berase\b|\brd\b|\brmdir\b|\bremove-item\b|\bri\b/i;
+
+function toolInputOf(payload) {
+  return payload && typeof payload.tool_input === 'object' && payload.tool_input ? payload.tool_input
+    : payload && typeof payload.args === 'object' && payload.args ? payload.args : null;
+}
+
+export function mayGatePreTool(payload) {
+  const input = toolInputOf(payload);
+  if (!input) return false;
+  let raw;
+  try {
+    raw = JSON.stringify(input);
+  } catch {
+    return true; // unserializable → unjudgeable → let the full gate decide
+  }
+  return PRE_GATE_HINT.test(raw.replace(/["'\\]/g, ''));
+}
+
+function cwdFor(payload) {
+  return typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+}
+
+/**
  * PreToolUse deny — the DOCUMENTED decision shape on both harnesses.
  *
  * Contract: exit 0 + stdout JSON
@@ -408,9 +476,14 @@ function denyPreTool(reason) {
   process.exit(0);
 }
 
-function main() {  // Opt-in reporting path: the harness never passes --self-check, so this
-  // cannot affect a live session.
-  if (process.argv.includes('--self-check')) return selfCheck();
+async function main() {  // Opt-in reporting path: the harness never passes --self-check, so this
+  // cannot affect a live session. The self-check still loads the verdict
+  // half first — with lazy loading an exit 0 would otherwise prove nothing.
+  if (process.argv.includes('--self-check')) {
+    await loadGate();
+    if (LOAD_ERROR) emitLoadFailure();
+    return selfCheck();
+  }
   let payload = {};
   try {
     const raw = readStdin();
@@ -424,14 +497,26 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
   // the floor is not emitted; declined evidence gate -> the veto does not
   // fire. No stamp keeps the fail-closed default (the pre-onboarding
   // behavior). Consent is real by construction — the menu is not decoration.
-  const consent = readConsent(typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd());
-  if (consent && !consent.components.hooks) process.exit(0);
+  // The stamp is read only by paths that can do work: a skipped fast-path
+  // event exits silently either way, so the read is observably identical.
+  const consentChecked = () => {
+    const c = readConsent(cwdFor(payload));
+    return { consent: c, hooksOff: !!(c && !c.components.hooks) };
+  };
 
   const event = String(payload.hook_event_name || '');
   try {
     if (event === 'UserPromptSubmit') {
+      await loadGate();
+      if (LOAD_ERROR) emitLoadFailure();
+      const { consent, hooksOff } = consentChecked();
+      if (hooksOff) process.exit(0);
       emit(event, buildPromptContext(String(payload.prompt || '')));
     } else if (event === 'SessionStart') {
+      await loadGate();
+      if (LOAD_ERROR) emitLoadFailure();
+      const { consent, hooksOff } = consentChecked();
+      if (hooksOff) process.exit(0);
       // SessionStart is the ONLY delivery path for the floor, by measurement,
       // not by preference (2026-11-03). Both harnesses fire it with
       // `source: "compact"` after a compaction, and it accepts
@@ -444,28 +529,37 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
       // nothing, which reads exactly like a hook that worked.
       if (!consent || consent.components.floor !== false) emit(event, buildSessionStartContext());
     } else if (event === 'PreToolUse') {
-      let verdict = null;
-      if (!consent || consent.components.evidenceGate !== false) {
-        try {
-          verdict = buildPreToolVerdict(payload);
-        } catch {
-          verdict = null; // unjudgeable → fail-open, same as every other error here
+      // Fast path: mayGatePreTool is a strict superset of the gated-action
+      // space, so false proves both verdicts below would be null — skipping
+      // the load is the same silent allow, not a shortcut around the gate.
+      if (mayGatePreTool(payload)) {
+        await loadGate();
+        if (LOAD_ERROR) emitLoadFailure();
+        const { consent, hooksOff } = consentChecked();
+        if (hooksOff) process.exit(0);
+        let verdict = null;
+        if (!consent || consent.components.evidenceGate !== false) {
+          try {
+            verdict = buildPreToolVerdict(payload);
+          } catch {
+            verdict = null; // unjudgeable → fail-open, same as every other error here
+          }
         }
+        // The receipt rule (receipt-enforcement ticket 05): a commit's newest
+        // ledger entry must carry a valid receipt (and a gateable claim).
+        // Hooks-level: it runs whenever the hook runs at all. No ledger = the
+        // existing evidence precondition owns the case.
+        const rv = receiptVerdict(payload);
+        if (rv && !rv.allow) {
+          logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
+          denyPreTool(rv.reason);
+        }
+        if (verdict && !verdict.allow) {
+          logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
+          denyPreTool(verdict.reason);
+        }
+        // Allowed or unjudgeable: silent, exit 0 below.
       }
-      // The receipt rule (receipt-enforcement ticket 05): a commit's newest
-      // ledger entry must carry a valid receipt (and a gateable claim).
-      // Hooks-level: it runs whenever the hook runs at all. No ledger = the
-      // existing evidence precondition owns the case.
-      const rv = receiptVerdict(payload);
-      if (rv && !rv.allow) {
-        logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
-        denyPreTool(rv.reason);
-      }
-      if (verdict && !verdict.allow) {
-        logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
-        denyPreTool(verdict.reason);
-      }
-      // Allowed or unjudgeable: silent, exit 0 below.
     } else if (event === 'PostToolUse') {
       // Evidence recording (the opencode execute.after mirror): a finished
       // tool call whose command was a real test-run invocation records
@@ -475,10 +569,13 @@ function main() {  // Opt-in reporting path: the harness never passes --self-che
       // nothing, and recording never throws (wrapped like every event here).
       try {
         const toolName = String(payload.tool_name ?? payload.tool ?? '');
-        const input = payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input
-          : payload.args && typeof payload.args === 'object' ? payload.args : null;
-        const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+        const input = toolInputOf(payload);
         if (toolName && input && typeof input.command === 'string') {
+          await loadGate();
+          if (LOAD_ERROR) emitLoadFailure();
+          const { hooksOff } = consentChecked();
+          if (hooksOff) process.exit(0);
+          const cwd = cwdFor(payload);
           // Pass the WHOLE response through, not just an error flag.
           //
           // Origin 2026-10-25 (audit-run-blockers #2, measured): this built
@@ -555,4 +652,4 @@ function receiptVerdict(payload) {
 // Self-execute only when run directly (the repo-wide guard pattern: every
 // other script in scripts/ carries it — importing this module must not run
 // the hook, so the doctor can reuse canonicalSessionFloor).
-if (process.argv[1] && process.argv[1].endsWith('gate-hook.mjs')) main();
+if (process.argv[1] && process.argv[1].endsWith('gate-hook.mjs')) await main();

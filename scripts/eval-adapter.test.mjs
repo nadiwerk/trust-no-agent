@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { COMPAT_REVIEW_BY_RE } from './review-pins.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -105,7 +106,7 @@ for (const [label, re] of [
 for (const [label, re] of [
   ['OMO verdict written', /OMO verdict/i],
   ['omp/Devin live-proof plan', /live-proof plan/i],
-  ['review-by date set', /review-by 2026-12-08/i],
+  ['review-by date set', COMPAT_REVIEW_BY_RE],
 ]) {
   check(`38 ${label} in compatibility.md`, re.test(compat), String(re));
 }

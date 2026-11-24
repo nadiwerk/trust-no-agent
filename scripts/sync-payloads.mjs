@@ -86,6 +86,12 @@ const PAYLOAD_MAP = [
   ['veto-hooks/pi/tna-discipline.ts', join(ROOT, 'veto-hooks', 'pi', 'tna-discipline.ts')],
   ['veto-hooks/dsh/tna-veto.mjs', join(ROOT, 'veto-hooks', 'dsh', 'tna-veto.mjs')],
   ['veto-hooks/dsh/tna-discipline.mjs', join(ROOT, 'veto-hooks', 'dsh', 'tna-discipline.mjs')],
+  // The Devin adapter joined the contract late (2026-11-24): it was added to
+  // veto-hooks/ after the map was written, so every setup-tna payload shipped
+  // without it — the same silent-omission drift class this file exists to
+  // kill. It is distributed like the other adapters: the payload carries the
+  // file, the adopter's hooks.v1.json wires it.
+  ['veto-hooks/devin/hook.mjs', join(ROOT, 'veto-hooks', 'devin', 'hook.mjs')],
 ];
 
 const walk = (dir, acc = []) => {

@@ -62,6 +62,7 @@
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { COMPAT_REVIEW_BY_RE } from './review-pins.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS = join(ROOT, 'skills');
@@ -824,7 +825,7 @@ for (const [file, text] of [
       'OMO must carry a written verdict: veto adapter or why audit-only is the ceiling (AC4)'],
     [/live-proof plan/i,
       'omp/Devin must carry dated live-proof plans, not an open-ended doc-first (AC5)'],
-    [/review-by 2026-12-08/i,
+    [COMPAT_REVIEW_BY_RE,
       'the live-proof plans need a review-by date, or doc-first has no expiry (AC5)'],
   ]) {
     if (!marker.test(compatText))

@@ -111,6 +111,9 @@ jobs:
       - name: Receipt enforcement self-test
         run: node scripts/receipt-enforcement.test.mjs
 
+      - name: Receipt generator self-test
+        run: node scripts/receipt.test.mjs
+
       - name: Ledger audit self-test
         run: node scripts/ledger-audit.test.mjs
 
@@ -143,6 +146,9 @@ jobs:
 
       - name: Hook entry-point contract (fail-open)
         run: node scripts/gate-hook.test.mjs
+
+      - name: Hook fast-path superset guard
+        run: node scripts/gate-hook-fastpath.test.mjs
 
       - name: Plugin mirror drift guard
         run: node scripts/plugin.test.mjs
