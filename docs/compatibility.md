@@ -152,14 +152,15 @@ A veto without a live proof is a proposal, not a guarantee: a row stays doc-firs
 
 A veto alone is not "TNA working". The framework carries **four** mechanical
 layers, and a harness that has one of them enforces roughly a quarter of the
-discipline while looking installed. Audited 2026-10-25:
-| Layer | What it does | opencode | Claude Code | Codex | omp | pi | dsh |
-|---|---|---|---|---|---|---|---|
-| **floor** — router's Iron Laws + MANDATORY section injected each session/compaction | rules survive a harness that drops AGENTS.md | `ctx` injection | `SessionStart` (fires again with `source:"compact"`) | `SessionStart` (fires again with `source:"compact"`) | `tna-discipline.ts` (`session_start`, `before_agent_start`) | `tna-discipline.ts` (`before_agent_start`, `session_compact`) | dsh reads `AGENTS.md` natively; `tna-discipline.mjs` adds the rest |
-| **mandatory-gate** — each prompt classified against expect-fail / root-cause / receipts | the trigger matrix fires mechanically, not by model initiative | hook | `UserPromptSubmit` | `UserPromptSubmit` | `tna-discipline.ts` | `tna-discipline.ts` | `tna-discipline.mjs` (`agent/pre-step`) |
-| **veto** — irreversible action without fresh evidence refused | Iron Law 4 is enforced, not suggested | plugin throw | `PreToolUse` | `PreToolUse` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` (`tools/pre-execute`) |
-| **done-gate** — completion claim with no verifying tool call flagged | Iron Law 3 is enforced, not suggested | — | — | — | `tna-receipts-gate.ts` (`session_stop`) | `tna-discipline.ts` (`agent_before_settle`) | `tna-discipline.mjs` (`agent/pre-step`) |
-| **ledger append-only** — `write`/`edit` to `.trust/progress.txt` refused | the private history cannot be clobbered | `action-gate` | `action-gate` | `action-gate` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` |
+discipline while looking installed. Audited 2026-10-25; Devin/agy/Gemini
+columns added 2026-11-24 when their adapters gained a mechanical install path:
+| Layer | What it does | opencode | Claude Code | Codex | omp | pi | dsh | Devin | agy | Gemini |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **floor** — router's Iron Laws + MANDATORY section injected each session/compaction | rules survive a harness that drops AGENTS.md | `ctx` injection | `SessionStart` (fires again with `source:"compact"`) | `SessionStart` (fires again with `source:"compact"`) | `tna-discipline.ts` (`session_start`, `before_agent_start`) | `tna-discipline.ts` (`before_agent_start`, `session_compact`) | dsh reads `AGENTS.md` natively; `tna-discipline.mjs` adds the rest | `SessionStart` → adapter `reinject` (emits `additionalContext`; reads the project's own router files) | — (no proven floor surface) | — (no proven floor surface) |
+| **mandatory-gate** — each prompt classified against expect-fail / root-cause / receipts | the trigger matrix fires mechanically, not by model initiative | hook | `UserPromptSubmit` | `UserPromptSubmit` | `tna-discipline.ts` | `tna-discipline.ts` | `tna-discipline.mjs` (`agent/pre-step`) | `UserPromptSubmit` → adapter `gate-hook` | — (no prompt-submit event wired) | — (no prompt-submit event wired) |
+| **veto** — irreversible action without fresh evidence refused | Iron Law 4 is enforced, not suggested | plugin throw | `PreToolUse` | `PreToolUse` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` (`tools/pre-execute`) | `PreToolUse` → adapter `gate-hook` (`exec`→`bash`) | `PreToolUse` → adapter (`run_command`→`bash`) | `BeforeTool` → adapter (`run_shell_command`→`bash`) |
+| **done-gate** — completion claim with no verifying tool call flagged | Iron Law 3 is enforced, not suggested | — | — | — | `tna-receipts-gate.ts` (`session_stop`) | `tna-discipline.ts` (`agent_before_settle`) | `tna-discipline.mjs` (`agent/pre-step`) | — (no stop/settle event on this harness) | — | — |
+| **ledger append-only** — `write`/`edit` to `.trust/progress.txt` refused | the private history cannot be clobbered | `action-gate` | `action-gate` | `action-gate` | `tna-veto.ts` | `tna-veto.ts` | `tna-veto.mjs` | `action-gate` (`write` passthrough) | `action-gate` (`write_to_file`→`write`) | `action-gate` (`write_file`→`write`, `replace`→`edit`) |
 
 Live evidence for the layers added on 2026-10-25:
 

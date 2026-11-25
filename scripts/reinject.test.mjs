@@ -247,5 +247,71 @@ Non-negotiable. Procedure detail lives in AGENTS.md and the skills.
     mandOnly.slice(0, 200));
 }
 
+// ---- J. Semantically empty placeholders are not the discipline floor ----
+// First-install trust-layer ticket 02 / spec AC8. The pre-repair extractor
+// treated any nonempty fence after an Iron Laws heading and any nonempty
+// MANDATORY body as proof. These fixtures are hand-written negatives; the
+// positive fenced and list forms above must continue to pass unchanged.
+{
+  const PLACEHOLDER_LAWS = `# Router
+
+## Iron Laws
+
+\`\`\`
+placeholder prose to be replaced with the real rules later
+\`\`\`
+
+## MANDATORY discipline skills
+
+- expect-fail — load before writing any test.
+- root-cause — load before proposing any fix.
+- receipts — load before any done claim.
+`;
+  const out = buildReinject(PLACEHOLDER_LAWS);
+  check('J1 a placeholder-only Iron Laws fence produces the laws NOT FOUND sentinel',
+    /## Iron Laws — NOT FOUND/.test(out), out.slice(0, 300));
+}
+{
+  const PLACEHOLDER_MANDATORY = `# Router
+
+## The four Iron Laws
+
+- No acting until the user confirms shared understanding.
+- No production code without a failing test first.
+- No completion claims without fresh verification evidence.
+- No expensive, irreversible, or shared-system action without explicit human sign-off.
+
+## MANDATORY discipline skills
+
+These skills are important and must be considered carefully when relevant.
+`;
+  const out = buildReinject(PLACEHOLDER_MANDATORY);
+  check('J2 a MANDATORY body missing expect-fail/root-cause/receipts produces the sentinel',
+    /## MANDATORY discipline skills — NOT FOUND/.test(out), out.slice(0, 400));
+}
+{
+  const COMPLETE_MERGED = `# Adopter router
+
+## Iron Laws
+
+\`\`\`
+NO ACTING until the user confirms shared understanding.
+NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.
+NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.
+NO EXPENSIVE, IRREVERSIBLE, OR SHARED-SYSTEM ACTION WITHOUT EXPLICIT HUMAN SIGN-OFF.
+\`\`\`
+
+## MANDATORY discipline skills — no self-trigger, no exception
+
+- **\`expect-fail\`** — load before writing any test.
+- **\`root-cause\`** — load before proposing any fix.
+- **\`receipts\`** — load before accepting any done claim.
+`;
+  const out = buildReinject(COMPLETE_MERGED);
+  check('J3 a complete merged-router fenced form still passes both halves',
+    !/NOT FOUND/.test(out) && /NO COMPLETION CLAIMS/.test(out) && /expect-fail/.test(out),
+    out);
+}
+
 console.log(failures ? `\nFAIL: ${failures} expectation(s) broken.` : '\nAll reinject expectations hold.');
 process.exit(failures ? 1 : 0);

@@ -558,7 +558,12 @@ async function main() {  // Opt-in reporting path: the harness never passes --se
           logVeto(payload.cwd, { harness: 'gate-hook', tool: String(payload.tool_name ?? payload.tool ?? ''), command: String(payload.tool_input?.command ?? payload.args?.command ?? '') });
           denyPreTool(verdict.reason);
         }
-        // Allowed or unjudgeable: silent, exit 0 below.
+        // Positive allow evidence (roast r1 F6): silent exit-0 cannot tell an
+        // evaluated allow from a crashed fail-open, so stderr carries the
+        // outcome — the harness's verbose channel; stdout stays the JSON
+        // decision contract. 'unjudgeable' means the verdict path did not
+        // evaluate (declined evidence gate, unjudgeable input, thrown error).
+        process.stderr.write(`[tna] evaluated: ${verdict && verdict.allow ? 'allow' : 'unjudgeable'}\n`);
       }
     } else if (event === 'PostToolUse') {
       // Evidence recording (the opencode execute.after mirror): a finished

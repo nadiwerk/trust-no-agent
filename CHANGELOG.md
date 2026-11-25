@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Mechanical install path for Devin, Antigravity, and Gemini CLI.** The
+  onboarding CLI now detects all three (project markers + home config), copies
+  their adapters to `~/.tna/veto-hooks/<harness>/hook.mjs` together with the
+  9-file gate runtime (`~/.tna/plugin/scripts/`) and `~/.tna/scripts/reinject.mjs`
+  the adapters spawn relative to themselves, and merges hook entries into each
+  harness's own config — Devin `config.json`, agy `~/.gemini/config/hooks.json`
+  (`tna-veto` group), gemini `~/.gemini/settings.json` — without clobbering
+  foreign entries. `--undo` strips only the entries it wrote. Previously the
+  adapters existed and were live-proven but had no install path at all.
+- **Doctor C14 — discipline floor resolvable from the project's own router.**
+  A merge that silently drops the Iron Laws or MANDATORY section passed every
+  file-presence check while shipping a half floor. C14 runs the real
+  `reinject` extractor against whatever router files exist and FAILs when a
+  consented floor cannot be read.
+- **Doctor scans the shared `~/.tna` runtime** for drift and reports
+  `unregistered` when an adapter exists on disk but its harness config never
+  references it — a copied file is not enforcement.
+
+### Fixed
+
+- **Devin veto was permanently closed (two-sided bug).** The adapter mapped
+  tool names only for the `impeccable` target, so `exec` never reached
+  `SHELL_TOOLS` in the gate — no test run ever recorded evidence, making the
+  veto a wall indistinguishable from a broken install. `transformPayload` now
+  maps names for the `gate-hook` target (`exec`→`bash`, `write`→`write`,
+  native name preserved in `harness_tool`); proven two-sided end-to-end.
+- **Installed `reinject` found no router.** `reinject.mjs` resolves router
+  files repo-root-relative, so a copy under `~/.tna` emitted nothing. The
+  Devin adapter's `reinject` target now passes the *project's* router files
+  as argv — the floor injected is the adopter's own rules, not TNA's.
+- **C1 merge-router false-FAIL.** Doctor demanded `AGENTS.md`+`WORKFLOW.md`
+  by name in every project, failing a correct merged install whose router is
+  `CLAUDE.md`/`GEMINI.md`. Adopter mode now passes on any router file at the
+  project root (content is C14's job); repo mode keeps the strict two-file
+  contract.
+- **Receipt honesty.** The `Layers:` line is per-harness (untabled harnesses
+  print audit-only instead of implying plugin hooks), consenting `floor` on
+  claude/codex names the plugin payload as the skill source instead of
+  silently copying nothing, and `evidenceGate` without `hooks` warns that
+  nothing enforces it.
+
+### Changed
+
+- **setup-tna payloads are self-sufficient.** `PAYLOAD_MAP` now carries the
+  `plugin/scripts/` gate closure plus `scripts/reinject.mjs`, so a payload
+  install can wire the new adapters without the source checkout.
+- **`docs/installation.md`** documents the `~/.tna` layout, gains a `### Devin`
+  section, and replaces the stale "omp / Devin — doc-first WARN" matrix row
+  with per-harness proof rows (both proven live); **`docs/compatibility.md`'s**
+  four-layer matrix gained Devin/agy/Gemini columns with honest `—` cells for
+  layers no surface can carry.
+
 ## [0.1.60] - 2026-11-24
 
 Two new veto-proven harnesses, a measured fast-path in the session

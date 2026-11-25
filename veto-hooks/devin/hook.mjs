@@ -75,10 +75,29 @@ export function transformPayload(target, payload) {
     // — fail-open — so inject the resolved project dir. A real payload.cwd
     // is never overwritten.
     if (typeof p.cwd !== 'string' || !p.cwd) p.cwd = PROJECT;
+    // The gate's classifier keys on ITS names: SHELL_TOOLS ('bash', ...) owns
+    // evidence recording and LEDGER_WRITE_TOOLS owns the append-only guard.
+    // 'exec' is in neither set — a test run through exec recorded NOTHING and
+    // the veto could only ever deny (the CLAUDE_TOOL map existed but only the
+    // 'impeccable' target applied it). The gate gets lowercase names; the
+    // native name survives in harness_tool for the veto log.
+    if (typeof p.tool_name === 'string' && CLAUDE_TOOL[p.tool_name]) {
+      p.harness_tool ??= p.tool_name;
+      p.tool_name = CLAUDE_TOOL[p.tool_name].toLowerCase();
+    }
     if (p.hook_event_name === 'PostToolUse' && p.tool_response && typeof p.tool_response === 'object') {
       const tr = { ...p.tool_response };
       if (typeof tr.output === 'string' && tr.stdout === undefined) tr.stdout = tr.output;
-      if (tr.exitCode === undefined && typeof tr.success === 'boolean') tr.exitCode = tr.success ? 0 : 1;
+      // Devin's `success` boolean is tool-invocation success, not the command's
+      // exit code — and the gate trusts an explicit exitCode FIRST (roast r1
+      // F8), so `success ? 0 : 1` laundered every green claim into forged
+      // evidence. Never fabricate a zero: unknown exit records NOTHING and is
+      // insufficient for allow. A failure stays honest red — surface `error`
+      // (or the bare `success:false`) as metadata.error so the recorded-false
+      // path still kills stale evidence.
+      if (tr.success === false && tr.metadata?.error === undefined) {
+        tr.metadata = { ...(tr.metadata ?? {}), error: typeof tr.error === 'string' && tr.error ? tr.error : true };
+      }
       p.tool_response = tr;
     }
   } else if (target === 'impeccable' && typeof p.tool_name === 'string') {
@@ -104,7 +123,7 @@ export function translateChildOutput(stdout, code) {
 
 export const TARGETS = Object.freeze({
   'gate-hook': { argv: [process.execPath, join(TNA, 'plugin', 'scripts', 'gate-hook.mjs')], stdin: 'payload' },
-  'reinject': { argv: [process.execPath, join(TNA, 'scripts', 'reinject.mjs')], stdin: 'none', wrapContext: true },
+  'reinject': { argv: [process.execPath, join(TNA, 'scripts', 'reinject.mjs')], stdin: 'none', wrapContext: true, routerArgs: true },
   'orchestrator-brief': {
     argv: [process.execPath, join(PROJECT, 'scripts', 'orchestrator-brief.mjs'), '--pretool'], stdin: 'payload',
   },
@@ -129,7 +148,19 @@ function runTarget(target, rawStdin) {
   try { payload = rawStdin.trim() ? JSON.parse(rawStdin) : {}; } catch { payload = {}; }
   const input = def.stdin === 'payload' ? JSON.stringify(transformPayload(target, payload).payload) : '';
 
-  const r = spawnSync(def.argv[0], def.argv.slice(1), {
+  // reinject resolves router files next to ITSELF by default (repo-root —
+  // right for the framework's own use). Installed under ~/.tna that default
+  // finds nothing, and even in-repo it would inject the FRAMEWORK's laws into
+  // the adopter's session. Explicit path arguments win, so hand it the
+  // PROJECT's router files — the floor must be the adopter's own rules.
+  let argv = def.argv;
+  if (def.routerArgs) {
+    const routers = ['WORKFLOW.md', 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md']
+      .map((f) => join(PROJECT, f)).filter((p) => existsSync(p));
+    argv = routers.length ? [...def.argv, ...routers] : def.argv;
+  }
+
+  const r = spawnSync(argv[0], argv.slice(1), {
     input, cwd: PROJECT, env: process.env, encoding: 'utf8',
     timeout: CHILD_TIMEOUT_MS, shell: false, windowsHide: true,
   });

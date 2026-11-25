@@ -63,17 +63,39 @@ const run = (target, payload, { cwd, env = {} }) => spawnSync(process.execPath, 
     tool_response: { success: true, output: '2 passed', error: null },
   }).payload.tool_response;
   check('PostToolUse output -> stdout', tr.stdout === '2 passed');
-  check('PostToolUse success -> exitCode 0', tr.exitCode === 0);
+  // roast r1 F8: `success` is invocation success, not the command's exit code;
+  // a fabricated 0 turns every green claim into forged evidence.
+  check('PostToolUse success never fabricates an exit code', tr.exitCode === undefined);
   const fail = transformPayload('gate-hook', {
     hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'false' },
     tool_response: { success: false, output: '', error: 'exit 1' },
   }).payload.tool_response;
-  check('PostToolUse failure -> exitCode 1, error kept', fail.exitCode === 1 && fail.error === 'exit 1');
+  check('PostToolUse failure surfaces error for the gate (records red, never green)',
+    fail.error === 'exit 1' && fail.metadata?.error === 'exit 1' && fail.exitCode !== 0);
 }
 
 {
   const p = transformPayload('impeccable', { hook_event_name: 'PostToolUse', tool_name: 'edit' }).payload;
   check('impeccable gets Claude tool casing', p.tool_name === 'Edit');
+}
+
+{
+  // The mapping that makes the devin veto TWO-SIDED: the gate's evidence
+  // recorder keys on SHELL_TOOLS ('bash', ...), and 'exec' is not in it — so
+  // a test run through devin's exec recorded nothing and the veto could only
+  // ever deny (tna-gate observeAfter, measured: the adapter had a CLAUDE_TOOL
+  // map but only the 'impeccable' target applied it). gate-hook payloads get
+  // the gate's lowercase names; the native name survives in harness_tool.
+  const p = transformPayload('gate-hook', {
+    hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'npm test' },
+  }).payload;
+  check('gate-hook: exec maps to bash so the test run records evidence', p.tool_name === 'bash');
+  check('gate-hook: native name kept in harness_tool', p.harness_tool === 'exec');
+  const w = transformPayload('gate-hook', { tool_name: 'write' }).payload;
+  check('gate-hook: write stays write (ledger guard reachable)', w.tool_name === 'write');
+  const un = transformPayload('gate-hook', { tool_name: 'mystery_tool' }).payload;
+  check('gate-hook: unmapped names pass through untouched',
+    un.tool_name === 'mystery_tool' && un.harness_tool === undefined);
 }
 
 {
@@ -161,6 +183,32 @@ let s = ''; process.stdin.on('data', (d) => (s += d)).on('end', () => {
   check('e2e: evidence arm denies a commit without fresh evidence (no payload.cwd)',
     blocked.status === 0 && blocked.stdout.includes('"decision":"block"') && blocked.stdout.includes('fresh test evidence'),
     `status=${blocked.status} out=${blocked.stdout.slice(0, 200)}`);
+
+  // The allow side (two-sided): a passing test run through exec/PostToolUse
+  // must record evidence, or the veto can only ever deny — a permanent block
+  // is indistinguishable from a broken install. roast r1 F8: a `success`
+  // boolean is not an exit code — it must NOT open the gate; a real exit
+  // signal in the response does.
+  run('gate-hook', {
+    hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'npm test' },
+    tool_response: { success: true, output: '3 passed' },
+  }, { cwd: project });
+  const stillDenied = run('gate-hook', {
+    hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' },
+  }, { cwd: project });
+  check('e2e: success-only tool_response is unknown exit — insufficient for allow (F8)',
+    stillDenied.status === 0 && stillDenied.stdout.includes('"decision":"block"'),
+    `status=${stillDenied.status} out=${stillDenied.stdout.slice(0, 200)}`);
+  run('gate-hook', {
+    hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'npm test' },
+    tool_response: { exitCode: 0, output: '3 passed' },
+  }, { cwd: project });
+  const allowed = run('gate-hook', {
+    hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' },
+  }, { cwd: project });
+  check('e2e: a recorded test pass with a real exit signal lets the same commit through (two-sided)',
+    allowed.status === 0 && !allowed.stdout.includes('"decision":"block"'),
+    `status=${allowed.status} out=${allowed.stdout.slice(0, 200)}`);
 
   const re = run('reinject', { hook_event_name: 'SessionStart' }, { cwd: project });
   let ctx = null;

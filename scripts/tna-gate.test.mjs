@@ -17,7 +17,7 @@
 import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { decideBefore, observeAfter, readState, logVeto } from './tna-gate.mjs';
+import { decideBefore, observeAfter, observeAfterWith, readState, logVeto } from './tna-gate.mjs';
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -110,6 +110,59 @@ const freshDir = () => mkdtempSync(join(tmpdir(), 'tna-gate-'));
   const touched = observeAfter(dir, { tool: 'exec_command', sessionID: 's', callID: 'c', args: { command: 'git status' } }, { title: '', output: '', metadata: {} });
   check('G4 a non-test command via exec_command records nothing (no state touched)',
     touched === null && !existsSync(join(dir, '.trust', 'tna-gate-state.json')), String(touched));
+}
+// ---- H. Cross-project evidence binding (roast r1 F7) ----
+// The recorder classified only the final chain segment, so `cd elsewhere &&
+// npm test` wrote fresh evidence into the victim repo's .trust — a run that
+// never touched the repo certified its commits. Evidence binds to the
+// directory the command actually ran in.
+{
+  const dir = freshDir();
+  const elsewhere = freshDir();
+  observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: `cd ${elsewhere} && npm test` } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H1 cd elsewhere && npm test does NOT authorize the victim repo',
+    readState(dir).testPassFresh !== true
+    && decideBefore({ dir, tool: 'bash', args: { command: 'git commit -m x' } }).allow === false,
+    `state=${JSON.stringify(readState(dir))} verdict=${JSON.stringify(decideBefore({ dir, tool: 'bash', args: { command: 'git commit -m x' } }))}`);
+  check('H2 the evidence binds to the directory the test actually ran in',
+    readState(elsewhere).testPassFresh === true
+    && decideBefore({ dir: elsewhere, tool: 'bash', args: { command: 'git commit -m x' } }).allow === true,
+    `state=${JSON.stringify(readState(elsewhere))}`);
+}
+{
+  const dir = freshDir();
+  observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: `cd ${dir} && node scripts/x.test.mjs` } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H3 cd <same dir> && node x.test.mjs still certifies the dir it ran in',
+    readState(dir).testPassFresh === true, JSON.stringify(readState(dir)));
+}
+{
+  // Residual laundering shapes: an impossible cd (target cannot exist, so the
+  // && chain could never have run the test) and unresolvable dests all certify
+  // NOTHING anywhere — a claimed pass must not land in the victim cwd.
+  const dir = freshDir();
+  const ghost = join(dir, 'no-such-subdir-xyz');
+  const impossible = observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: `cd ${ghost} && npm test` } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H4 cd <nonexistent> && npm test records evidence NOWHERE',
+    impossible === null && readState(dir).testPassFresh !== true && !existsSync(ghost),
+    `ret=${JSON.stringify(impossible)} state=${JSON.stringify(readState(dir))}`);
+  const back = observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: 'cd - && npm test' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H5 cd - && npm test records evidence NOWHERE (oldpwd unresolvable)',
+    back === null && readState(dir).testPassFresh !== true,
+    `ret=${JSON.stringify(back)} state=${JSON.stringify(readState(dir))}`);
+  const variable = observeAfter(dir, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: 'cd $SOMEWHERE && npm test' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H6 cd $VAR && npm test records evidence NOWHERE (variable dest)',
+    variable === null && readState(dir).testPassFresh !== true,
+    `ret=${JSON.stringify(variable)} state=${JSON.stringify(readState(dir))}`);
+}
+{
+  // The store-bound recorder (opencode) cannot redirect evidence to another
+  // tree — the store is bound — so a dir-changing chain must record NOTHING.
+  const writes = [];
+  const store = { writeState: async (s) => { writes.push(s); } };
+  const r = await observeAfterWith(store, { tool: 'bash', command: 'cd elsewhere && npm test', pass: true });
+  check('H7 a cd-chained command records NOTHING through the store-bound path',
+    r === null && writes.length === 0,
+    `ret=${JSON.stringify(r)} writes=${writes.length}`);
 }
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

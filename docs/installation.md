@@ -378,10 +378,11 @@ should answer `YES`, which proves the extension loaded.
 
 ### The automated path — one command, every layer
 
-The per-harness sections below are the manual equivalent. On any of the four
-harnesses with a mechanical surface (opencode, omp, pi, dsh) the onboarding CLI
-now places **every** adapter the harness needs and, for dsh, registers it in
-every profile:
+The per-harness sections below are the manual equivalent. On any of the
+harnesses with a mechanical surface (opencode, omp, pi, dsh, **devin,
+antigravity, gemini**) the onboarding CLI now places **every** adapter the
+harness needs, wires the harness's own hook config (merging — existing
+entries are never clobbered), and, for dsh, registers it in every profile:
 
 ```bash
 node <trust-no-agent>/scripts/onboarding.mjs
@@ -393,12 +394,28 @@ The receipt prints a `Layers:` line naming what actually landed, because
 "hooks=consented" alone used to hide a one-of-four install. Verify with
 `node scripts/onboarding-layers.test.mjs` (install contract, per harness) and
 `node scripts/doctor.mjs`. Undo is exact: `node scripts/onboarding.mjs --undo`
-removes only the adapters it copied and strips the dsh patch rows it added.
+removes only the adapters it copied, strips the dsh patch rows it added, and
+removes the config entries it wrote (foreign entries survive).
+
+**The user-level harnesses (devin, antigravity, gemini).** Their adapters
+spawn the gate runtime from `../../plugin/scripts/` relative to themselves,
+so the CLI installs a runtime tree at `~/.tna/` that preserves that layout —
+`~/.tna/veto-hooks/<harness>/hook.mjs`, `~/.tna/plugin/scripts/<gate-hook +
+closure>`, `~/.tna/scripts/reinject.mjs` — then merges hook entries into the
+harness's own config: Devin's `config.json` (`hooks` key, `reinject` +
+`gate-hook` targets), agy's `~/.gemini/config/hooks.json` (`tna-veto` group),
+gemini's `~/.gemini/settings.json` (`hooks.BeforeTool/AfterTool`). All three
+are **user-level on purpose**: a project-committed hooks file would point at
+`~/.tna` on a teammate's machine where the adapter may not exist — agy reads
+a missing hook as a deny (fail-closed), so a committed config can freeze a
+teammate's tools.
 
 **Skills are installed by the same command.** Consenting to the `floor`
 component copies all thirteen skills into the directory the detected harness
-actually reads (`.agents/skills/` for opencode/omp/pi, `~/.dsh/skills/` for
-dsh) — a pre-existing skill is never overwritten. Before 2026-10-25 the CLI
+actually reads (`.agents/skills/` for opencode/omp/pi/devin/antigravity/
+gemini, `~/.dsh/skills/` for dsh) — a pre-existing skill is never overwritten.
+For claude/codex the CLI says so instead of copying nothing silently: their
+skills ship inside the plugin payload. Before 2026-10-25 the CLI
 copied zero skills, so "one command installs TNA" shipped the *quoting* of the
 MANDATORY skills and not the skills themselves.
 
@@ -420,11 +437,13 @@ content hash of every adapter in `.trust/onboarding.json`. Without
 **named** in the output — "consented" never reads as "current" again.
 
 **Checking what is installed — doctor C10.** `node scripts/doctor.mjs` now
-compares every adapter installed on this machine (pi, omp, and every dsh
-profile) against the shipped copy and warns with both hashes plus the repair
-command. It scans every harness family on disk, not just the project's own:
-running doctor inside an opencode repo used to print "not applicable" while
-stale pi/omp adapters sat on the same machine.
+compares every adapter installed on this machine (pi, omp, every dsh profile,
+the three user-level adapters, and the shared `~/.tna` gate runtime) against
+the shipped copy and warns with both hashes plus the repair command. A copied
+adapter whose harness config never references it reports **unregistered** —
+a file on disk is not enforcement. It scans every harness family on disk, not
+just the project's own: running doctor inside an opencode repo used to print
+"not applicable" while stale pi/omp adapters sat on the same machine.
 
 ### DeepSeek Harness (dsh)
 ```bash
@@ -491,10 +510,12 @@ cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/   # or user
 # Skills:
 cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/     # user
 cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
-# Veto adapter (veto level, doc-first — live check open on free-tier):
-#   .gemini/settings.json "hooks":
+# Veto adapter (veto level, doc-first — live check open on free-tier).
+# The onboarding CLI installs it to ~/.tna and merges hooks into
+# ~/.gemini/settings.json — the manual equivalent:
+#   "hooks":
 #     "BeforeTool": [{ "hooks": [{ "type": "command",
-#       "command": "node <trust-no-agent>/veto-hooks/gemini/hook.mjs", "timeout": 20000 }] }]
+#       "command": "node ~/.tna/veto-hooks/gemini/hook.mjs", "timeout": 20000 }] }]
 #     "AfterTool":  [{ "hooks": [ ...same command... ] }]
 ```
 
@@ -503,15 +524,37 @@ cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
 # AGENTS.md: project context file. Skills:
 cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/     # user
 cp -r <trust-no-agent>/skills/*/* .agents/skills/       # workspace
-# Veto adapter (veto level, PROVEN LIVE two-sided on agy 1.5.14):
-#   .agents/hooks.json (project) or ~/.gemini/config/hooks.json (global):
-#     "tna-veto": {
-#       "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command",
-#         "command": "node <trust-no-agent>/veto-hooks/antigravity/hook.mjs", "timeout": 20 }] }],
-#       "PostToolUse": [{ "matcher": "*", "hooks": [ ...same command... ] }]
-#     }
+# Veto adapter (veto level, PROVEN LIVE two-sided on agy 1.5.14).
+# The onboarding CLI installs it to ~/.tna and merges the "tna-veto" group
+# into ~/.gemini/config/hooks.json — the manual equivalent:
+#   "tna-veto": {
+#     "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command",
+#       "command": "node ~/.tna/veto-hooks/antigravity/hook.mjs", "timeout": 20 }] }],
+#     "PostToolUse": [{ "matcher": "*", "hooks": [ ...same command... ] }]
+#   }
+# (project-level alternative: <project>/.agents/hooks.json, same shape)
 # CAUTION: agy reads missing/garbled/crashed hook output as a DENY — only wire
 # the adapter (it prints an explicit allow), never a bare script.
+```
+
+### Devin CLI
+```bash
+# Router/skills: AGENTS.md + .agents/skills are read natively.
+# The onboarding CLI installs the adapter + gate runtime under ~/.tna and
+# merges hook entries into Devin's user config (<APPDATA>/devin/config.json
+# on Windows, ~/.config/devin/config.json elsewhere) — manual equivalent:
+#   "hooks": {
+#     "SessionStart":      [{ "hooks": [{ "type": "command",
+#       "command": "node ~/.tna/veto-hooks/devin/hook.mjs reinject", "timeout": 15 }] }],
+#     "UserPromptSubmit":  [{ "hooks": [ ...same command, target gate-hook... ] }],
+#     "PreToolUse":        [{ "matcher": "", "hooks": [ ...gate-hook... ] }],
+#     "PostToolUse":       [{ "matcher": "", "hooks": [ ...gate-hook... ] }]
+#   }
+# Layers wired: floor (SessionStart → reinject emits additionalContext),
+# mandatory-gate (UserPromptSubmit), veto + evidence recorder (Pre/PostToolUse).
+# No done-gate on this harness — the completion claim stays prose + ledger.
+# PROVEN LIVE two-sided 2026-11-24; the exec→bash tool mapping that makes the
+# allow side reachable is pinned by scripts/devin-hook.test.mjs.
 ```
 
 ### Zed
@@ -533,7 +576,12 @@ Routing + skills install per the sections above; the *veto* wires separately per
 - **Codex - veto:** `plugin/.codex-plugin/plugin.json` declares `"hooks": [ "./hooks/codex.hooks.json" ]` (the Codex-native manifest; a `hooks` key on the portable root manifest shadows it and nothing loads), which wires `PreToolUse` to `scripts/gate-hook.mjs`; the runner forwards pre-tool events in gate-hook stdin shape (`tool_name`/`tool_input`/`cwd`). **Proven live 2026-10-24 on codex 0.163.0**: a real `codex exec` commit was blocked with the TNA reason, no commit landed, `.trust/tna-gate-log.jsonl` recorded it. Verify: `node scripts/codex-plugin.test.mjs` exits 0.
 - **OMO — audit-only:** `load_skills` delegation load + ledger audit; no tool veto known. Verify: `node scripts/ledger-audit.test.mjs` exits 0.
 - **Current API harness (this session) — audit-only:** no prompt-hook or tool-veto surface observed (subagent has no skill-loading parameter; no tool-gate host ran the veto — veto log empty 2026-10-12). Framework runs as prose + ledger audit here; do not rely on veto. A future adapter needs a hook/tool-gate surface first (ticket 07 candidate, not manual discipline). Verify: `node scripts/doctor.mjs` exits 0 with the audit-only row present.
-- **omp / Devin — doc-first WARN:** adapter documented only; no live veto proof exists, so any install here reports WARN (never hostable-by-assertion) until a run shows the denial firing. Verify: `node scripts/eval.mjs` exits 0 (check 36 pins the doc-first marking).
+- **omp — veto:** `~/.omp/agent/hooks/pre/` autoloads `tna-veto.ts` + `tna-discipline.ts` (floor + mandatory-gate + done-gate) and `extensions/tna-receipts-gate.ts` (stop-gate). **Proven live 2026-10-25** (deny without evidence, allow after a recorded pass). Verify: `node scripts/onboarding-layers.test.mjs` exits 0.
+- **pi — veto:** `<project>/.pi/extensions/` autoloads `tna-veto.ts` + `tna-discipline.ts` (all three discipline layers in one extension). **Proven live 2026-10-25.** Verify: `node scripts/onboarding-layers.test.mjs` exits 0.
+- **dsh — veto:** per-profile plugins `tna-veto.mjs` + `tna-discipline.mjs` registered in `cordis.patch.yml` (every profile — a veto wired into one profile does not protect a session booted on another). **Proven live 2026-10-25.** Verify: `node scripts/dsh-veto.test.mjs` exits 0.
+- **Devin — veto:** user-level adapter `~/.tna/veto-hooks/devin/hook.mjs` wired in Devin's `config.json` `hooks` — `reinject` (SessionStart floor), `gate-hook` (UserPromptSubmit mandatory-gate + Pre/PostToolUse veto & evidence). **Proven live two-sided 2026-11-24** — including the `exec`→`bash` mapping without which a test run never recorded evidence and the veto could only ever deny. Verify: `node scripts/devin-hook.test.mjs` exits 0.
+- **Antigravity (agy) — veto:** `tna-veto` group in `~/.gemini/config/hooks.json` (or project `.agents/hooks.json`) on Pre/PostToolUse; the adapter prints an explicit decision because agy fails CLOSED on empty output. **Proven live two-sided on agy 1.5.14, 2026-11-24.** Verify: `node scripts/antigravity-hook.test.mjs` exits 0.
+- **Gemini CLI — veto (doc-first):** `hooks.BeforeTool/AfterTool` in `~/.gemini/settings.json`; the adapter contract is written and tested but a live run on the real CLI is still open (free-tier). Reports as doc-first until a live two-sided run lands. Verify: `node scripts/gemini-hook.test.mjs` exits 0.
 
 ---
 

@@ -12,7 +12,12 @@
  */
 import { checkStarve, checkStale } from './corrective-tier.mjs';
 import { ledgerVerdict } from './ledger-audit.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict, extractHookTargets, hookTargetVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, gateFindingVerdict, extractHookTargets, hookTargetVerdict, floorVerdict, resolveFloor, adapterVerdict, overlayVerdict, grandfatherVerdict, rollupLedgerFindings } from './doctor-checks.mjs';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 
 // Pin the zone. A ledger heading is a CALENDAR DAY and `today` is an instant;
 // leaving the zone ambient makes every starvation fixture host-dependent, and
@@ -448,9 +453,6 @@ const ledgerWithDate = (dateStr) =>
 // actually execute the gate's test file, not just check file presence. Run the
 // same derivation doctor.mjs uses against the real files in this checkout.
 {
-  const { existsSync } = await import('node:fs');
-  const { join, dirname } = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
   const gateTest = join(here, 'mandatory-gate.test.mjs');
   check('K7 the gate self-test file exists beside doctor.test.mjs and doctor derives its path',
@@ -462,10 +464,7 @@ const ledgerWithDate = (dateStr) =>
 // CALL meterVerdict (check-30 doctrine: match the call, not the import), or
 // the meter module ships while doctor never prints it.
 {
-  const { readFileSync } = await import('node:fs');
-  const { join: joinK8, dirname: dirnameK8 } = await import('node:path');
-  const { fileURLToPath: fptK8 } = await import('node:url');
-  const src = readFileSync(joinK8(dirnameK8(fptK8(import.meta.url)), 'doctor.mjs'), 'utf8');
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs'), 'utf8');
   check('K8 doctor.mjs CALLS meterVerdict (a computed-but-unread meter is a dead component)',
     /meterVerdict\s*\(/.test(src), 'no meterVerdict( call in doctor.mjs');
 }
@@ -511,12 +510,9 @@ const ledgerWithDate = (dateStr) =>
 // strict checkout contract to a distribution artifact and produced two false
 // FAILs. Fixture: the repo's own plugin/ payload — a real one, not a mock.
 {
-  const { spawnSync } = await import('node:child_process');
-  const { join: joinK11, dirname: dirnameK11 } = await import('node:path');
-  const { fileURLToPath: fptK11 } = await import('node:url');
-  const hereK11 = dirnameK11(fptK11(import.meta.url));
-  const doctorK11 = joinK11(hereK11, 'doctor.mjs');
-  const payloadK11 = joinK11(hereK11, '..', 'plugin');
+  const hereK11 = dirname(fileURLToPath(import.meta.url));
+  const doctorK11 = join(hereK11, 'doctor.mjs');
+  const payloadK11 = join(hereK11, '..', 'plugin');
   const r = spawnSync(process.execPath, [doctorK11], { cwd: payloadK11, encoding: 'utf8', timeout: 120000 });
   const out = String(r.stdout ?? '');
   const failLines = out.split('\n').filter((l) => l.startsWith('FAIL'));
@@ -531,10 +527,7 @@ const ledgerWithDate = (dateStr) =>
 // its RED was proven by injecting fail('x') into the region (suite FAILs),
 // then reverting (suite PASSes).
 {
-  const { readFileSync: readM } = await import('node:fs');
-  const { join: joinM, dirname: dirnameM } = await import('node:path');
-  const { fileURLToPath: fptM } = await import('node:url');
-  const srcM = readM(joinM(dirnameM(fptM(import.meta.url)), 'doctor.mjs'), 'utf8');
+  const srcM = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs'), 'utf8');
   // The meter region ends at the NEXT section marker, not at the summary —
   // slicing to the summary worked while C10 was the last section; the
   // overlay section added after it belongs outside the meter's region.
@@ -548,7 +541,6 @@ const ledgerWithDate = (dateStr) =>
 
 // ---- O. Overlay registry verdict (decision-composition 04; spec AC9/AC10/AC16) ----
 {
-  const { overlayVerdict } = await import('./doctor-checks.mjs');
   const absent = overlayVerdict({ tierPresent: false });
   check('O1 an absent overlay tier is optional (pass, named)',
     absent.level === 'pass' && /optional/.test(absent.lines.join(' ')), JSON.stringify(absent));
@@ -569,10 +561,7 @@ const ledgerWithDate = (dateStr) =>
   // Wiring (K8 precedent): doctor.mjs must CALL the overlay seams, or the
   // verdict ships while doctor never prints it — a computed-but-unread
   // verdict is a dead component.
-  const { readFileSync } = await import('node:fs');
-  const { join: joinO2, dirname: dO } = await import('node:path');
-  const { fileURLToPath: fO } = await import('node:url');
-  const src = readFileSync(joinO2(dO(fO(import.meta.url)), 'doctor.mjs'), 'utf8');
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs'), 'utf8');
   check('O6 doctor.mjs CALLS the shared overlay seam (computed-but-unread = dead)',
     /scanSessionOverlays\s*\(/.test(src) && /overlayVerdict\s*\(/.test(src), 'no scanSessionOverlays(/overlayVerdict( call in doctor.mjs');
 }
@@ -583,23 +572,18 @@ const ledgerWithDate = (dateStr) =>
 // in temp cwds; the doctor is spawned with cwd = the fixture dir — no
 // scripts/ there, so the gate self-tests do not run and the spawn is fast.
 {
-  const { spawnSync } = await import('node:child_process');
-  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-  const { join: jP, dirname: dP } = await import('node:path');
-  const { fileURLToPath: fP } = await import('node:url');
-  const DOCTOR = jP(dP(fP(import.meta.url)), 'doctor.mjs');
+  const DOCTOR = join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs');
   const runDoctor = (dir) => String(spawnSync(process.execPath, [DOCTOR], { cwd: dir, encoding: 'utf8', timeout: 60000 }).stdout ?? '');
   const put = (dir, name, body) => {
-    const d = jP(dir, '.trust', 'skills-overlay', name);
+    const d = join(dir, '.trust', 'skills-overlay', name);
     mkdirSync(d, { recursive: true });
-    if (body !== null) writeFileSync(jP(d, 'SKILL.md'), body);
+    if (body !== null) writeFileSync(join(d, 'SKILL.md'), body);
     return d;
   };
 
   // P1: every defect kind surfaces in the live doctor output, named.
   {
-    const dir = mkdtempSync(jP(tmpdir(), 'doctor-overlay-'));
+    const dir = mkdtempSync(join(tmpdir(), 'doctor-overlay-'));
     put(dir, 'missing-file', null);
     put(dir, 'bad-role', '---\nname: bad-role\nextends: root-cause/Phase-1\nrole: skip\n---\nbody');
     put(dir, 'malformed', 'no frontmatter at all');
@@ -614,11 +598,11 @@ const ledgerWithDate = (dateStr) =>
 
   // P2: trust computed at read time — the fix changes the verdict (AC16).
   {
-    const dir = mkdtempSync(jP(tmpdir(), 'doctor-nocache-'));
+    const dir = mkdtempSync(join(tmpdir(), 'doctor-nocache-'));
     const d = put(dir, 'mutant', '---\nname: mutant\nextends: root-cause/Phase-99\nrole: insert-after\n---\nbody');
     const before = runDoctor(dir);
     check('P2a the first run reports the defect', /mutant.*anchor/is.test(before), before.slice(0, 200));
-    writeFileSync(jP(d, 'SKILL.md'), '---\nname: mutant\nextends: root-cause/Phase-1\nrole: insert-after\n---\nbody');
+    writeFileSync(join(d, 'SKILL.md'), '---\nname: mutant\nextends: root-cause/Phase-1\nrole: insert-after\n---\nbody');
     const after = runDoctor(dir);
     check('P2b re-running after the fix shows no defect (computed at read time, no cache)',
       !/mutant.*anchor/is.test(after) && /1 overlay\(s\) validated/.test(after),
@@ -633,37 +617,31 @@ const ledgerWithDate = (dateStr) =>
 // and removing a stamp around the run — .trust/onboarding.json is the only
 // file touched.
 {
-  const { grandfatherVerdict, overlayVerdict: ov } = await import('./doctor-checks.mjs');
   check('Q1 a working-install signal with no stamp warns, naming the CLI',
     grandfatherVerdict({ hooksWired: true }).level === 'warn' && /onboarding\.mjs/.test(grandfatherVerdict({ hooksWired: true }).message),
     JSON.stringify(grandfatherVerdict({ hooksWired: true })));
   check('Q2 a fresh tree (no signal, no stamp) is silent',
     grandfatherVerdict({}).level === 'pass', JSON.stringify(grandfatherVerdict({})));
-  const { spawnSync } = await import('node:child_process');
-  const { join: jQ, dirname: dQ } = await import('node:path');
-  const { fileURLToPath: fQ } = await import('node:url');
-  const { mkdirSync: mkQ, writeFileSync: wfQ, rmSync: rmQ, existsSync: exQ } = await import('node:fs');
-  const DOCTOR = jQ(dQ(fQ(import.meta.url)), 'doctor.mjs');
-  const REPO = jQ(dQ(fQ(import.meta.url)), '..');
-  const STAMP = jQ(REPO, '.trust', 'onboarding.json');
+  const DOCTOR = join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs');
+  const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const STAMP = join(REPO, '.trust', 'onboarding.json');
   const runRepoDoctor = () => String(spawnSync(process.execPath, [DOCTOR], { cwd: REPO, encoding: 'utf8', timeout: 120000 }).stdout ?? '');
-  const hadStamp = exQ(STAMP);
-  const { readFileSync: rfQ } = await import('node:fs');
-  const saved = hadStamp ? rfQ(STAMP, 'utf8') : null;
+  const hadStamp = existsSync(STAMP);
+  const saved = hadStamp ? readFileSync(STAMP, 'utf8') : null;
   try {
-    if (hadStamp) rmQ(STAMP, { force: true });
+    if (hadStamp) rmSync(STAMP, { force: true });
     const before = runRepoDoctor();
     check('Q3 the live doctor warns (not fails) on the working repo without a stamp',
       /no consent stamp/.test(before) && /PASS|OK:/.test(before), before.split('\n').filter((l) => /consent/.test(l)).join(' | ').slice(0, 200));
-    mkQ(jQ(REPO, '.trust'), { recursive: true });
-    wfQ(STAMP, JSON.stringify({ schema: 1, consentedAt: '2026-10-14T00:00:00.000Z', routerVersion: '0.1.28', harness: 'test', components: { floor: true, hooks: true, overlays: true, evidenceGate: false }, did: {} }));
+    mkdirSync(join(REPO, '.trust'), { recursive: true });
+    writeFileSync(STAMP, JSON.stringify({ schema: 1, consentedAt: '2026-10-14T00:00:00.000Z', routerVersion: '0.1.28', harness: 'test', components: { floor: true, hooks: true, overlays: true, evidenceGate: false }, did: {} }));
     const after = runRepoDoctor();
     check('Q4 with a stamp, the grandfather warning is gone and the decline is named loudly',
       !/no consent stamp/.test(after) && /declined at onboarding.*evidenceGate|evidenceGate.*declined/s.test(after),
       after.split('\n').filter((l) => /consent|declined/.test(l)).join(' | ').slice(0, 200));
   } finally {
-    if (saved !== null) wfQ(STAMP, saved);
-    else if (exQ(STAMP)) rmQ(STAMP, { force: true });
+    if (saved !== null) writeFileSync(STAMP, saved);
+    else if (existsSync(STAMP)) rmSync(STAMP, { force: true });
   }
 }
 // ---- R. Ledger-audit display rollup + dev-mode badge (A+C, Master 2026-10-14) ----
@@ -674,15 +652,11 @@ const ledgerWithDate = (dateStr) =>
 // warn-only/exit-0 fact), and in repo mode (the framework's own checkout) a
 // single dev-mode badge instead of a wall.
 {
-  const { readFileSync } = await import('node:fs');
-  const { join: jR, dirname: dR } = await import('node:path');
-  const { fileURLToPath: fR } = await import('node:url');
-  const src = readFileSync(jR(dR(fR(import.meta.url)), 'doctor.mjs'), 'utf8');
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'doctor.mjs'), 'utf8');
   check('R1 the doctor carries a single-line rollup (total + per-kind + warn-only) for bulk findings',
     /rollupLedgerFindings/.test(src), 'no rollupLedgerFindings in doctor.mjs');
   check('R2 the doctor carries the dev-mode badge (repo mode collapses the wall into one badge line)',
     /dev-mode ledger/.test(src), 'no dev-mode badge in doctor.mjs');
-  const { rollupLedgerFindings } = await import('./doctor-checks.mjs');
   const fixtures = [
     { kind: 'next-gap', message: 'x' }, { kind: 'next-gap', message: 'y' }, { kind: 'next-gap', message: 'z' },
     { kind: 'gated-loaded-gap', message: 'a' }, { kind: 'gated-loaded-gap', message: 'b' },
@@ -707,20 +681,15 @@ const ledgerWithDate = (dateStr) =>
 // (source-level, so the regression cannot come back through a tidy-looking
 // import list).
 {
-  const { spawnSync } = await import('node:child_process');
-  const { cpSync, rmSync, mkdtempSync, readFileSync: readK12 } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-  const { join: joinK12, dirname: dirnameK12 } = await import('node:path');
-  const { fileURLToPath: fptK12 } = await import('node:url');
-  const hereK12 = dirnameK12(fptK12(import.meta.url));
-  const repoK12 = joinK12(hereK12, '..');
-  const tmp = mkdtempSync(joinK12(tmpdir(), 'doctor-broken-hook-'));
-  const scriptsCopy = joinK12(tmp, 'scripts');
-  cpSync(joinK12(repoK12, 'scripts'), scriptsCopy, { recursive: true, filter: (p) => !p.includes('tickets-fixture') });
+  const hereK12 = dirname(fileURLToPath(import.meta.url));
+  const repoK12 = join(hereK12, '..');
+  const tmp = mkdtempSync(join(tmpdir(), 'doctor-broken-hook-'));
+  const scriptsCopy = join(tmp, 'scripts');
+  cpSync(join(repoK12, 'scripts'), scriptsCopy, { recursive: true, filter: (p) => !p.includes('tickets-fixture') });
   // Remove the hook's own dependency, not the hook: the copy is a REAL partial
   // install (a payload missing one referenced file), the failure under test.
-  rmSync(joinK12(scriptsCopy, 'reinject.mjs'));
-  const r = spawnSync(process.execPath, [joinK12(scriptsCopy, 'doctor.mjs')], {
+  rmSync(join(scriptsCopy, 'reinject.mjs'));
+  const r = spawnSync(process.execPath, [join(scriptsCopy, 'doctor.mjs')], {
     cwd: tmp, encoding: 'utf8', timeout: 180000,
   });
   const out = String(r.stdout ?? '') + String(r.stderr ?? '');
@@ -731,7 +700,7 @@ const ledgerWithDate = (dateStr) =>
   check('K12b the unloadable hook is named as a failure',
     lines.some((l) => l.startsWith('FAIL') && /gate hook/i.test(l)), out.slice(0, 600));
   rmSync(tmp, { recursive: true, force: true });
-  const src = readK12(joinK12(repoK12, 'scripts', 'doctor.mjs'), 'utf8');
+  const src = readFileSync(join(repoK12, 'scripts', 'doctor.mjs'), 'utf8');
   check('K12c doctor never statically imports the hook module (a load crash would kill the report)',
     !/^import[^\n]*from ['"]\.\/gate-hook\.mjs['"]/m.test(src),
     (src.match(/^import[^\n]*gate-hook[^\n]*$/m) || [''])[0]);
@@ -769,22 +738,264 @@ const ledgerWithDate = (dateStr) =>
 {
   // End-to-end: a fixture project whose settings.local.json points at a file
   // that does not exist must come back FAIL from the doctor itself.
-  const { mkdtempSync: mkK13, mkdirSync: mdK13, writeFileSync: wfK13, rmSync: rmK13 } = await import('node:fs');
-  const { spawnSync } = await import('node:child_process');
-  const { tmpdir: tdK13 } = await import('node:os');
-  const { join: joinK13, dirname: dnK13 } = await import('node:path');
-  const { fileURLToPath: fpK13 } = await import('node:url');
-  const hereK13 = dnK13(fpK13(import.meta.url));
-  const tmp = mkK13(joinK13(tdK13(), 'doctor-c13-'));
-  mdK13(joinK13(tmp, '.claude'), { recursive: true });
-  wfK13(joinK13(tmp, '.claude', 'settings.local.json'),
+  const hereK13 = dirname(fileURLToPath(import.meta.url));
+  const tmp = mkdtempSync(join(tmpdir(), 'doctor-c13-'));
+  mkdirSync(join(tmp, '.claude'), { recursive: true });
+  writeFileSync(join(tmp, '.claude', 'settings.local.json'),
     JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'node ${CLAUDE_PROJECT_DIR}/scripts/ghost.mjs' }] }] } }));
-  const r = spawnSync(process.execPath, [joinK13(hereK13, 'doctor.mjs')], { cwd: tmp, encoding: 'utf8', timeout: 180000 });
+  const r = spawnSync(process.execPath, [join(hereK13, 'doctor.mjs')], { cwd: tmp, encoding: 'utf8', timeout: 180000 });
   const out = String(r.stdout ?? '') + String(r.stderr ?? '');
   check('C13f doctor FAILs and names the dead gate target',
     /FAIL.*hook target.*scripts\/ghost\.mjs/s.test(out), out.split('\n').filter((l) => l.startsWith('FAIL')).join(' | ').slice(0, 400));
-  rmK13(tmp, { recursive: true, force: true });
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+// ---- C14. Discipline floor resolvable from the project's own router ----
+// A merged adoption keeps the project's router as the only router and
+// cherry-picks the framework's gates into it (installation.md §Verify step 5:
+// "the Iron Laws must be recitable from the project's own files"). A merge
+// that drops the MANDATORY section or the Iron Laws leaves every router FILE
+// C1 checks present while the floor injection emits a NOT FOUND half — a
+// silent hole no file-presence check can see. C14 resolves the floor from the
+// router text itself and fails when a stamp-consented floor cannot be read.
+{
+  const FLOOR_FULL = [
+    '## Iron Laws', '',
+    '- No acting until the user confirms shared understanding.',
+    '- No production code without a failing test first.',
+    '- No completion claims without fresh verification evidence.',
+    "- No expensive, irreversible, or shared-system action (commit, push, delete) without the user's explicit sign-off.",
+    '', '## MANDATORY discipline skills', '',
+    '- **`expect-fail`** — load before writing any test or behavior change.',
+    '- **`root-cause`** — load before proposing any fix.',
+    '- **`receipts`** — load before accepting any done claim.',
+  ].join('\n');
+
+  const both = await resolveFloor(FLOOR_FULL);
+  check('C14a resolveFloor finds both halves in a merged router text',
+    both.lawsFound && both.mandatoryFound, JSON.stringify(both));
+
+  const lawsOnly = await resolveFloor(FLOOR_FULL.split('## MANDATORY')[0]);
+  check('C14b resolveFloor flags a dropped MANDATORY section',
+    lawsOnly.lawsFound && !lawsOnly.mandatoryFound, JSON.stringify(lawsOnly));
+
+  const neither = await resolveFloor('# Project rules\n\n- do the thing\n');
+  check('C14c resolveFloor flags a router carrying no floor at all',
+    !neither.lawsFound && !neither.mandatoryFound, JSON.stringify(neither));
+
+  check('C14d consented floor + dropped section = FAIL (the merge hole this check exists for)',
+    floorVerdict({ mode: 'adopter', floorConsented: true, filesScanned: ['AGENTS.md'], lawsFound: true, mandatoryFound: false }).level === 'fail');
+
+  check('C14e no stamp + dropped section = WARN (cannot tell adoption from never-installed)',
+    floorVerdict({ mode: 'adopter', floorConsented: null, filesScanned: ['AGENTS.md'], lawsFound: true, mandatoryFound: false }).level === 'warn');
+
+  check('C14f declined floor = quiet PASS (a visible decision, surfaced by ON)',
+    floorVerdict({ mode: 'adopter', floorConsented: false, filesScanned: ['AGENTS.md'], lawsFound: false, mandatoryFound: false }).level === 'pass');
+
+  check('C14g repo mode + dropped half = FAIL (the framework router must carry its own floor)',
+    floorVerdict({ mode: 'repo', floorConsented: true, filesScanned: ['AGENTS.md'], lawsFound: false, mandatoryFound: true }).level === 'fail');
+
+  check('C14h resolvable floor = PASS',
+    floorVerdict({ mode: 'adopter', floorConsented: true, filesScanned: ['AGENTS.md', 'WORKFLOW.md'], lawsFound: true, mandatoryFound: true }).level === 'pass');
+
+  check('C14i consented floor + no router files at all = FAIL',
+    floorVerdict({ mode: 'adopter', floorConsented: true, filesScanned: [], lawsFound: false, mandatoryFound: false }).level === 'fail');
+
+  check('C14j no stamp + no router files = quiet PASS (C1 owns the missing-router report)',
+    floorVerdict({ mode: 'adopter', floorConsented: null, filesScanned: [], lawsFound: false, mandatoryFound: false }).level === 'pass');
+}
+{
+  // End-to-end: a fixture project that consented to the floor at onboarding
+  // but merged its router WITHOUT the MANDATORY section must come back FAIL
+  // from the doctor itself — the glue (file scan → stamp → verdict) is what
+  // this leg proves, not the truth table.
+  const hereK14 = dirname(fileURLToPath(import.meta.url));
+  const tmp = mkdtempSync(join(tmpdir(), 'doctor-c14-'));
+  mkdirSync(join(tmp, '.trust'), { recursive: true });
+  writeFileSync(join(tmp, 'AGENTS.md'), [
+    '# Our router', '',
+    '## Iron Laws', '',
+    '- No acting until the user confirms shared understanding.',
+    '- No production code without a failing test first.',
+    '- No completion claims without fresh verification evidence.',
+    "- No expensive, irreversible, or shared-system action (commit, push, delete) without the user's explicit sign-off.",
+  ].join('\n'));
+  writeFileSync(join(tmp, '.trust', 'onboarding.json'),
+    JSON.stringify({ schema: 1, components: { floor: true, hooks: false, overlays: false, evidenceGate: false } }));
+  const r = spawnSync(process.execPath, [join(hereK14, 'doctor.mjs')], { cwd: tmp, encoding: 'utf8', timeout: 180000 });
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '');
+  check('C14k doctor FAILs a consented-but-dropped floor and names the missing half',
+    /FAIL.*floor.*MANDATORY/i.test(out), out.split('\n').filter((l) => l.startsWith('FAIL')).join(' | ').slice(0, 400));
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+// ---- C15. C1 router check honours the merge path ----
+// The merge install keeps the adopter's own router filename (CLAUDE.md,
+// GEMINI.md, …) — the router follows the adopter's working style. C1 used to
+// FAIL `WORKFLOW.md missing` on exactly that correct install: a false-FAIL
+// indistinguishable from a broken one. In adopter mode any router file at the
+// project root passes; in repo mode both framework files are still required.
+{
+  const here = dirname(fileURLToPath(import.meta.url));
+  const run = (dir) => {
+    const r = spawnSync(process.execPath, [join(here, 'doctor.mjs')], { cwd: dir, encoding: 'utf8', timeout: 180000 });
+    return String(r.stdout ?? '') + String(r.stderr ?? '');
+  };
+
+  // Adopter, merged router under a foreign name: no AGENTS.md, no WORKFLOW.md
+  const t1 = mkdtempSync(join(tmpdir(), 'doctor-c15a-'));
+  mkdirSync(join(t1, '.trust'), { recursive: true });
+  writeFileSync(join(t1, 'CLAUDE.md'), '# Router\n\n## Iron Laws\n\n- one\n\n## MANDATORY discipline skills\n\n- **`expect-fail`**\n');
+  writeFileSync(join(t1, '.trust', 'onboarding.json'), JSON.stringify({ schema: 1, components: { floor: true, hooks: false } }));
+  const out1 = run(t1);
+  check('C15a merged CLAUDE.md router passes C1 (no false router FAIL)',
+    /PASS.*router/i.test(out1) && !/FAIL.*router|FAIL.*no router/i.test(out1),
+    out1.split('\n').filter((l) => /router/i.test(l)).join(' | ').slice(0, 400));
+  rmSync(t1, { recursive: true, force: true });
+
+  // Adopter with no router file at all still fails — absence is real
+  const t2 = mkdtempSync(join(tmpdir(), 'doctor-c15b-'));
+  const out2 = run(t2);
+  check('C15b no router file anywhere = C1 FAIL',
+    /FAIL.*router/i.test(out2),
+    out2.split('\n').filter((l) => l.startsWith('FAIL')).join(' | ').slice(0, 400));
+  rmSync(t2, { recursive: true, force: true });
+
+  // Repo mode keeps the strict two-file contract
+  const t3 = mkdtempSync(join(tmpdir(), 'doctor-c15c-'));
+  mkdirSync(join(t3, 'skills', 'engineering', 'breakpoint'), { recursive: true });
+  writeFileSync(join(t3, 'skills', 'engineering', 'breakpoint', 'SKILL.md'), 'x');
+  writeFileSync(join(t3, 'AGENTS.md'), '# Router\n\n## Iron Laws\n\n- one\n\n## MANDATORY discipline skills\n\n- **`expect-fail`**\n');
+  const out3 = run(t3);
+  check('C15c repo mode still FAILs a missing WORKFLOW.md',
+    /FAIL.*WORKFLOW\.md/i.test(out3),
+    out3.split('\n').filter((l) => l.startsWith('FAIL')).join(' | ').slice(0, 400));
+  rmSync(t3, { recursive: true, force: true });
+}
+
+// ---- T02. User-level adapter registration detail + semantic floor truth ----
+// First-install trust-layer ticket 02. A surviving veto/pre-tool entry must not
+// certify the evidence recorder, and doctor must surface the scanner's detail
+// rather than borrowing the dsh cordis.patch.yml explanation.
+{
+  const av = adapterVerdict({
+    harness: 'devin',
+    adapters: [{
+      path: 'C:/fixture/home/.tna/veto-hooks/devin/hook.mjs',
+      state: 'unregistered',
+      missingRegistrations: ['PostToolUse:gate-hook'],
+    }],
+  });
+  check('T02a adapter verdict names the missing evidence-recorder registration',
+    av.level === 'warn' && /PostToolUse:gate-hook/.test(av.message), av.message);
+  check('T02b user-level registration defects never use the dsh cordis explanation',
+    !/cordis\.patch\.yml/.test(av.message), av.message);
+}
+{
+  const placeholder = `# Router
+
+## Iron Laws
+
+\`\`\`
+placeholder text explaining that rules will be added later
+\`\`\`
+
+## MANDATORY discipline skills
+
+These important skills must be loaded when appropriate.
+`;
+  const floor = await resolveFloor(placeholder);
+  check('T02c resolveFloor rejects placeholder Iron Laws',
+    floor.lawsFound === false, JSON.stringify(floor));
+  check('T02d resolveFloor rejects a MANDATORY body missing the three skills',
+    floor.mandatoryFound === false, JSON.stringify(floor));
+}
+
+// ---- T05. Layered readiness in health output (first-install trust-layer AC11) ----
+// Doctor's final line is a readiness verdict, not a checksum of PASS rows. A
+// subprocess probe is adapter evidence only: it never proves the live host
+// consumed the hook. Missing runtime files, declined components, unsupported
+// surfaces, or absent live proof must therefore cap the verdict below full
+// readiness, with each required layer named.
+{
+  const hereT05 = dirname(fileURLToPath(import.meta.url));
+  const ONB_T05 = join(hereT05, 'onboarding.mjs');
+  const DOCTOR_T05 = join(hereT05, 'doctor.mjs');
+  const floorText = [
+    '# Fixture router', '',
+    '## Iron Laws', '',
+    '- No acting until the user confirms shared understanding.',
+    '- No production code without a failing test first.',
+    '- No completion claims without fresh verification evidence.',
+    "- No expensive, irreversible, or shared-system action (commit, push, delete) without the user's explicit sign-off.",
+    '', '## MANDATORY discipline skills', '',
+    '- **`expect-fail`** — load before writing any test or behavior change.',
+    '- **`root-cause`** — load before proposing any fix.',
+    '- **`receipts`** — load before accepting any done claim.',
+  ].join('\n');
+  const mkProject = (prefix) => {
+    const dir = mkdtempSync(join(tmpdir(), prefix));
+    mkdirSync(join(dir, '.devin'), { recursive: true });
+    writeFileSync(join(dir, 'AGENTS.md'), floorText);
+    writeFileSync(join(dir, 'WORKFLOW.md'), floorText);
+    const appData = join(dir, 'appdata');
+    mkdirSync(join(appData, 'devin'), { recursive: true });
+    writeFileSync(join(appData, 'devin', 'config.json'), '{}\n');
+    const env = { ...process.env, USERPROFILE: dir, HOME: dir, APPDATA: appData };
+    delete env.CLAUDE_PLUGIN_ROOT;
+    return { dir, env };
+  };
+  const install = (fx, components) => spawnSync(process.execPath, [ONB_T05, '--from-chat', JSON.stringify({ components, mapSkills: [] })], {
+    cwd: fx.dir, input: '', encoding: 'utf8', timeout: 60000, env: fx.env,
+  });
+  const doctor = (fx) => spawnSync(process.execPath, [DOCTOR_T05], {
+    cwd: fx.dir, encoding: 'utf8', timeout: 180000, env: fx.env,
+  });
+  const textOf = (r) => String(r.stdout ?? '') + String(r.stderr ?? '');
+  const everyLayerNamed = (text) => ['floor', 'mandatory-gate', 'veto', 'evidence-recorder', 'done-gate', 'ledger-append-only']
+    .every((name) => new RegExp(`${name}:`).test(text));
+  const noFullVerdict = (text) => !/full-readiness|fully ready|OK:\s*installation healthy/i.test(text);
+
+  {
+    const fx = mkProject('doctor-t05-complete-');
+    const ins = install(fx, { floor: true, hooks: true, overlays: false, evidenceGate: true });
+    const r = doctor(fx);
+    const text = textOf(r);
+    check('T05e doctor names every required readiness layer for a complete install',
+      ins.status === 0 && /Readiness \(required layers\)/.test(text) && everyLayerNamed(text),
+      `install=${ins.status} doctor=${r.status} out=${text.slice(-900)}`);
+    check('T05f doctor distinguishes adapter self-test evidence from live host proof',
+      /adapter self-test:/.test(text) && /live host proof:\s*(open|unproven)/i.test(text),
+      `out=${text.slice(-700)}`);
+    check('T05g unsupported done-gate plus absent live proof caps the doctor verdict',
+      /done-gate:\s*unsupported/.test(text) && noFullVerdict(text) && /PARTIAL:\s*readiness/i.test(text),
+      `out=${text.slice(-700)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+
+  {
+    const fx = mkProject('doctor-t05-missing-runtime-');
+    const ins = install(fx, { floor: true, hooks: true, overlays: false, evidenceGate: true });
+    rmSync(join(fx.dir, '.tna', 'plugin', 'scripts', 'gate-hook.mjs'), { force: true });
+    const r = doctor(fx);
+    const text = textOf(r);
+    check('T05h a missing runtime file is named as a missing required layer, never healthy',
+      ins.status === 0 && /veto:\s*missing/.test(text) && /evidence-recorder:\s*missing/.test(text) && noFullVerdict(text),
+      `install=${ins.status} doctor=${r.status} out=${text.slice(-900)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+
+  {
+    const fx = mkProject('doctor-t05-declined-');
+    const ins = install(fx, { floor: true, hooks: false, overlays: false, evidenceGate: false });
+    const r = doctor(fx);
+    const text = textOf(r);
+    check('T05i declined layers stay visibly declined in doctor output',
+      ins.status === 0 && /mandatory-gate:\s*declined/.test(text) && /veto:\s*declined/.test(text) && noFullVerdict(text),
+      `install=${ins.status} doctor=${r.status} out=${text.slice(-900)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
 }
 
 if (failures) { console.error(`nFAIL: ${failures} expectation(s) broken.`); process.exit(1); }
-console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q + C13).');
+console.log('\nOK: doctor checks behave as specified (C5/C5b + K/M + O/P/Q + C13 + C14 + C15 + T02 + T05).');

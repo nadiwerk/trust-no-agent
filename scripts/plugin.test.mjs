@@ -218,6 +218,11 @@ const skills = canonicalSkills();
   };
   for (const rel of filesUnder(PLUGIN)) {
     if (!/\.(md|mjs)$/.test(rel)) continue;
+    // OpenCode payload copies are self-contained plugin trees: their `./x.mjs`
+    // imports resolve beside the file, never in plugin/scripts. G3 owns their
+    // canonical drift check; scanning them here would turn that internal
+    // closure into false plugin/scripts requirements.
+    if (rel.includes('.opencode/plugins/tna-gate/')) continue;
     cite(readFileSync(join(PLUGIN, rel), 'utf8'));
   }
   for (const f of [...cited]) if (f === 'eval.mjs' || f.endsWith('.test.mjs')) cited.delete(f);

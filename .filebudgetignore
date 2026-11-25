@@ -1,3 +1,12 @@
 # Vendored third-party compressor (upstream code + LICENSE, not authored here).
 # Kept whole so the upstream self-tests remain a byte-identical reference.
 .opencode/plugins/tna-gate/output-trim/
+# Byte-identical payload copies of the same vendored compressor.
+.agents/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+.claude/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+plugin/.agents/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+plugin/.claude/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+plugin/.opencode/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+plugin/copilot/.agents/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+plugin/skills/setup-tna/.opencode/plugins/tna-gate/output-trim/
+skills/meta/setup-tna/.opencode/plugins/tna-gate/output-trim/

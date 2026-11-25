@@ -25,8 +25,8 @@
  *
  * Attribution: original implementation. No external code or assets used.
  */
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { classifyAction, SHELL_TOOLS } from './action-gate.mjs';
 
 const STATE_FILE = 'tna-gate-state.json';
@@ -141,6 +141,13 @@ export async function logVetoWith(store, entry = {}) {
 export async function observeAfterWith(store, { tool = '', command = '', pass = null } = {}) {
   if (!SHELL_TOOLS.has(String(tool ?? '').toLowerCase())) return null;
   if (!recordedTestRun(command)) return null;
+  // The store is bound — a dir-changing chain cannot be redirected the way
+  // observeAfter redirects fs writes, so it certifies NOTHING (roast r1 F7).
+  if (splitChain(String(command)).some(({ text }) => {
+    const m = /^(\S+)/.exec(text);
+    const prog = (m?.[1] ?? '').toLowerCase().replace(/^.*[\\/]/, '').replace(/\.(exe|bat|cmd)$/, '');
+    return DIR_CHANGERS.has(prog) || prog === 'popd';
+  })) return null;
   if (typeof pass !== 'boolean') return null;
   try {
     await store.writeState({ testPassFresh: pass, command: String(command) });
@@ -260,8 +267,96 @@ export function recordedTestRun(command) {
 }
 
 /**
+ * Segment a command on shell separators OUTSIDE quotes, remembering the
+ * separator that precedes each segment — that separator is what binds (or
+ * fails to bind) a preceding cd's new directory to the next segment's
+ * execution.
+ */
+function splitChain(text) {
+  const parts = [];
+  let buf = '';
+  let quote = null;
+  let sep = '';
+  const flush = () => {
+    const t = buf.trim();
+    buf = '';
+    if (t) parts.push({ sep, text: t });
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      buf += c;
+    } else if (c === '"' || c === "'") {
+      quote = c;
+      buf += c;
+    } else if (c === ';') {
+      flush();
+      sep = ';';
+    } else if (c === '&' && text[i + 1] === '&') {
+      flush();
+      sep = '&&';
+      i++;
+    } else if (c === '|') {
+      flush();
+      sep = text[i + 1] === '|' ? (i++, '||') : '|';
+    } else {
+      buf += c;
+    }
+  }
+  flush();
+  return parts;
+}
+
+const DIR_CHANGERS = new Set(['cd', 'chdir', 'pushd', 'set-location']);
+
+/**
+ * The directory a recorded test actually ran in (roast r1 F7), or null when
+ * the execution dir cannot be proven — and unproven records NOTHING.
+ *
+ * The last chain segment is the runner; every earlier `cd`/`pushd` moves the
+ * execution dir — `cd elsewhere && npm test` must certify `elsewhere`, never
+ * the payload cwd it was recorded under (cross-project evidence laundering).
+ * Resolution follows shell semantics:
+ *   - `cd x && …` — the next segment runs in x only when the cd succeeded, so
+ *     a target that does not exist makes the claimed run impossible: forged
+ *     input records nowhere (null), never falls back to the victim cwd.
+ *   - `cd x ; …` / `||` / `|` — the next segment runs regardless of the cd's
+ *     fate, so its real dir is unknowable: null.
+ *   - bare `cd`, `cd -`, a `$variable` or `~` dest, interior quotes, `popd`
+ *     anywhere — unresolvable: null.
+ */
+function evidenceDirFor(dir, command) {
+  let execDir = resolve(String(dir));
+  const parts = splitChain(String(command));
+  for (let i = 0; i < parts.length; i++) {
+    const m = /^(\S+)(?:\s+(.*))?$/s.exec(parts[i].text);
+    if (!m) continue;
+    const prog = m[1].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.(exe|bat|cmd)$/, '');
+    if (prog === 'popd') return null;
+    if (!DIR_CHANGERS.has(prog)) continue;
+    const next = parts[i + 1];
+    if (!next || next.sep !== '&&') return null;
+    let dest = (m[2] ?? '').trim();
+    if ((dest.startsWith('"') && dest.endsWith('"')) || (dest.startsWith("'") && dest.endsWith("'"))) {
+      dest = dest.slice(1, -1);
+    }
+    if (dest === '' || dest.startsWith('-') || dest.startsWith('$') || dest.startsWith('~') || /["']/.test(dest)) {
+      return null;
+    }
+    const target = resolve(execDir, dest);
+    if (!existsSync(target)) return null;
+    execDir = target;
+  }
+  return execDir;
+}
+
+/**
  * Record evidence from a finished tool call. Returns the written state, or
  * null when the call was not a test run (nothing recorded, nothing touched).
+ * State is written to the directory the command ran in — chain prefixes that
+ * change directory move the evidence with them, and an unprovable execution
+ * dir certifies nothing anywhere.
  */
 export function observeAfter(dir, input = {}, output = {}) {
   const name = String(input?.tool ?? '').toLowerCase();
@@ -270,5 +365,7 @@ export function observeAfter(dir, input = {}, output = {}) {
   // Positive exit signal only; unknown records NOTHING (audit-run-blockers #2).
   const pass = passFromOutput(output);
   if (pass === null) return null;
-  return writeState(dir, { testPassFresh: pass, command, updatedAt: new Date().toISOString() });
+  const target = evidenceDirFor(dir, command);
+  if (target === null) return null;
+  return writeState(target, { testPassFresh: pass, command, updatedAt: new Date().toISOString() });
 }

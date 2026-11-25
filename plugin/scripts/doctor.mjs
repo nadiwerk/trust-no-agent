@@ -8,7 +8,8 @@
  * Exit 0 = installation healthy. Exit 1 = an enforcement gap found.
  *
  * Checks an adopter's installation against the documented install contract:
- *  C1. Router present (AGENTS.md + WORKFLOW.md) in the current directory.
+ *  C1. Router present — repo mode requires AGENTS.md + WORKFLOW.md; adopter
+ *      mode accepts any router file the project's harness reads (merge path).
  *  C2. Git hooks active: core.hooksPath set to a dir holding pre-commit +
  *      commit-msg (and, in repo mode, identical to the tracked copies).
  *  C3. Every canonical skill exists in at least one harness discovery path:
@@ -23,6 +24,11 @@
  *      ledger entry, ship-log `## YYYY-MM-DD` headers), then FAILS — after
  *      grace, lesson capture is mandatory, not optional. Test override:
  *      TNA_DOCTOR_GRACE_DAYS. Decision logic lives in corrective-tier.mjs.
+ *  C14. Discipline floor resolvable from the project's own router files —
+ *      the mechanical form of installation.md §Verify step 5 ("the Iron Laws
+ *      must be recitable from the project's own files"). A merged adoption
+ *      that dropped a gate section fails here even while every file C1
+ *      checks still exists.
  */
 import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -30,13 +36,13 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict, extractHookTargets, hookTargetVerdict } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict, extractHookTargets, hookTargetVerdict, floorVerdict, resolveFloor } from './doctor-checks.mjs';
 import { parseStamp } from './onboarding.mjs';
 // The hook module is imported LAZILY (see the G hook-load section below): a
 // static import here meant the doctor died on the same load throw that made the
 // hook silent, i.e. exactly when its report mattered (2026-11-03).
 import { createHash } from 'node:crypto';
-import { detectHarness, adaptersFor, dshProfileDirs, detectInstalledAdapters } from './onboarding.mjs';
+import { detectHarness, adaptersFor, dshProfileDirs, detectInstalledAdapters, inspectLayerReadiness, formatLayerReadiness, readinessBlockers } from './onboarding.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_SKILLS = join(ROOT, 'skills');
@@ -74,9 +80,21 @@ console.log(`trust-no-agent doctor — checking ${cwd}`);
 console.log(`expects ${skillNames.length} skills (${skillNames.join(', ')})`);
 
 // ---- C1. router ----
-for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
-  if (existsSync(join(cwd, f))) pass(`router ${f} present`);
-  else fail(`router ${f} missing — copy from the trust-no-agent repo: cp ${f} .`);
+// Mode signal hoisted above C1 (it used to be declared below, at C2): the
+// framework checkout must carry both router files; an adopter's router may
+// keep the name its own harness reads — the merge path never renames it.
+const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md'));
+const ROUTER_CANDIDATES = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md'];
+const routersFound = ROUTER_CANDIDATES.filter((f) => existsSync(join(cwd, f)));
+if (repoMode) {
+  for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
+    if (existsSync(join(cwd, f))) pass(`router ${f} present`);
+    else fail(`router ${f} missing — the framework checkout carries both`);
+  }
+} else if (routersFound.length) {
+  pass(`router present: ${routersFound.join(', ')}`);
+} else {
+  fail('no router file at the project root — merge the framework router into the file your harness reads (AGENTS.md, CLAUDE.md, GEMINI.md, or your own)');
 }
 
 // ---- C2. git hooks ----
@@ -92,7 +110,7 @@ for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
 // a distribution artifact that legitimately carries neither, and doctor
 // reported two FAILs on a correct install. A real checkout already satisfies
 // the skill-tree test above, so the clause only ever fired for payloads.
-const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md'));
+// (repoMode itself is computed above C1 — the router check needs it too.)
 // Working-install signals for the onboarding grandfather verdict (08).
 let hooksWired = false;
 let skillsFound = false;
@@ -454,6 +472,7 @@ if (ledgerPath) {
   }
 }
 
+let gateHookAdapterSelfTest = 'not run';
 // ---- G. The gate hook loads, proven OUT OF PROCESS (2026-11-03) ----
 // The hook fails open by design, so a hook that cannot even LOAD is invisible:
 // Node exits 1 before main() runs, and `--self-check` lives inside the same
@@ -478,15 +497,20 @@ if (ledgerPath) {
     } catch { probe = null; }
     const out = `${probe?.stdout ?? ''}${probe?.stderr ?? ''}`;
     if (!probe || probe.status === null) {
+      gateHookAdapterSelfTest = 'unproven — probe did not complete';
       warn(`gate hook could not be probed (${probe?.error?.code ?? 'no result'}) — reachability unproven`);
     } else if (probe.status !== 0) {
+      gateHookAdapterSelfTest = `failed (exit ${probe.status})`;
       const why = (out.split('\n').find((l) => /Error|error/.test(l)) ?? out.split('\n')[0] ?? '').trim();
       fail(`gate hook FAILS TO LOAD (exit ${probe.status}) — the floor and the veto are inactive this session :: ${why}`);
     } else if (/could not load its modules/i.test(out)) {
+      gateHookAdapterSelfTest = 'failed — module load failure reported by the hook';
       fail(`gate hook reports a module load failure — the floor and the veto are INACTIVE :: ${out.split('\n')[0].trim()}`);
     } else if (/router: NOT FOUND/i.test(out) || /classifier: NOT FOUND/i.test(out)) {
+      gateHookAdapterSelfTest = 'incomplete — hook loaded but resolved no router/classifier';
       warn(`gate hook loads but resolves nothing: ${out.split('\n').filter((l) => /NOT FOUND/.test(l)).join(' | ')}`);
     } else {
+      gateHookAdapterSelfTest = 'passed — gate-hook --self-check in a subprocess';
       pass(`gate hook loads and resolves its inputs (exit 0, --self-check)`);
     }
   }
@@ -514,6 +538,40 @@ if (ledgerPath) {
   }
 }
 
+// ---- C14. Discipline floor resolvable from the project's own router ----
+// A merged adoption keeps the project's router as the only router and
+// cherry-picks the framework's gates into it — a merge that drops the
+// MANDATORY section or the Iron Laws leaves every FILE C1 checks present
+// while the floor injection emits a NOT FOUND half (reinject.mjs exits 1).
+// That is a silent hole no file-presence check sees: the install reports
+// healthy on a floor that cannot be read back. This check resolves the floor
+// from the router text itself — the same extraction the session injection
+// uses — and weighs the verdict against the onboarding stamp's floor
+// consent. resolveFloor imports reinject.mjs DYNAMICALLY, so a payload
+// missing that file degrades this block to a named warn instead of killing
+// the report (the K12 lesson: the checker must outlive the defect).
+{
+  const ROUTER_CANDIDATES = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md'];
+  const scanned = ROUTER_CANDIDATES.filter((f) => existsSync(join(cwd, f)));
+  const routerText = scanned
+    .map((f) => { try { return readFileSync(join(cwd, f), 'utf8'); } catch { return ''; } })
+    .join('\n\n');
+  let floorConsented = null;
+  try {
+    const s = parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8'));
+    floorConsented = s ? s.components.floor : null;
+  } catch { /* unreadable stamp = unknown consent */ }
+  try {
+    const { lawsFound, mandatoryFound } = await resolveFloor(routerText);
+    const res = floorVerdict({ mode: repoMode ? 'repo' : 'adopter', floorConsented, filesScanned: scanned, lawsFound, mandatoryFound });
+    if (res.level === 'fail') fail(res.message);
+    else if (res.level === 'warn') warn(res.message);
+    else pass(res.message);
+  } catch (e) {
+    warn(`floor resolution could not run — ${e && e.message ? e.message : 'unknown error'}`);
+  }
+}
+
 // ---- RS. Receipt staleness + grandfather (receipt-enforcement 06) ----
 // The doctor surfaces the claims awaiting re-verification and the
 // grandfathered pre-feature count as warns at session start (trust decays
@@ -535,8 +593,13 @@ if (ledgerPath) {
 // THIS machine (every harness family, not just this project's) and compares it
 // to the shipped copies. Warn-level: the repair writes to an installed
 // artifact, which is the operator's call.
+// Capture the project harness before the adapter scan: dshProfileDirs' legacy
+// fallback can create a project .dsh probe dir, and letting that side effect
+// reclassify a devin project would make readiness inspect the wrong harness.
+const readinessHarness = detectHarness(cwd);
+const installedAdapterScan = detectInstalledAdapters(cwd);
 {
-  const { groups } = detectInstalledAdapters(cwd);
+  const { groups } = installedAdapterScan;
   if (!groups.length) {
     const av = adapterVerdict({ harness: 'unknown', adapters: [] });
     pass(av.message);
@@ -547,6 +610,24 @@ if (ledgerPath) {
       else pass(av.message);
     }
   }
+}
+
+// ---- LR. Layered readiness verdict (first-install trust-layer AC11) ----
+// Doctor's subprocess probe is adapter evidence only. Since doctor is not the
+// live host consuming the hook, live host proof is explicitly open unless a
+// future harness-owned proof surface can attest it. A missing, drifted,
+// declined, unsupported, or uninspectable layer therefore caps the final
+// verdict instead of being folded into "installation healthy".
+let readinessRows = [];
+let readinessLines = [];
+{
+  let components = null;
+  try { components = parseStamp(readFileSync(join(cwd, '.trust', 'onboarding.json'), 'utf8'))?.components ?? null; } catch { /* no stamp */ }
+  readinessRows = inspectLayerReadiness({ cwd, harness: readinessHarness, components, groups: installedAdapterScan.groups });
+  readinessLines = formatLayerReadiness(readinessRows, { adapterSelfTest: gateHookAdapterSelfTest });
+  console.log('');
+  console.log('Layered readiness:');
+  for (const line of readinessLines) console.log(line);
 }
 
 // ---- PL. Installed skill payload freshness (C11, omp fix-list #3) ----
@@ -619,5 +700,10 @@ if (problems.length) {
   console.error(`FAIL: ${problems.length} installation gap(s), ${notes.length} warning(s).`);
   process.exit(1);
 }
-console.log(`OK: installation healthy (${notes.length} warning(s)).`);
+// Doctor is an inspector, never the host consuming the hook — live host proof
+// is structurally open, so the verdict is partial by construction. There is
+// no "OK: installation healthy" branch by design (roast r1 F11): a verdict
+// that could never print must not exist as unreachable code.
+const parts = [...readinessBlockers(readinessRows), 'live-host-proof=open'];
+console.log(`PARTIAL: readiness — ${parts.join(', ')} (${notes.length} warning(s)).`);
 process.exit(0);

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Make It So"
+  short_description: "Build from spec or tickets"
+policy:
+  allow_implicit_invocation: false

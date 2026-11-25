@@ -83,11 +83,20 @@ function collectLawCandidates(text) {
  */
 function extractLaws(text) {
   // Form 1 — the historical shape: a heading mentioning the laws, then a fence.
+  // Nonempty prose is not enough: installation health is a semantic floor
+  // check, so the fenced form must carry at least four law-like negative
+  // imperatives. This accepts the supported uppercase/lowercase variants
+  // without hardcoding one exact wording, while placeholder prose cannot pass.
   const lawsHeading = text.match(/^#+ .*Iron Laws.*$/im);
   if (lawsHeading) {
     const after = text.slice(text.indexOf(lawsHeading[0]) + lawsHeading[0].length);
     const fence = after.match(/```[^\n]*\n([\s\S]*?)```/);
-    if (fence && fence[1].trim()) return fence[1].trim();
+    if (fence && fence[1].trim()) {
+      const body = fence[1].trim();
+      const imperatives = body.split(/\r?\n/).map((line) => line.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, '').trim())
+        .filter((line) => /^no\s+\S/i.test(line) && line.length >= 30 && line.length <= MAX_LAW_CHARS);
+      if (imperatives.length >= LAW_STEMS.length) return body;
+    }
   }
 
   // Form 2 — the shape the repo actually has: the four negatives as an ordered
@@ -155,8 +164,10 @@ export function buildReinject(routerText) {
     const rest = routerText.slice(start);
     const next = rest.match(/^#+ /m);
     const body = (next ? rest.slice(0, next.index) : rest).trim();
-    if (body) parts.push('## MANDATORY discipline skills\n\n' + body);
-  } else {
+    const namesAllThree = ['expect-fail', 'root-cause', 'receipts'].every((name) => body.toLowerCase().includes(name));
+    if (body && namesAllThree) parts.push('## MANDATORY discipline skills\n\n' + body);
+  }
+  if (!parts.some((p) => p.startsWith('## MANDATORY discipline skills\n'))) {
     parts.push(
       `${MANDATORY_NOT_FOUND}\n\n` +
         `The MANDATORY section was not present in the router text passed in. It normally lives in ` +

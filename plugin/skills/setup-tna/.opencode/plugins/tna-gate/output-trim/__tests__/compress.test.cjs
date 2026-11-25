@@ -1,0 +1,415 @@
+#!/usr/bin/env node
+// Tool-output compressor tests — correctness guardrails and never-crash.
+// Run: node --test tests/test_compress.js
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  extractText, rebuildResponse, scrub, compress, transform, limitsFor, toolAllowed, processPayload, THRESHOLDS,
+} = require('../output-trim-compress');
+
+const FULL = THRESHOLDS;
+
+function bigOutput(lines, prefix) {
+  return Array.from({ length: lines }, (_, i) => `${prefix || 'line'} ${i} ${'x'.repeat(80)}`).join('\n');
+}
+
+// ── extractText ──────────────────────────────────────────────────────────────
+
+test('extractText handles string, object, and array shapes', () => {
+  assert.equal(extractText('plain'), 'plain');
+  assert.equal(extractText({ stdout: 'out', stderr: 'err' }), 'out\nerr');
+  assert.equal(extractText([{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }]), 'a\nb');
+  assert.equal(extractText(null), null);
+});
+
+// ── compress ─────────────────────────────────────────────────────────────────
+
+test('compress keeps head and tail, elides middle', () => {
+  const text = bigOutput(500);
+  const out = compress(text, FULL);
+  assert.ok(out.length < text.length);
+  assert.ok(out.startsWith('line 0 '));
+  assert.ok(out.trimEnd().endsWith('x'.repeat(80)));
+  assert.ok(out.includes('line 499 '));         // tail survived
+  assert.ok(out.includes('[output-trim: elided'));      // marker present
+  assert.ok(!out.includes('line 250 '));        // middle gone
+});
+
+test('compress salvages error lines from the elided middle', () => {
+  const lines = bigOutput(500).split('\n');
+  lines[250] = 'FATAL ERROR: connection refused at db.js:42';
+  const out = compress(lines.join('\n'), FULL);
+  assert.ok(out.includes('FATAL ERROR: connection refused at db.js:42'));
+  assert.ok(out.includes('error-like line(s) below'));
+});
+
+test('compress hard-cuts a single giant line by chars', () => {
+  const text = 'y'.repeat(50000);
+  const out = compress(text, FULL);
+  assert.ok(out.length < text.length);
+  assert.ok(out.includes('elided'));
+});
+
+test('compress returns null when no win', () => {
+  assert.equal(compress('short', FULL), null);
+});
+
+test('shared compressor never splits surrogate pairs at head/tail cuts', () => {
+  const text = 'a'.repeat(3999) + '😀' + 'b'.repeat(5000) + '😀' + 'c'.repeat(3999);
+  const out = compress(text, FULL);
+  assert.ok(out.startsWith('a'.repeat(3999) + '\n'));
+  assert.ok(out.endsWith('\n' + 'c'.repeat(3999)));
+  assert.doesNotMatch(out, /[\uD800-\uDFFF]/u);
+});
+
+test('shared compressor windows long diagnostics around the match', () => {
+  const lines = bigOutput(500).split('\n');
+  lines[250] = '😀'.repeat(1000) + ' FATAL LATE_ERROR ' + '😀'.repeat(1000);
+  const out = compress(lines.join('\n'), FULL);
+  assert.match(out, /FATAL LATE_ERROR/);
+  assert.doesNotMatch(out, /[\uD800-\uDFFF]/u);
+});
+
+// ── scrub (lossless tier) ────────────────────────────────────────────────────
+
+test('scrub strips ANSI escapes', () => {
+  const out = scrub('\x1b[31mFAIL\x1b[0m test_foo\n\x1b]0;title\x07plain');
+  assert.equal(out, 'FAIL test_foo\nplain');
+});
+
+test('scrub collapses identical consecutive lines', () => {
+  const out = scrub(Array(10).fill('WARN: retrying connection').join('\n'));
+  assert.ok(out.includes('WARN: retrying connection'));
+  assert.ok(out.includes('[output-trim: line repeated 10×]'));
+  assert.equal(out.split('\n').length, 2);
+});
+
+test('scrub keeps short repeats and blank structure', () => {
+  const src = 'a\na\na\n\nb';               // 3 repeats < threshold of 4
+  assert.equal(scrub(src), src);
+  assert.equal(scrub('x\n\n\n\n\ny'), 'x\n\ny');  // blank run → one blank
+});
+
+test('scrub collapses passing-test runs but keeps every failure', () => {
+  const lines = [' FAIL  test/price.test.js'];
+  for (let i = 0; i < 40; i++) lines.push(`    ✓ applyDiscount ${i * 100} at 10% → ${i * 90} (${i % 5} ms)`);
+  lines.push('    ✕ applyDiscount rounds half-cents up: 1995 at 10% → 1796 (3 ms)');
+  for (let i = 0; i < 40; i++) lines.push(`    ✓ slugs "Hello World ${i}" (2 ms)`);
+  lines.push('Tests:       1 failed, 80 passed, 81 total');
+  const out = scrub(lines.join('\n'));
+  assert.ok(out.includes('FAIL  test/price.test.js'));
+  assert.ok(out.includes('✕ applyDiscount rounds half-cents up'));
+  assert.ok(out.includes('1 failed, 80 passed'));
+  assert.ok(out.includes('[output-trim: 37 more passing/progress lines like these]'));
+  assert.ok(out.split('\n').length < 15);
+});
+
+test('scrub leaves data rows that merely look alike untouched', () => {
+  const csv = Array.from({ length: 50 }, (_, i) => `2024-01-${String(i % 28 + 1).padStart(2, '0')},cust${i},${i * 13}`).join('\n');
+  assert.equal(scrub(csv), csv);
+});
+
+test('scrub minifies pretty JSON without touching strings or big integers', () => {
+  const src = JSON.stringify([{ id: 'X', n: 1 }], null, 2).replace('"X"', '1234567890123456789').replace('"n"', '"a  b"');
+  const out = scrub(src);
+  assert.equal(out, '[{"id":1234567890123456789,"a  b":1}]');
+  assert.equal(scrub('{ not json\n  at all }'), '{ not json\n  at all }');
+});
+
+test('transform scrubs medium outputs below the elision threshold', () => {
+  const noisy = Array(50).fill('\x1b[32m✓\x1b[0m ok').join('\n') + '\n' + 'tail '.repeat(300);
+  assert.ok(noisy.length < THRESHOLDS.maxChars);
+  const out = transform(noisy, THRESHOLDS);
+  assert.ok(out && out.length < noisy.length);
+  assert.ok(!out.includes('\x1b['));
+});
+
+test('transform returns null when the win is trivial', () => {
+  const clean = 'z'.repeat(2000);            // nothing to scrub, under maxChars
+  assert.equal(transform(clean, THRESHOLDS), null);
+});
+
+test('transform still elides oversized outputs after scrubbing', () => {
+  const out = transform(bigOutput(500), THRESHOLDS);
+  assert.ok(out.includes('[output-trim: elided'));
+});
+
+// ── dedup ────────────────────────────────────────────────────────────────────
+
+test('identical consecutive tool output becomes a marker (isolated config dir)', () => {
+  const dir = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'ot-dedup-'));
+  const saved = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try {
+    const payload = { tool_name: 'Bash', session_id: 'sess-1', tool_response: 'FAIL test_x\n' + 'ctx '.repeat(1000) };
+    const first = processPayload(payload, 'on');
+    const second = processPayload(payload, 'on');
+    assert.ok(second && second.includes('byte-identical to the previous Bash result'));
+    assert.ok(second.includes('FAIL test_x'));          // first lines kept
+    assert.notDeepEqual(first, second);                  // only the repeat is deduped
+    const third = processPayload({ tool_name: 'Bash', session_id: 'sess-1', tool_response: 'different '.repeat(300) }, 'on');
+    assert.ok(third == null || !third.includes('byte-identical'));
+    // New session must NOT dedup against the old one — the earlier copy is
+    // not in the new session's context.
+    const newSession = processPayload({ ...payload, session_id: 'sess-2' }, 'on');
+    assert.ok(newSession == null || !newSession.includes('byte-identical'));
+    // No session_id (portability unknowns) → dedup skipped entirely.
+    const noSess = processPayload({ tool_name: 'Bash', tool_response: payload.tool_response }, 'on');
+    assert.ok(noSess == null || !noSess.includes('byte-identical'));
+  } finally {
+    if (saved !== undefined) process.env.CLAUDE_CONFIG_DIR = saved;
+    else delete process.env.CLAUDE_CONFIG_DIR;
+    require('fs').rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('REGRESSION: two hook copies on ONE tool call must not dedup each other', () => {
+  const dir = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'ot-dupreg-'));
+  const saved = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try {
+    const call = {
+      tool_name: 'Bash', session_id: 'sess-1', tool_use_id: 'toolu_01AAA',
+      tool_response: 'line one never seen before\n' + 'payload '.repeat(400),
+    };
+    const copyA = processPayload(call, 'on');   // plugin-manifest registration
+    const copyB = processPayload(call, 'on');   // settings.json registration
+    assert.ok(copyA == null || !copyA.includes('byte-identical'));
+    assert.ok(copyB == null || !copyB.includes('byte-identical'),
+      'second registration falsely deduped a first-seen output');
+
+    // A genuine re-run of the same command is a different tool call, so the
+    // real dedup must still fire.
+    const rerun = processPayload({ ...call, tool_use_id: 'toolu_02BBB' }, 'on');
+    assert.ok(rerun && rerun.includes('byte-identical to the previous Bash result'));
+  } finally {
+    if (saved !== undefined) process.env.CLAUDE_CONFIG_DIR = saved;
+    else delete process.env.CLAUDE_CONFIG_DIR;
+    require('fs').rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── limitsFor ────────────────────────────────────────────────────────────────
+
+test('one threshold set, no levels', () => {
+  assert.equal(limitsFor().maxChars, THRESHOLDS.maxChars);
+  assert.equal(limitsFor().headLines, THRESHOLDS.headLines);
+  assert.equal(limitsFor().tailLines, THRESHOLDS.tailLines);
+});
+
+test('env vars override thresholds', () => {
+  process.env.OUTPUT_TRIM_COMPRESS_MAX_CHARS = '1234';
+  assert.equal(limitsFor().maxChars, 1234);
+  delete process.env.OUTPUT_TRIM_COMPRESS_MAX_CHARS;
+});
+
+// ── toolAllowed — the correctness allowlist ──────────────────────────────────
+
+test('Read/Edit/Write are NEVER compressed (Edit old_string correctness)', () => {
+  assert.equal(toolAllowed('Read'), false);
+  assert.equal(toolAllowed('Edit'), false);
+  assert.equal(toolAllowed('Write'), false);
+  assert.equal(toolAllowed('NotebookEdit'), false);
+});
+
+test('Bash, Agent, mcp__ tools are compressible', () => {
+  assert.equal(toolAllowed('Bash'), true);
+  assert.equal(toolAllowed('Agent'), true);
+  assert.equal(toolAllowed('mcp__tokensave__tokensave_read'), true);
+});
+
+test('OUTPUT_TRIM_COMPRESS_TOOLS overrides the allowlist', () => {
+  process.env.OUTPUT_TRIM_COMPRESS_TOOLS = 'Grep';
+  assert.equal(toolAllowed('Bash'), false);
+  assert.equal(toolAllowed('Grep'), true);
+  assert.equal(toolAllowed('mcp__x__y'), false); // override disables mcp__ default
+  delete process.env.OUTPUT_TRIM_COMPRESS_TOOLS;
+});
+
+// ── processPayload — full pipeline ───────────────────────────────────────────
+
+test('processPayload compresses a big Bash output', () => {
+  const out = processPayload({ tool_name: 'Bash', tool_response: { stdout: bigOutput(500) } }, 'on');
+  assert.ok(out && out.includes('[output-trim: elided'));
+});
+
+test('processPayload passes small outputs through (null)', () => {
+  assert.equal(processPayload({ tool_name: 'Bash', tool_response: 'tiny' }, 'on'), null);
+});
+
+test('processPayload does nothing when mode is off or missing', () => {
+  const payload = { tool_name: 'Bash', tool_response: bigOutput(500) };
+  assert.equal(processPayload(payload, 'off'), null);
+  assert.equal(processPayload(payload, null), null);
+});
+
+test('OUTPUT_TRIM_COMPRESS=0 is a kill switch', () => {
+  process.env.OUTPUT_TRIM_COMPRESS = '0';
+  assert.equal(processPayload({ tool_name: 'Bash', tool_response: bigOutput(500) }, 'on'), null);
+  delete process.env.OUTPUT_TRIM_COMPRESS;
+});
+
+test('processPayload never throws on garbage', () => {
+  assert.equal(processPayload(null, 'on'), null);
+  assert.equal(processPayload({}, 'on'), null);
+  assert.equal(processPayload({ tool_name: 'Bash' }, 'on'), null);
+  assert.equal(processPayload({ tool_name: 'Bash', tool_response: 12345 }, 'on'), null);
+});
+
+// ── rebuildResponse: the replacement must match the tool's output shape ──────
+// Regression guard for #3 (@sovdchains): emitting a bare string for an
+// object-shaped tool made Claude Code reject every replacement, so the
+// compressor silently did nothing while still logging savings.
+
+test('REGRESSION #3: object-shaped response stays an object', () => {
+  const res = { stdout: 'original', stderr: '', interrupted: false };
+  const out = rebuildResponse(res, 'compressed');
+  assert.equal(typeof out, 'object');
+  assert.equal(out.stdout, 'compressed');
+  // untouched fields survive, or the harness rejects on the schema again
+  assert.equal(out.interrupted, false);
+});
+
+test('REGRESSION #3: stderr is blanked so it is not duplicated', () => {
+  // extractText folds stderr into the compressed text; leaving it would repeat it
+  const out = rebuildResponse({ stdout: 'a', stderr: 'boom' }, 'a\nboom');
+  assert.equal(out.stdout, 'a\nboom');
+  assert.equal(out.stderr, '');
+});
+
+test('string-shaped response stays a string', () => {
+  assert.equal(rebuildResponse('original', 'compressed'), 'compressed');
+  assert.equal(rebuildResponse(null, 'compressed'), 'compressed');
+});
+
+test('alternative string carriers are found', () => {
+  assert.equal(rebuildResponse({ output: 'x' }, 'c').output, 'c');
+  assert.equal(rebuildResponse({ result: 'x' }, 'c').result, 'c');
+  assert.equal(rebuildResponse({ text: 'x' }, 'c').text, 'c');
+});
+
+test('unknown shapes are skipped, never guessed', () => {
+  // a wrong guess is silently rejected by the harness — the bug we are fixing
+  assert.equal(rebuildResponse([{ type: 'text', text: 'x' }], 'c'), null);
+  assert.equal(rebuildResponse({ content: [{ text: 'x' }] }, 'c'), null);
+  assert.equal(rebuildResponse({ nothing: 1 }, 'c'), null);
+});
+
+// ── recoverable elision (spill) ─────────────────────────────────────────────
+// Destroying the middle made re-running the command the only way to get it
+// back: more expensive than the elision saved, and wrong for anything
+// non-idempotent. These cover the escape hatch that replaced that.
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+function withSpillDir(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'output-trim-spill-test-'));
+  const prev = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try { return fn(dir); }
+  finally {
+    if (prev === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = prev;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('an elided output spills in full and the marker points at it', () => {
+  withSpillDir((dir) => {
+    const text = bigOutput(500);
+    const out = transform(text, FULL, 'Bash');
+
+    const marker = out.split('\n').find(l => l.includes('output-trim:'));
+    const m = marker.match(/Full output: (\S+)/);
+    assert.ok(m, `marker carries no path: ${marker}`);
+
+    const spilled = fs.readFileSync(m[1], 'utf8');
+    assert.equal(spilled, text, 'spill is not the complete output');
+    assert.ok(out.length < text.length, 'compression did not shrink');
+
+    // the point of the exercise: a line from the destroyed middle is recoverable
+    assert.ok(!out.includes('line 250 '), 'middle was not actually elided');
+    assert.ok(spilled.includes('line 250 '), 'middle is not recoverable');
+
+    if (process.platform !== 'win32') assert.equal(fs.statSync(m[1]).mode & 0o777, 0o600, 'spill is not owner-only'); // NTFS has no POSIX mode bits
+  });
+});
+
+test('spilling is off for callers that pass no tool name', () => {
+  withSpillDir((dir) => {
+    const out = transform(bigOutput(500), FULL);
+    assert.doesNotMatch(out, /Full output:/);
+    assert.ok(!fs.existsSync(path.join(dir, 'output-trim-spill')), 'replay path wrote spill files');
+  });
+});
+
+test('OUTPUT_TRIM_COMPRESS_SPILL=0 elides without the escape hatch', () => {
+  withSpillDir((dir) => {
+    process.env.OUTPUT_TRIM_COMPRESS_SPILL = '0';
+    try {
+      const out = transform(bigOutput(500), FULL, 'Bash');
+      assert.ok(out.length < bigOutput(500).length, 'still must compress');
+      assert.doesNotMatch(out, /Full output:/);
+      assert.ok(!fs.existsSync(path.join(dir, 'output-trim-spill')));
+    } finally { delete process.env.OUTPUT_TRIM_COMPRESS_SPILL; }
+  });
+});
+
+test('the spill directory stays bounded', () => {
+  withSpillDir((dir) => {
+    for (let i = 0; i < 55; i++) transform(bigOutput(500, `run${i}`), FULL, 'Bash');
+    const files = fs.readdirSync(path.join(dir, 'output-trim-spill'));
+    assert.ok(files.length <= 41, `spill dir grew to ${files.length} files`);
+  });
+});
+
+test('a broken spill target still compresses', () => {
+  withSpillDir((dir) => {
+    // a file where the directory should be: mkdir fails, elision must not
+    fs.writeFileSync(path.join(dir, 'output-trim-spill'), 'not a directory');
+    const text = bigOutput(500);
+    const out = transform(text, FULL, 'Bash');
+    assert.ok(out && out.length < text.length, 'a failed spill broke compression');
+    assert.doesNotMatch(out, /Full output:/);
+  });
+});
+
+// OUTPUT_TRIM_COMPRESS_TOOLS overrides the allowlist; it must not be able to switch
+// off the Read/Edit/Write exclusion. That exclusion is the one thing standing
+// between the compressor and a corrupted edit: Read output feeds Edit's
+// old_string, so eliding it makes the model edit text it never saw. The Pi
+// extension (NEVER_COMPRESS) and the OpenCode path (UNSAFE_TOOLS_OPENCODE)
+// always enforced this; the Claude and Copilot paths used to let the env var
+// through.
+test('OUTPUT_TRIM_COMPRESS_TOOLS cannot re-enable Read/Edit/Write (Claude)', () => {
+  const saved = process.env.OUTPUT_TRIM_COMPRESS_TOOLS;
+  process.env.OUTPUT_TRIM_COMPRESS_TOOLS = 'Bash,Read,Edit,Write,NotebookEdit';
+  try {
+    for (const t of ['Read', 'Edit', 'Write', 'NotebookEdit']) {
+      assert.equal(toolAllowed(t), false, `${t} must stay excluded`);
+    }
+    assert.equal(toolAllowed('Bash'), true, 'the override itself must still work');
+  } finally {
+    if (saved !== undefined) process.env.OUTPUT_TRIM_COMPRESS_TOOLS = saved;
+    else delete process.env.OUTPUT_TRIM_COMPRESS_TOOLS;
+  }
+});
+
+test('the exclusion is case-insensitive and survives an empty override', () => {
+  const saved = process.env.OUTPUT_TRIM_COMPRESS_TOOLS;
+  try {
+    delete process.env.OUTPUT_TRIM_COMPRESS_TOOLS;
+    for (const t of ['read', 'READ', 'ReAd', 'write', 'edit']) {
+      assert.equal(toolAllowed(t), false, `${t} must stay excluded`);
+    }
+    // defaults still intact
+    assert.equal(toolAllowed('Bash'), true);
+    assert.equal(toolAllowed('mcp__server__tool'), true);
+  } finally {
+    if (saved !== undefined) process.env.OUTPUT_TRIM_COMPRESS_TOOLS = saved;
+  }
+});

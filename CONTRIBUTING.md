@@ -90,7 +90,7 @@ This installs two hooks:
   `master`. Name it after the work, e.g. `feat/skill-name` or `fix/validator`.
 - **Open the PR against `master`.** One PR = one logical change range; keep it
   focused and reviewable.
-- **Run the gates before pushing** — the thirty self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
+- **Run the gates before pushing** — the self-tests CI runs must all exit 0 (full list under “What the CI checks” below).
   CI runs the same set on every push and PR; a red CI blocks merge. The
   pre-commit hook runs a superset (it adds `reinject.test.mjs`,
   `behavioral-eval.test.mjs`, and `behavioral-eval.mjs`), so a local commit can
@@ -105,30 +105,31 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the thirty gates:
+**`validate`** — the gates (78 `run:` steps; the workflow file is the source
+of truth — `grep -n 'run:' .github/workflows/ci.yml` lists them live):
 
 1. `node scripts/validate.mjs` — structural validation.
 2. `node scripts/eval.mjs` — static eval consistency.
-3. `node scripts/eval-adapter.test.mjs` — eval adapter-pins regression test.
-4. `node scripts/tna-portable.test.mjs` — veto portability self-test.
-5. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
-6. `node scripts/doctor.test.mjs` — doctor decision-logic self-test.
-7. `node scripts/mandatory-gate.test.mjs` — MANDATORY-classifier self-test.
-8. `node scripts/action-gate.test.mjs` — action-gate (words never gate) self-test.
-9. `node scripts/tna-gate.test.mjs` — veto core + state self-test.
-10. `node scripts/tna-gate-v2.test.mjs` — opencode V2 adapter self-test.
-11. `node scripts/tna-store.test.mjs` — evidence store self-test.
-12. `node scripts/gate-meter.test.mjs` — gate-effectiveness meter self-test.
-13. `node scripts/first-run.test.mjs` — first-run gate self-test.
-14. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
-15. `node scripts/tickets.mjs scripts/tickets-fixture/issues` — ticket-graph smoke run against the committed fixture.
-16. `node scripts/site.test.mjs` — site acceptance contract.
-17. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
-18. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
-19. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
-20. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
-21. `node scripts/ci-guard.mjs` — workflow file guard.
-22. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
+3. `node scripts/trigger-eval.mjs` — trigger-eval check.
+4. `node scripts/tickets.test.mjs` — ticket-graph validator self-test.
+5. `node scripts/doctor.test.mjs` — doctor decision-logic self-test.
+6. `node scripts/mandatory-gate.test.mjs` — MANDATORY-classifier self-test.
+7. `node scripts/action-gate.test.mjs` — action-gate (words never gate) self-test.
+8. `node scripts/tna-gate.test.mjs` — veto core + state self-test.
+9. `node scripts/tna-gate-v2.test.mjs` — opencode V2 adapter self-test.
+10. `node scripts/tna-done-gate-v2.test.mjs` — done-gate V2 self-test.
+11. `node scripts/tna-done-enforce-v2.test.mjs` — done-gate enforcement self-test.
+12. `node scripts/tna-reinject-v2.test.mjs` — reinject V2 self-test.
+13. `node scripts/tna-delegate-v2.test.mjs` — delegate-guard self-test.
+14. `node scripts/tna-parity-v2.test.mjs` — adapter parity self-test.
+15. `node scripts/agents-size.test.mjs` — router size budget self-test.
+16. `node scripts/tna-better-v2.test.mjs` — tna-better adapter self-test.
+17. `node scripts/agents-global-budget.test.mjs` — global router budget self-test.
+18. `node scripts/tna-store.test.mjs` — evidence store self-test.
+19. `node scripts/tna-portable.test.mjs` — veto portability self-test.
+20. `node scripts/gate-meter.test.mjs` — gate-effectiveness meter self-test.
+21. `node scripts/first-run.test.mjs` — first-run gate self-test.
+22. `node scripts/eval-adapter.test.mjs` — eval adapter-pins regression test.
 23. `node scripts/autonomy-ladder.test.mjs` — autonomy-ladder decay self-test.
 24. `node scripts/stale-probe.test.mjs` — stale-memory probe self-test (dead lessons cannot gate).
 25. `node scripts/local-judge.test.mjs` — bounded-judgment self-test (deterministic-first, judge-last, no API key).
@@ -137,6 +138,54 @@ The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 28. `node scripts/floor-composer.test.mjs` — floor composer self-test (canonical-first, `user:` marking, bounded budget, determinism).
 29. `node scripts/onboarding.test.mjs` — onboarding seam self-test (discovery, proposals, stamp fail-closed).
 30. `node scripts/receipt-enforcement.test.mjs` — receipt-enforcement self-test (per-boolean shape, staleness, veto, hardened re-run).
+31. `node scripts/receipt.test.mjs` — receipt writer self-test.
+32. `node scripts/ledger-audit.test.mjs` — ledger-audit reader self-test.
+33. `node scripts/ledger-lint.test.mjs` — ledger lint self-test.
+34. `node scripts/pr-wait.test.mjs` — PR-wait self-test.
+35. `node scripts/roast-first.test.mjs` — roast-first ordering self-test.
+36. `node scripts/output-trim.test.mjs` — output-trim self-test.
+37. `node scripts/goals.test.mjs` — standing-goals contract self-test.
+38. `node scripts/automation-lint.test.mjs` — automation-scope lint self-test.
+39. `node scripts/orchestrator-brief.test.mjs` — orchestrator-brief contract self-test.
+40. `node scripts/tickets.mjs scripts/tickets-fixture/issues` — ticket-graph smoke run against the committed fixture.
+41. `node scripts/site.test.mjs` — site acceptance contract.
+42. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
+43. `node scripts/ledger-hook-routing.test.mjs` — ledger hook-routing self-test.
+44. `node scripts/gate-hook-fastpath.test.mjs` — gate fast-path classifier self-test.
+45. `node scripts/antigravity-hook.test.mjs` — antigravity hook adapter self-test.
+46. `node scripts/gemini-hook.test.mjs` — gemini hook adapter self-test.
+47. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
+48. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
+49. `node scripts/marketplace-copilot.test.mjs` — marketplace copilot guard.
+50. `node scripts/file-budget.test.mjs` — file-budget self-test.
+51. `node scripts/payload-sync.test.mjs` — payload mirror synchronization guard.
+52. `node scripts/first-install-gate.test.mjs` — integrated first-install trust-layer gate.
+53. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
+54. `node scripts/ci-guard.mjs` — workflow file guard.
+55. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
+56. `node scripts/file-budget.mjs --all` — file-budget baseline re-check over all entries.
+57. `node scripts/file-budget.test.mjs` — file-budget self-test (re-run after the baseline check).
+58. `node scripts/codex-reprobe.test.mjs` — codex reprobe self-test.
+59. `node scripts/veto-adapter.test.mjs` — veto adapter self-test.
+60. `node scripts/veto-tool-coverage.test.mjs` — veto tool-coverage self-test.
+61. `node scripts/dsh-veto.test.mjs` — dsh veto self-test.
+62. `node scripts/devin-hook.test.mjs` — devin hook adapter self-test.
+63. `node scripts/dsh-discipline.test.mjs` — dsh discipline self-test.
+64. `node scripts/dsh-fixlist.test.mjs` — dsh fix-list self-test.
+65. `node scripts/omp-fixlist.test.mjs` — omp fix-list self-test.
+66. `node scripts/pi-discipline.test.mjs` — pi discipline self-test.
+67. `node scripts/pi-recorder.test.mjs` — pi recorder self-test.
+68. `node scripts/harness-general.test.mjs` — cross-harness general self-test.
+69. `node scripts/reinject.test.mjs` — router re-injection self-test.
+70. `node scripts/doctor-adapter.test.mjs` — doctor adapter self-test.
+71. `node scripts/behavioral-eval.test.mjs` — behavioral eval self-test.
+72. `node scripts/onboarding-layers.test.mjs` — install-layer self-test.
+73. `node scripts/onboarding-refresh.test.mjs` — onboarding refresh/preservation self-test.
+74. `node scripts/record-evidence.test.mjs` — evidence recorder self-test.
+75. `node scripts/recorder-runners.test.mjs` — recorder runner-matrix self-test.
+76. `node scripts/update-check.test.mjs` — update-check self-test.
+77. `node scripts/update-delivery.test.mjs` — update-delivery self-test.
+78. `node scripts/update-install.test.mjs` — update-install self-test.
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message

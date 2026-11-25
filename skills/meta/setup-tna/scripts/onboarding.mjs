@@ -15,8 +15,8 @@
  * stamp parses as NO consent (null) — never partial consent; the doctor's
  * grandfather verdict handles the pre-stamp world.
  */
-import { readdirSync, existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { readdirSync, existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, rmdirSync } from 'node:fs';
+import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
@@ -132,10 +132,15 @@ const COMPONENT_LABELS = {
 };
 
 function canonicalSkillNames() {
-  try {
-    return new Set(readdirSync(join(ROOT, 'skills', 'engineering'), { withFileTypes: true })
-      .filter((d) => d.isDirectory()).map((d) => d.name));
-  } catch { return new Set(); }
+  const out = new Set();
+  for (const category of ['discipline', 'engineering', 'meta']) {
+    try {
+      for (const d of readdirSync(join(ROOT, 'skills', category), { withFileTypes: true })) {
+        if (d.isDirectory()) out.add(d.name);
+      }
+    } catch { /* a partial payload still contributes the categories it carries */ }
+  }
+  return out;
 }
 
 /**
@@ -152,11 +157,49 @@ function canonicalSkillNames() {
  * @param {string} cwd
  * @returns {string[]} families present here, primary first
  */
+// Project-local markers decide the tree's primary harness. `.devin/` is the
+// Devin CLI's project dir; `.agents/hooks.json` and `.gemini/settings.json`
+// are FILE markers — a bare `.agents/` is the shared skills dir and belongs
+// to nobody, and a bare `.gemini/` can be either gemini or antigravity state.
+const PROJECT_MARKERS = [
+  ['.opencode', 'opencode'], ['.omp', 'omp'], ['.pi', 'pi'], ['.dsh', 'dsh'], ['.devin', 'devin'],
+];
+const PROJECT_FILE_MARKERS = [
+  ['.agents/hooks.json', 'antigravity'], ['.gemini/settings.json', 'gemini'],
+];
+
+/** Every home-level harness present on this machine, in primary-priority order. */
+function homeHarnesses() {
+  const home = homedir();
+  const out = [];
+  // DeepSeek Harness keeps its profiles under ~/.dsh; the marker is the profiles
+  // dir, since a bare ~/.dsh can exist from a stray write.
+  if (existsSync(join(home, '.dsh', 'profiles'))) out.push('dsh');
+  if (existsSync(join(home, '.codex', 'config.toml'))) out.push('codex');
+  if (process.env.CLAUDE_PLUGIN_ROOT || existsSync(join(home, '.claude'))) out.push('claude');
+  if (existsSync(join(home, '.omo'))) out.push('omo');
+  // Devin CLI: a hooks-bearing config.json OR the ~/.devin state dir.
+  if (devinConfigCandidates().some((p) => existsSync(p)) || existsSync(join(home, '.devin'))) out.push('devin');
+  // Antigravity keeps its named hook groups under ~/.gemini/config (the same
+  // ~/.gemini root gemini uses — the marker is the config dir, not the root).
+  if (existsSync(join(home, '.gemini', 'config')) || existsSync(join(home, '.gemini', 'antigravity'))) out.push('antigravity');
+  if (existsSync(join(home, '.gemini', 'settings.json'))) out.push('gemini');
+  return out;
+}
+
 export function detectHarnessFamilies(cwd) {
   const found = [];
-  for (const [dir, name] of [['.opencode', 'opencode'], ['.omp', 'omp'], ['.pi', 'pi'], ['.dsh', 'dsh']]) {
+  for (const [dir, name] of PROJECT_MARKERS) {
     if (existsSync(join(cwd, dir))) found.push(name);
   }
+  for (const [file, name] of PROJECT_FILE_MARKERS) {
+    if (existsSync(join(cwd, file))) found.push(name);
+  }
+  // Home signals belong in the family list too — a claude-primary project on a
+  // machine that also runs devin/agy/gemini must get every harness's adapters,
+  // or the other sessions on this machine stay unenforced (the same class of
+  // blind spot the 2026-10-25 families fix closed for omp/pi/dsh).
+  for (const name of homeHarnesses()) if (!found.includes(name)) found.push(name);
   const primary = detectHarness(cwd);
   if (primary !== 'unknown' && !found.includes(primary)) found.push(primary);
   // Primary first, then the rest in a stable order.
@@ -164,24 +207,259 @@ export function detectHarnessFamilies(cwd) {
 }
 
 export function detectHarness(cwd) {
-  // Project-local signal FIRST: a tree carrying its own harness dir (.opencode,
-  // .omp, .pi, .dsh) is that harness's tree regardless of the user's home dirs
-  // (several harnesses share a machine; the home checks below are the fallback,
-  // not the authority).
-  if (existsSync(join(cwd, '.opencode'))) return 'opencode';
-  if (existsSync(join(cwd, '.omp'))) return 'omp';
-  if (existsSync(join(cwd, '.pi'))) return 'pi';
-  if (existsSync(join(cwd, '.dsh'))) return 'dsh';
-  const home = homedir();
-  // DeepSeek Harness keeps its profiles under ~/.dsh; the marker is the profiles
-  // dir, since a bare ~/.dsh can exist from a stray write.
-  if (existsSync(join(home, '.dsh', 'profiles'))) return 'dsh';
-  if (existsSync(join(home, '.codex', 'config.toml'))) return 'codex';
-  if (process.env.CLAUDE_PLUGIN_ROOT) return 'claude';
-  if (existsSync(join(home, '.claude'))) return 'claude';
-  if (existsSync(join(home, '.omo'))) return 'omo';
-  return 'unknown';
+  // Project-local signal FIRST: a tree carrying its own harness marker is that
+  // harness's tree regardless of the user's home dirs (several harnesses share
+  // a machine; the home checks below are the fallback, not the authority).
+  for (const [dir, name] of PROJECT_MARKERS) {
+    if (existsSync(join(cwd, dir))) return name;
+  }
+  for (const [file, name] of PROJECT_FILE_MARKERS) {
+    if (existsSync(join(cwd, file))) return name;
+  }
+  return homeHarnesses()[0] ?? 'unknown';
 }
+
+/**
+ * The config file each user-level harness reads hook entries from. Devin keeps
+ * hooks inside its app config (config.json -> `hooks`); antigravity keeps
+ * named hook groups in ~/.gemini/config/hooks.json; gemini in
+ * ~/.gemini/settings.json -> `hooks`. All three are user-level on purpose:
+ * a project-committed hooks file would point at ~/.tna on a teammate's
+ * machine where the adapter may not exist — agy reads a missing hook as a
+ * deny (fail-closed), so a committed config can freeze a teammate's tools.
+ */
+export function devinConfigCandidates() {
+  const home = homedir();
+  const out = [];
+  if (process.platform === 'win32' || process.env.APPDATA) {
+    out.push(join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'devin', 'config.json'));
+  }
+  out.push(join(home, '.config', 'devin', 'config.json'), join(home, '.devin', 'config.json'));
+  return out;
+}
+export function devinConfigFile() {
+  const candidates = devinConfigCandidates();
+  return candidates.find((p) => existsSync(p)) ?? candidates[0];
+}
+export function agyConfigFile() { return join(homedir(), '.gemini', 'config', 'hooks.json'); }
+export function geminiConfigFile() { return join(homedir(), '.gemini', 'settings.json'); }
+
+/**
+ * The install root for the user-level adapters (~/.tna). Their hook.mjs
+ * resolves the gate runtime as ../../plugin/scripts/ relative to itself, so
+ * the installed layout must preserve the repo's shape:
+ *   ~/.tna/veto-hooks/<harness>/hook.mjs
+ *   ~/.tna/plugin/scripts/<gate-hook + import closure>
+ *   ~/.tna/scripts/reinject.mjs        (devin's `reinject` target)
+ * A stable home-level path — never the checkout, never a project dir — keeps
+ * the config entries valid from every project the user opens.
+ */
+export function tnaRuntimeDir() { return join(homedir(), '.tna'); }
+
+// gate-hook's dynamic-import closure in plugin/scripts (computed 2026-11-24:
+// every ./x.mjs reachable from gate-hook.mjs). If a new file joins the
+// closure, it joins this list — a missing file makes the gate fail-open on
+// every installed harness, silently.
+const GATE_RUNTIME = ['gate-hook', 'reinject', 'overlay-registry', 'floor-composer', 'tna-gate', 'onboarding', 'receipt-enforcement', 'action-gate', 'mandatory-gate'];
+
+function tnaAdapterPairs(harness) {
+  const tna = tnaRuntimeDir();
+  const pairs = [{ src: join(ROOT, 'veto-hooks', harness, 'hook.mjs'), dest: join(tna, 'veto-hooks', harness, 'hook.mjs'), label: `${harness} adapter` }];
+  for (const f of GATE_RUNTIME) {
+    pairs.push({ src: join(ROOT, 'plugin', 'scripts', `${f}.mjs`), dest: join(tna, 'plugin', 'scripts', `${f}.mjs`), label: `gate runtime (${f})` });
+  }
+  pairs.push({ src: join(ROOT, 'scripts', 'reinject.mjs'), dest: join(tna, 'scripts', 'reinject.mjs'), label: 'gate runtime (scripts/reinject)' });
+  return pairs;
+}
+
+/**
+ * The hook entries each harness needs, as pure merge plans: (existing config
+ * object, installed hook path) -> { merged, added, already }. Pure so the
+ * installer, the undo path, and the doctor's wired-check share one contract.
+ * `marker` = the substring that identifies OUR entries anywhere in a config —
+ * dedupe, undo and drift checks all key on it.
+ */
+// Command strings land in harness hook configs and are re-parsed by a shell.
+// Double quotes alone are not enough on POSIX: $(...) and backticks still
+// expand inside them, and a home dir carrying those characters would execute
+// (roast r1 F9). Escaping " ` $ \ is POSIX-correct inside double quotes;
+// cmd.exe never expands those characters, so a metachar-named home degrades
+// to a missing-file error — fail closed, never an injected command.
+const hookCmd = (hookPath) => `node "${String(hookPath).replace(/\\/g, '/').replace(/(["`$\\])/g, '\\$1')}"`;
+
+// Consent contract for the wiring plans (roast r1 F1, spec line 88: a
+// decline remains off). Each entry names the component that gates it;
+// `components.hooks === false` suppresses every entry regardless. A plan
+// called without components keeps the pre-consent behavior (wire all).
+// A decline is active suppression, not omission: entries we previously
+// wrote under a now-declined contract come back out, foreign entries stay.
+const tnaMarker = (harness) => new RegExp(`veto-hooks[\\\\/]${harness}[\\\\/]hook\\.mjs`);
+
+function stripOurEventEntries(hooksObj, event, marker, targetRe) {
+  const arr = Array.isArray(hooksObj[event]) ? hooksObj[event] : [];
+  const kept = arr.map((g) => {
+    if (!Array.isArray(g?.hooks)) return g;
+    const hooks = g.hooks.filter((h) => !(marker.test(String(h?.command ?? '')) && targetRe.test(String(h?.command ?? ''))));
+    return { ...g, hooks };
+  }).filter((g) => !Array.isArray(g?.hooks) || g.hooks.length > 0);
+  if (kept.length) hooksObj[event] = kept;
+  else delete hooksObj[event];
+}
+
+export function planDevinConfig(cfg, hookPath, components = null) {
+  const merged = { ...cfg, hooks: { ...(cfg?.hooks ?? {}) } };
+  const cmd = hookCmd(hookPath);
+  const WANTS = [
+    ['SessionStart', 'reinject', { hooks: [{ type: 'command', command: `${cmd} reinject`, timeout: 15, statusMessage: 'trust-no-agent: injecting the discipline floor' }] }, 'floor'],
+    ['UserPromptSubmit', 'gate-hook', { hooks: [{ type: 'command', command: `${cmd} gate-hook`, timeout: 15, statusMessage: 'trust-no-agent: flagging MANDATORY domains' }] }, null],
+    ['PreToolUse', 'gate-hook', { matcher: '', hooks: [{ type: 'command', command: `${cmd} gate-hook`, timeout: 15, statusMessage: 'trust-no-agent: vetoing irreversible calls without fresh evidence' }] }, 'evidenceGate'],
+    ['PostToolUse', 'gate-hook', { matcher: '', hooks: [{ type: 'command', command: `${cmd} gate-hook`, timeout: 15, statusMessage: 'trust-no-agent: recording action evidence' }] }, 'evidenceGate'],
+  ];
+  const added = [], already = [], declined = [];
+  for (const [event, target, group, consentKey] of WANTS) {
+    if (components && (components.hooks === false || (consentKey && components[consentKey] === false))) {
+      declined.push(`${event}:${target}`);
+      const marker = tnaMarker('devin');
+      stripOurEventEntries(merged.hooks, event, marker, new RegExp(`hook\\.mjs"?\\s+${target}\\b`));
+      continue;
+    }
+    const arr = Array.isArray(merged.hooks[event]) ? merged.hooks[event] : (merged.hooks[event] = []);
+    // An existing hook in this event already invoking the same target through
+    // any hook.mjs dispatcher is an equivalent wiring (this machine's user
+    // layer routes the same targets through its own dispatcher) — adding ours
+    // would double-fire (a doubled floor injection is doubled context cost).
+    const tRe = new RegExp(`hook\\.mjs"?\\s+${target}\\b`);
+    if (arr.some((g) => Array.isArray(g?.hooks) && g.hooks.some((h) => tRe.test(String(h?.command ?? ''))))) {
+      already.push(`${event}:${target}`);
+      continue;
+    }
+    arr.push(group);
+    added.push(`${event}:${target}`);
+  }
+  return { merged, added, already, declined };
+}
+
+export function planAgyConfig(cfg, hookPath, components = null) {
+  const merged = { ...cfg };
+  const marker = /veto-hooks[\\/]antigravity[\\/]hook\.mjs/;
+  // Both entries are the evidence gate (veto + recorder): a declined
+  // evidenceGate or hooks consent unwires ours and adds nothing.
+  if (components && (components.hooks === false || components.evidenceGate === false)) {
+    return { merged: unwireConfig('antigravity', merged), added: [], already: [], declined: ['PreToolUse', 'PostToolUse'] };
+  }
+  const entry = { matcher: '*', hooks: [{ type: 'command', command: hookCmd(hookPath), timeout: 20 }] };
+  const group = merged['tna-veto'] && typeof merged['tna-veto'] === 'object' ? merged['tna-veto'] : null;
+  if (!group && marker.test(JSON.stringify(merged))) return { merged, added: [], already: ['wired under another group'], declined: [] };
+  const g = group ?? {};
+  const added = [];
+  for (const ev of ['PreToolUse', 'PostToolUse']) {
+    const arr = Array.isArray(g[ev]) ? g[ev] : (g[ev] = []);
+    if (arr.some((e) => marker.test(JSON.stringify(e)))) continue;
+    arr.push(entry);
+    added.push(ev);
+  }
+  if (!group) merged['tna-veto'] = g;
+  return { merged, added, already: [], declined: [] };
+}
+
+export function planGeminiConfig(cfg, hookPath, components = null) {
+  const merged = { ...cfg, hooks: { ...(cfg?.hooks ?? {}) } };
+  const marker = /veto-hooks[\\/]gemini[\\/]hook\.mjs/;
+  if (components && (components.hooks === false || components.evidenceGate === false)) {
+    return { merged: unwireConfig('gemini', merged), added: [], already: [], declined: ['BeforeTool', 'AfterTool'] };
+  }
+  const added = [];
+  for (const ev of ['BeforeTool', 'AfterTool']) {
+    const arr = Array.isArray(merged.hooks[ev]) ? merged.hooks[ev] : (merged.hooks[ev] = []);
+    if (arr.some((e) => marker.test(JSON.stringify(e)))) continue;
+    arr.push({ hooks: [{ type: 'command', command: hookCmd(hookPath), timeout: 20000 }] });
+    added.push(ev);
+  }
+  return { merged, added, already: [], declined: [] };
+}
+
+function stripMarkedHooks(value, marker) {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripMarkedHooks(item, marker)).filter((item) => item !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    if (typeof value.command === 'string' && marker.test(value.command)) return undefined;
+    const out = {};
+    for (const [key, child] of Object.entries(value)) {
+      const stripped = stripMarkedHooks(child, marker);
+      if (stripped !== undefined) out[key] = stripped;
+    }
+    if (Array.isArray(value.hooks) && value.hooks.length > 0 && Array.isArray(out.hooks) && out.hooks.length === 0) return undefined;
+    return out;
+  }
+  return value;
+}
+
+function hasCommand(value) {
+  if (Array.isArray(value)) return value.some(hasCommand);
+  if (!value || typeof value !== 'object') return false;
+  if (typeof value.command === 'string') return true;
+  return Object.values(value).some(hasCommand);
+}
+
+/** Strip only the hook objects carrying OUR marker — foreign entries survive, even inside the same group. */
+export function unwireConfig(harness, cfg) {
+  const marker = new RegExp(`veto-hooks[\\\\/]${harness}[\\\\/]hook\\.mjs`);
+  const stripped = stripMarkedHooks(cfg, marker);
+  if (harness === 'antigravity' && stripped && typeof stripped === 'object' && stripped['tna-veto'] && !hasCommand(stripped['tna-veto'])) {
+    delete stripped['tna-veto'];
+  }
+  return stripped;
+}
+
+/**
+ * Strip exactly the named entries — undo's per-entry provenance (roast r1 F3).
+ * `unwireConfig` removes EVERY marker-matching command; this removes only the
+ * recorded identities ('Event:target' for devin, 'Event' for agy/gemini), so
+ * pre-existing marker-matching entries another install or the user wrote are
+ * preserved. Still marker-gated: a foreign entry under a recorded id survives.
+ */
+export function unwireConfigEntries(harness, cfg, entries) {
+  const marker = tnaMarker(harness);
+  const out = JSON.parse(JSON.stringify(cfg ?? {}));
+  // Command-level strip matching stripMarkedHooks: foreign commands merged
+  // into one element with ours stay; the element goes only when it had hooks
+  // and every one of them carried our marker.
+  const stripMarkerCommands = (arr) =>
+    arr.map((e) => {
+      if (!Array.isArray(e?.hooks)) return e;
+      const hooks = e.hooks.filter((h) => !(typeof h?.command === 'string' && marker.test(h.command)));
+      if (e.hooks.length > 0 && hooks.length === 0) return null;
+      return { ...e, hooks };
+    }).filter((e) => e !== null);
+  for (const eid of entries || []) {
+    if (harness === 'devin') {
+      const [event, target] = String(eid).split(':');
+      if (!event || !target || !out.hooks || typeof out.hooks !== 'object') continue;
+      stripOurEventEntries(out.hooks, event, marker, new RegExp(`hook\\.mjs"?\\s+${target}\\b`));
+    } else if (harness === 'antigravity') {
+      const g = out['tna-veto'];
+      if (!g || typeof g !== 'object' || !Array.isArray(g[eid])) continue;
+      const kept = stripMarkerCommands(g[eid]);
+      if (kept.length) g[eid] = kept;
+      else delete g[eid];
+      if (!hasCommand(g)) delete out['tna-veto'];
+    } else if (harness === 'gemini') {
+      const arr = out.hooks?.[eid];
+      if (!Array.isArray(arr)) continue;
+      const kept = stripMarkerCommands(arr);
+      if (kept.length) out.hooks[eid] = kept;
+      else delete out.hooks[eid];
+    }
+  }
+  return out;
+}
+
+const WIRING = {
+  devin: { file: devinConfigFile, plan: planDevinConfig },
+  antigravity: { file: agyConfigFile, plan: planAgyConfig },
+  gemini: { file: geminiConfigFile, plan: planGeminiConfig },
+};
 
 /**
  * The adapters each harness needs, as [sourceInRepo, targetRelativeTo] pairs.
@@ -199,7 +477,7 @@ export function detectHarness(cwd) {
  *   dsh — the profile plugins dir; the patch row is written separately because
  *         a plugin file alone is not registered.
  */
-export function adaptersFor(harness, cwd) {
+export function adaptersFor(harness, cwd, { createFallback = true } = {}) {
   const home = homedir();
   if (harness === 'omp') {
     return [
@@ -226,13 +504,18 @@ export function adaptersFor(harness, cwd) {
     return out;
   }
   if (harness === 'dsh') {
-    const profiles = dshProfileDirs(cwd);
+    // createFallback:false for read-only callers (preflight/scans) — the acp
+    // fallback is an install write, not something a check may leave behind.
+    const profiles = dshProfileDirs(cwd, { createFallback });
     const out = [];
     for (const dir of profiles) {
       out.push({ src: join(ROOT, 'veto-hooks', 'dsh', 'tna-veto.mjs'), dest: join(dir, 'plugins', 'tna-veto.mjs'), label: `dsh veto (${basename(dir)})` });
       out.push({ src: join(ROOT, 'veto-hooks', 'dsh', 'tna-discipline.mjs'), dest: join(dir, 'plugins', 'tna-discipline.mjs'), label: `dsh discipline (${basename(dir)})` });
     }
     return out;
+  }
+  if (harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+    return tnaAdapterPairs(harness);
   }
   return [];
 }
@@ -243,6 +526,9 @@ export function adaptersFor(harness, cwd) {
  *                     `~/.agents/skills/` user); pi also reads `~/.pi/agent/skills`.
  *   dsh             — `$DSH_HOME/skills/<name>/SKILL.md` (its own flat dir).
  *   claude/codex    — their own plugin payloads ship the skills already.
+ *   devin/agy/gemini — the shared `.agents/skills/` project dir (Devin reads it
+ *                     on this machine: the session skill list shows
+ *                     `.agents/skills` sources).
  *
  * WHY THIS TABLE EXISTS (origin 2026-10-25): onboarding copied ZERO skills, so
  * "one command installs TNA" was true for the hooks only — the floor quotes
@@ -252,8 +538,24 @@ export function adaptersFor(harness, cwd) {
 function skillsDirsFor(harness, cwd) {
   const home = homedir();
   if (harness === 'dsh') return [join(home, '.dsh', 'skills')];
-  if (harness === 'pi' || harness === 'omp' || harness === 'opencode') return [join(cwd, '.agents', 'skills')];
+  if (harness === 'pi' || harness === 'omp' || harness === 'opencode'
+    || harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+    return [join(cwd, '.agents', 'skills')];
+  }
   return [];
+}
+
+/**
+ * Why skillsDirsFor returns [] and that is CORRECT: claude/codex ship their
+ * skills inside the plugin payload — a floor consent here copies nothing and
+ * the receipt must say so, not let "consented" read as "installed". Returns
+ * the one-line note the install prints (null when there is nothing to say).
+ */
+function skillsNoteFor(harness) {
+  if (harness === 'claude' || harness === 'codex') {
+    return `Skills: none copied — this harness's skills ship inside the plugin payload; verify the plugin is installed (doctor PL).`;
+  }
+  return null;
 }
 
 /**
@@ -271,12 +573,12 @@ function skillsDirsFor(harness, cwd) {
  * outcome: the receipt says the floor was consented while nothing was installed.
  * The caller now treats `missingSource` as a hard failure instead.
  */
-function installSkills(dir, { onlyMissing = true } = {}) {
+function installSkills(dir, { onlyMissing = true, tx = null } = {}) {
   const copied = [];
   const skipped = [];
   const source = join(ROOT, 'skills');
   if (!existsSync(source)) return { copied, skipped, missingSource: source };
-  mkdirSync(dir, { recursive: true });
+  mkdirInstall(tx, dir);
   for (const category of readdirSync(source, { withFileTypes: true })) {
     if (!category.isDirectory()) continue;
     const categoryDir = join(source, category.name);
@@ -286,7 +588,7 @@ function installSkills(dir, { onlyMissing = true } = {}) {
       if (!existsSync(join(from, 'SKILL.md'))) continue;
       const to = join(dir, entry.name);
       if (onlyMissing && existsSync(to)) { skipped.push(entry.name); continue; }
-      copyTree(from, to);
+      copyTree(from, to, tx);
       copied.push(to);
     }
   }
@@ -294,19 +596,251 @@ function installSkills(dir, { onlyMissing = true } = {}) {
 }
 
 /** Recursive copy (Node has no copyDirSync). Files only — skills carry no links. */
-function copyTree(from, to) {
-  mkdirSync(to, { recursive: true });
+function copyTree(from, to, tx = null) {
+  mkdirInstall(tx, to);
   for (const entry of readdirSync(from, { withFileTypes: true })) {
     const src = join(from, entry.name);
     const dst = join(to, entry.name);
-    if (entry.isDirectory()) copyTree(src, dst);
-    else if (entry.isFile()) writeFileSync(dst, readFileSync(src));
+    if (entry.isDirectory()) copyTree(src, dst, tx);
+    else if (entry.isFile()) writeInstallFile(tx, dst, readFileSync(src));
   }
 }
 
 /** sha256 of a file's bytes — the drift record the stamp carries. */
 function fileHash(path) {
   try { return createHash('sha256').update(readFileSync(path)).digest('hex'); } catch { return ''; }
+}
+
+/** sha256 over a directory tree (sorted paths + file bytes) — the drift record for directory resources. */
+function dirHash(root) {
+  const h = createHash('sha256');
+  const walk = (dir, prefix) => {
+    const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const entry of entries) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) walk(p, `${prefix}${entry.name}/`);
+      else if (entry.isFile()) { h.update(prefix + entry.name); h.update(readFileSync(p)); }
+    }
+  };
+  try { walk(root, ''); return h.digest('hex'); } catch { return ''; }
+}
+
+function normalizePathKey(path) {
+  return resolve(String(path)).replace(/\\/g, '/');
+}
+
+function ownershipRegistryPath() {
+  return join(tnaRuntimeDir(), 'ownership.json');
+}
+
+function fileResourceKey(path) {
+  return `file:${normalizePathKey(path)}`;
+}
+
+function dirResourceKey(path) {
+  return `dir:${normalizePathKey(path)}`;
+}
+
+function configResourceKey(harness, file) {
+  return `config:${harness}:${normalizePathKey(file)}`;
+}
+
+function emptyOwnershipRegistry() {
+  return { schema: 1, resources: {} };
+}
+
+function parseOwnershipRegistry(text) {
+  let obj;
+  try { obj = JSON.parse(String(text || '')); } catch { return null; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || obj.schema !== 1) return null;
+  if (!obj.resources || typeof obj.resources !== 'object' || Array.isArray(obj.resources)) return null;
+  const resources = {};
+  for (const [key, value] of Object.entries(obj.resources)) {
+    if (!key || typeof key !== 'string' || !value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const owners = value.owners;
+    if (!Array.isArray(owners) || owners.length === 0 || owners.some((owner) => typeof owner !== 'string' || !owner)) return null;
+    if (new Set(owners).size !== owners.length) return null;
+    if (key.startsWith('file:')) {
+      if (value.kind !== 'file' || typeof value.hash !== 'string' || !/^[0-9a-f]{64}$/.test(value.hash)) return null;
+      resources[key] = { kind: 'file', owners: [...owners], hash: value.hash };
+      continue;
+    }
+    if (key.startsWith('dir:')) {
+      if (value.kind !== 'dir' || typeof value.hash !== 'string' || !/^[0-9a-f]{64}$/.test(value.hash)) return null;
+      resources[key] = { kind: 'dir', owners: [...owners], hash: value.hash };
+      continue;
+    }
+    if (key.startsWith('config:')) {
+      if (value.kind !== 'config' || typeof value.harness !== 'string' || !value.harness || typeof value.file !== 'string' || !value.file) return null;
+      // Per-entry provenance (roast r1 F3): which config entries each owner
+      // project wired or relies on. Absent on pre-F3 records — parses as {}.
+      const entries = {};
+      if (value.entries !== undefined) {
+        if (!value.entries || typeof value.entries !== 'object' || Array.isArray(value.entries)) return null;
+        for (const [eid, eowners] of Object.entries(value.entries)) {
+          if (!eid || !Array.isArray(eowners) || eowners.length === 0
+            || eowners.some((o) => typeof o !== 'string' || !o) || new Set(eowners).size !== eowners.length) return null;
+          entries[eid] = [...eowners];
+        }
+      }
+      resources[key] = { kind: 'config', owners: [...owners], harness: value.harness, file: value.file, entries };
+      continue;
+    }
+    return null;
+  }
+  return { schema: 1, resources };
+}
+
+function readOwnershipRegistry() {
+  const path = ownershipRegistryPath();
+  if (!existsSync(path)) return { path, existed: false, registry: emptyOwnershipRegistry(), error: null };
+  let parsed = null;
+  try { parsed = parseOwnershipRegistry(readFileSync(path, 'utf8')); } catch { parsed = null; }
+  if (!parsed) return { path, existed: true, registry: null, error: `malformed shared ownership record: ${path}` };
+  return { path, existed: true, registry: parsed, error: null };
+}
+
+function serializeOwnershipRegistry(registry) {
+  const resources = {};
+  for (const key of Object.keys(registry.resources).sort()) {
+    const resource = registry.resources[key];
+    const owners = [...resource.owners].sort();
+    if (resource.kind === 'config') {
+      const entryClaims = {};
+      for (const eid of Object.keys(resource.entries || {}).sort()) {
+        entryClaims[eid] = [...resource.entries[eid]].sort();
+      }
+      resources[key] = { kind: 'config', owners, harness: resource.harness, file: resource.file };
+      if (Object.keys(entryClaims).length) resources[key].entries = entryClaims;
+    } else {
+      resources[key] = { kind: resource.kind, owners, hash: resource.hash };
+    }
+  }
+  return JSON.stringify({ schema: 1, resources }, null, 2) + '\n';
+}
+
+function writeOwnershipRegistry(registry, tx = null) {
+  mkdirInstall(tx, dirname(ownershipRegistryPath()));
+  writeInstallFile(tx, ownershipRegistryPath(), serializeOwnershipRegistry(registry));
+}
+
+function registerSharedOwnership({ cwd, families, components, layers, tx }) {
+  const state = readOwnershipRegistry();
+  if (state.error) throw new Error(state.error);
+  const registry = state.registry;
+  const owner = normalizePathKey(cwd);
+  const written = new Set([...(layers.copiedAdapters || []), ...(layers.refreshedAdapters || [])].map(normalizePathKey));
+  let touched = false;
+  // Shared skill copies (dsh ~/.dsh/skills) are registered like every other
+  // shared resource — project-local copies are the tree's own and need no
+  // registry. An existing resource gains this install as an owner whether the
+  // copy was written or skipped-present; a NEW resource is created only for
+  // copies this install actually wrote (layers.skillsCopied).
+  const copiedSet = new Set((layers.skillsCopied || []).map(normalizePathKey));
+  for (const raw of layers.skillsShared || []) {
+    const target = String(raw);
+    const key = dirResourceKey(target);
+    const hash = dirHash(target);
+    if (!hash) continue;
+    const existing = registry.resources[key];
+    if (existing) {
+      if (!existing.owners.includes(owner)) { existing.owners.push(owner); touched = true; }
+      if (copiedSet.has(normalizePathKey(target)) && existing.hash !== hash) { existing.hash = hash; touched = true; }
+    } else if (copiedSet.has(normalizePathKey(target))) {
+      registry.resources[key] = { kind: 'dir', owners: [owner], hash };
+      touched = true;
+    }
+  }
+  if (!components.hooks) {
+    if (touched || state.existed) writeOwnershipRegistry(registry, tx);
+    return;
+  }
+  for (const family of families) {
+    for (const { dest } of adaptersFor(family, cwd)) {
+      const key = fileResourceKey(dest);
+      const current = fileHash(dest);
+      if (!current) continue;
+      const existing = registry.resources[key];
+      if (existing) {
+        if (!existing.owners.includes(owner)) { existing.owners.push(owner); touched = true; }
+        if (written.has(normalizePathKey(dest)) && existing.hash !== current) { existing.hash = current; touched = true; }
+      } else if (written.has(normalizePathKey(dest))) {
+        registry.resources[key] = { kind: 'file', owners: [owner], hash: current };
+        touched = true;
+      }
+    }
+    // Per-entry provenance (roast r1 F3): the entries this install WROTE are
+    // claimed unconditionally; the entries it RELIES ON are claimed only when
+    // another install already owns them — claiming a user's own pre-existing
+    // entry would let our undo strip wiring we never wrote.
+    const claimsFor = (family, file) => {
+      const added = new Set();
+      const relied = new Set();
+      for (const w of layers.wiredConfigs || []) {
+        if (w.harness !== family || normalizePathKey(w.file) !== normalizePathKey(file)) continue;
+        for (const e of w.entries || []) added.add(e);
+        for (const e of w.reliedOn || []) relied.add(e);
+      }
+      return { added, relied };
+    };
+    const claimConfigEntries = (resource, { added, relied }) => {
+      resource.entries = resource.entries || {};
+      for (const eid of added) {
+        const eo = resource.entries[eid] ?? [];
+        if (!eo.includes(owner)) { eo.push(owner); resource.entries[eid] = eo; touched = true; }
+      }
+      for (const eid of relied) {
+        const eo = resource.entries[eid];
+        if (eo && !eo.includes(owner)) { eo.push(owner); touched = true; }
+      }
+    };
+    if (family === 'dsh') {
+      const files = new Set();
+      for (const resource of Object.values(registry.resources)) {
+        if (resource.kind === 'config' && resource.harness === 'dsh') files.add(normalizePathKey(resource.file));
+      }
+      for (const w of layers.wiredConfigs || []) {
+        if (w.harness === 'dsh') files.add(normalizePathKey(w.file));
+      }
+      for (const file of files) {
+        const key = configResourceKey(family, file);
+        const claims = claimsFor(family, file);
+        const existing = registry.resources[key];
+        if (existing) {
+          if (!existing.owners.includes(owner)) { existing.owners.push(owner); touched = true; }
+          claimConfigEntries(existing, claims);
+          continue;
+        }
+        const addedByThisInstall = claims.added.size > 0;
+        if (addedByThisInstall) {
+          const resource = { kind: 'config', owners: [owner], harness: family, file: normalizePathKey(file), entries: {} };
+          claimConfigEntries(resource, claims);
+          registry.resources[key] = resource;
+          touched = true;
+        }
+      }
+      continue;
+    }
+    const wire = WIRING[family];
+    if (!wire) continue;
+    const file = wire.file();
+    const key = configResourceKey(family, file);
+    const claims = claimsFor(family, file);
+    const existing = registry.resources[key];
+    if (existing) {
+      if (!existing.owners.includes(owner)) { existing.owners.push(owner); touched = true; }
+      claimConfigEntries(existing, claims);
+      continue;
+    }
+    const addedByThisInstall = claims.added.size > 0;
+    if (addedByThisInstall) {
+      const resource = { kind: 'config', owners: [owner], harness: family, file: normalizePathKey(file), entries: {} };
+      claimConfigEntries(resource, claims);
+      registry.resources[key] = resource;
+      touched = true;
+    }
+  }
+  if (touched || state.existed) writeOwnershipRegistry(registry, tx);
 }
 
 /**
@@ -362,7 +896,7 @@ export function detectInstalledAdapters(cwd) {
   // dsh: the plugin file AND the patch row. A plugin nobody loads reads as
   // installed in a directory listing and enforces nothing.
   const dshAdapters = [];
-  for (const dir of dshProfileDirs(cwd)) {
+  for (const dir of dshProfileDirs(cwd, { createFallback: false })) {
     let body = '';
     try { body = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8'); } catch { /* no patch */ }
     for (const [file, id] of [['tna-veto.mjs', 'tna-veto'], ['tna-discipline.mjs', 'tna-discipline']]) {
@@ -375,7 +909,240 @@ export function detectInstalledAdapters(cwd) {
     }
   }
   if (dshAdapters.length) groups.push({ harness: 'dsh', adapters: dshAdapters });
+
+  // The user-level adapter families: a copied file is not enough — the harness
+  // config must carry the required event contract. A surviving veto/pre-tool
+  // entry is evidence of wiring, but it cannot certify the post-tool evidence
+  // recorder; the scanner therefore reports each absent registration by name.
+  const runtimePairs = [
+    ...GATE_RUNTIME.map((f) => [join(ROOT, 'plugin', 'scripts', `${f}.mjs`), join(home, '.tna', 'plugin', 'scripts', `${f}.mjs`)]),
+    [join(ROOT, 'scripts', 'reinject.mjs'), join(home, '.tna', 'scripts', 'reinject.mjs')],
+  ];
+  const registrations = {};
+  let userInstallEvidence = runtimePairs.some(([, dest]) => existsSync(dest));
+  for (const harness of ['devin', 'antigravity', 'gemini']) {
+    registrations[harness] = registrationStatus(harness);
+    const dest = join(home, '.tna', 'veto-hooks', harness, 'hook.mjs');
+    if (existsSync(dest)) userInstallEvidence = true;
+    if (registrations[harness].evidence) userInstallEvidence = true;
+    if (!existsSync(dest)) continue;
+    const shipped = fileHash(join(ROOT, 'veto-hooks', harness, 'hook.mjs'));
+    const installed = fileHash(dest);
+    const missingRegistrations = registrations[harness].missing;
+    const state = missingRegistrations.length ? 'unregistered' : (shipped && installed === shipped ? 'current' : 'drift');
+    groups.push({ harness, adapters: [{ path: dest, state, installed, shipped, missingRegistrations }] });
+  }
+  // The shared gate runtime the three adapters resolve at ../../plugin/scripts.
+  // Once any user-level TNA evidence exists (an adapter, one runtime file, or
+  // wiring), absence is an installation defect and must remain visible by exact
+  // path. With no evidence at all, the machine simply does not have this layer.
+  if (userInstallEvidence) {
+    const runtimeAdapters = [];
+    for (const [src, dest] of runtimePairs) {
+      const shipped = fileHash(src);
+      if (!existsSync(dest)) {
+        runtimeAdapters.push({ path: dest, state: 'missing', shipped });
+        continue;
+      }
+      const installed = fileHash(dest);
+      runtimeAdapters.push({ path: dest, state: shipped && installed === shipped ? 'current' : 'drift', installed, shipped });
+    }
+    groups.push({ harness: 'tna-runtime', adapters: runtimeAdapters });
+  }
   return { groups };
+}
+
+/** Collect every string below a value (commands live several objects deep). */
+function collectStrings(value, out = []) {
+  if (typeof value === 'string') out.push(value);
+  else if (Array.isArray(value)) for (const v of value) collectStrings(v, out);
+  else if (value && typeof value === 'object') for (const v of Object.values(value)) collectStrings(v, out);
+  return out;
+}
+
+/** Collect command strings under every exact event key, through unknown wrapper shapes. */
+function eventCommands(config, event) {
+  const out = [];
+  const walk = (value) => {
+    if (Array.isArray(value)) { for (const v of value) walk(v); return; }
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === event) collectStrings(child, out);
+      walk(child);
+    }
+  };
+  walk(config);
+  return out.map((s) => s.replace(/\\/g, '/'));
+}
+
+function parseJsonFile(file) {
+  try { return { text: readFileSync(file, 'utf8'), config: JSON.parse(readFileSync(file, 'utf8')) }; }
+  catch { return null; }
+}
+
+/**
+ * The per-event registration contract for the user-level harnesses.
+ * Returns { missing, evidence }: missing is the exact event[/target] contract
+ * absent from usable JSON; evidence means this config carries TNA-shaped wiring
+ * even when the contract is incomplete. Devin accepts the existing user-level
+ * dispatcher form (`.../hook.mjs <target>`), the same equivalence the installer
+ * merge planner recognizes, so repair does not force duplicate entries.
+ */
+export function registrationStatus(harness) {
+  // Only the file the installer actually targets can certify registration —
+  // unioning candidates let complete wiring in a file we never touch stand in
+  // for a target file that lacks the contract (roast r1 F4).
+  const files = [WIRING[harness]?.file?.()].filter(Boolean);
+  const parsed = [...new Set(files)].map(parseJsonFile).filter(Boolean);
+  const normalizedTexts = parsed.map((p) => p.text.replace(/\\/g, '/'));
+  const marker = `veto-hooks/${harness}/hook.mjs`;
+  let evidence = normalizedTexts.some((t) => t.includes(marker));
+
+  if (harness === 'devin') {
+    const required = [
+      ['SessionStart', 'reinject'],
+      ['UserPromptSubmit', 'gate-hook'],
+      ['PreToolUse', 'gate-hook'],
+      ['PostToolUse', 'gate-hook'],
+    ];
+    const missing = [];
+    for (const [event, target] of required) {
+      const targetRe = new RegExp(`hook\\.mjs"?\\s+${target}\\b`);
+      const present = parsed.some((p) => eventCommands(p.config, event).some((cmd) => targetRe.test(cmd)));
+      if (!present) missing.push(`${event}:${target}`);
+      else evidence = true;
+    }
+    return { missing, evidence };
+  }
+
+  const events = harness === 'antigravity' ? ['PreToolUse', 'PostToolUse'] : ['BeforeTool', 'AfterTool'];
+  const missing = [];
+  for (const event of events) {
+    const present = parsed.some((p) => eventCommands(p.config, event).some((cmd) => cmd.includes(marker)));
+    if (!present) missing.push(event);
+    else evidence = true;
+  }
+  return { missing, evidence };
+}
+
+// ---- Layered readiness (first-install trust-layer AC11) ----
+// Consent and file presence are not readiness. This table is the shared honest
+// vocabulary used by the installer receipt and doctor: a layer is active only
+// when its installed adapter/runtime evidence is present and current; a missing
+// file or registration is missing; a drifted or uninspectable layer is
+// unverified; a harness without a surface is unsupported. Adapter evidence is
+// never live-host proof.
+const READINESS_LAYERS = [
+  ['floor', 'floor'],
+  ['mandatoryGate', 'mandatory-gate'],
+  ['veto', 'veto'],
+  ['evidenceRecorder', 'evidence-recorder'],
+  ['doneGate', 'done-gate'],
+  ['ledgerAppendOnly', 'ledger-append-only'],
+];
+
+const READINESS_SUPPORT = {
+  devin: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+  antigravity: { floor: false, mandatoryGate: false, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+  gemini: { floor: false, mandatoryGate: false, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+  omp: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: true, ledgerAppendOnly: true },
+  pi: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: true, ledgerAppendOnly: true },
+  dsh: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: true, ledgerAppendOnly: true },
+  opencode: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+  claude: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+  codex: { floor: true, mandatoryGate: true, veto: true, evidenceRecorder: true, doneGate: false, ledgerAppendOnly: true },
+};
+
+const READINESS_EVENTS = {
+  devin: { floor: 'SessionStart:reinject', mandatoryGate: 'UserPromptSubmit:gate-hook', veto: 'PreToolUse:gate-hook', evidenceRecorder: 'PostToolUse:gate-hook', ledgerAppendOnly: 'PreToolUse:gate-hook' },
+  antigravity: { veto: 'PreToolUse', evidenceRecorder: 'PostToolUse', ledgerAppendOnly: 'PreToolUse' },
+  gemini: { veto: 'BeforeTool', evidenceRecorder: 'AfterTool', ledgerAppendOnly: 'BeforeTool' },
+};
+
+function readinessComponentState(key, components) {
+  if (!components) return null;
+  if (key === 'floor' && components.floor === false) return 'declined';
+  if (key !== 'floor' && components.hooks === false) return 'declined';
+  if ((key === 'veto' || key === 'evidenceRecorder' || key === 'doneGate' || key === 'ledgerAppendOnly') && components.evidenceGate === false) return 'declined';
+  return null;
+}
+
+function userHarnessLayerState(key, harness, groups) {
+  const adapterPath = join(homedir(), '.tna', 'veto-hooks', harness, 'hook.mjs');
+  if (!existsSync(adapterPath)) return 'missing';
+  const runtime = groups.find((g) => g.harness === 'tna-runtime');
+  if (!runtime || runtime.adapters.some((a) => a.state === 'missing')) return 'missing';
+  const registrations = registrationStatus(harness);
+  const event = READINESS_EVENTS[harness]?.[key];
+  if (event && registrations.missing.includes(event)) return 'missing';
+  const adapter = groups.find((g) => g.harness === harness)?.adapters.find((a) => a.path === adapterPath || String(a.path).replace(/\\/g, '/') === adapterPath.replace(/\\/g, '/'));
+  if (!adapter) return 'unverified';
+  if (adapter.state === 'drift' || adapter.state === 'unregistered' || runtime.adapters.some((a) => a.state === 'drift')) return 'unverified';
+  return 'active';
+}
+
+function copiedHarnessLayerState(key, harness, groups) {
+  const group = groups.find((g) => g.harness === harness);
+  const stateFor = (fragment) => group?.adapters.find((a) => String(a.path).replace(/\\/g, '/').includes(fragment))?.state ?? 'missing';
+  const needed = key === 'floor' || key === 'mandatoryGate'
+    ? 'tna-discipline'
+    : key === 'doneGate'
+      ? (harness === 'omp' ? 'tna-receipts-gate' : 'tna-discipline')
+      : 'tna-veto';
+  const state = stateFor(needed);
+  if (state === 'current') return 'active';
+  if (state === 'missing') return 'missing';
+  return 'unverified';
+}
+
+/**
+ * Inspect the required mechanical layers for one harness. Pure with respect to
+ * the process: callers supply the scanner output, so installation and doctor
+ * share the same verdict instead of maintaining parallel stories.
+ */
+export function inspectLayerReadiness({ cwd, harness, components = null, groups = null }) {
+  const support = READINESS_SUPPORT[harness] ?? {};
+  const scan = groups ?? detectInstalledAdapters(cwd).groups;
+  return READINESS_LAYERS.map(([key, label]) => {
+    if (!support[key]) return { key, label, state: 'unsupported' };
+    const declined = readinessComponentState(key, components);
+    if (declined) return { key, label, state: declined };
+    if (key === 'floor' && components && components.hooks === false && (harness === 'devin' || harness === 'omp' || harness === 'pi' || harness === 'dsh' || harness === 'opencode' || harness === 'claude' || harness === 'codex')) {
+      return { key, label, state: 'missing' };
+    }
+    let state = 'unverified';
+    if (harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+      if (!READINESS_EVENTS[harness]?.[key] && key !== 'doneGate') state = 'unsupported';
+      else state = userHarnessLayerState(key, harness, scan);
+    } else if (harness === 'omp' || harness === 'pi' || harness === 'dsh') {
+      state = copiedHarnessLayerState(key, harness, scan);
+    }
+    return { key, label, state };
+  });
+}
+
+export function readinessBlockers(rows) {
+  return rows.filter((r) => r.state !== 'active').map((r) => `${r.label}=${r.state}`);
+}
+
+/**
+ * Format the layer table. `adapterSelfTest` must say exactly what probe ran;
+ * when none ran, say so. Live host proof is always open: neither the
+ * installer nor doctor is the host consuming the hook.
+ */
+export function formatLayerReadiness(rows, { adapterSelfTest = 'not run' } = {}) {
+  const lines = ['  Readiness (required layers):'];
+  for (const row of rows) lines.push(`    ${row.label}: ${row.state}`);
+  lines.push(`    adapter self-test: ${adapterSelfTest} — adapter-level evidence only, not live host proof`);
+  lines.push('    live host proof: open — no live host session was exercised here');
+  // Neither the installer nor doctor is the host consuming the hook, so live
+  // host proof is always open and the verdict is partial by construction —
+  // stated explicitly, not produced by a branch whose else can never run
+  // (roast r1 F11). A future harness-owned proof surface re-adds the
+  // parameter and both verdicts when it can actually attest proof.
+  const parts = [...readinessBlockers(rows), 'live-host-proof=open'];
+  lines.push(`    Overall: partial readiness — ${parts.join(', ')}`);
+  return lines;
 }
 
 /**
@@ -385,7 +1152,7 @@ export function detectInstalledAdapters(cwd) {
  * landed. So the installer wires ALL of them, and creates `acp` when none
  * exists (it is the profile the bb launcher boots).
  */
-export function dshProfileDirs(cwd) {
+export function dshProfileDirs(cwd, { createFallback = true } = {}) {
   // Project-local first: a tree carrying its own .dsh/profiles is THAT tree's
   // harness (the same rule detectHarness follows). Only when the project has none
   // does the user-level ~/.dsh/profiles apply.
@@ -404,7 +1171,7 @@ export function dshProfileDirs(cwd) {
       if (!dirs.includes(dir)) dirs.push(dir);
     }
   }
-  if (dirs.length === 0) {
+  if (dirs.length === 0 && createFallback) {
     const fallback = join(cwd, '.dsh', 'profiles', 'acp');
     mkdirSync(fallback, { recursive: true });
     dirs.push(fallback);
@@ -428,11 +1195,34 @@ function dshPatchRows(profileDir) {
   ].join('\n');
 }
 
+function stripDshTnaRows(body, ids = null) {
+  const on = (id) => !ids || ids.has(id);
+  const vetoOn = on('tna-veto');
+  const discOn = on('tna-discipline');
+  return String(body)
+    .split('\n')
+    .filter((line, i, all) => {
+      if (/tna-veto/.test(line) && vetoOn) return false;
+      if (/tna-discipline/.test(line) && discOn) return false;
+      if (line === '# trust-no-agent: evidence-gated veto for irreversible shell actions.' && vetoOn) return false;
+      if (line === '# trust-no-agent: MANDATORY classification + completion-claim gate.' && discOn) return false;
+      if (line === '- insert:') {
+        const next = all[i + 1] ?? '';
+        if (/tna-veto/.test(next) && vetoOn) return false;
+        if (/tna-discipline/.test(next) && discOn) return false;
+      }
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s*$/, '\n');
+}
+
 /**
  * Register the dsh plugins in every profile's cordis.patch.yml, idempotently.
  * Returns the profiles it touched.
  */
-function wireDshProfiles(cwd) {
+function wireDshProfiles(cwd, tx = null) {
   const touched = [];
   for (const dir of dshProfileDirs(cwd)) {
     const patch = join(dir, 'cordis.patch.yml');
@@ -461,7 +1251,7 @@ function wireDshProfiles(cwd) {
       if (line.trim() === '' && (rows[i - 1] ?? '').includes('tna-discipline.mjs')) return missing.includes('tna-discipline');
       return true;
     });
-    writeFileSync(patch, `${body}\n\n${keep.join('\n')}`);
+    writeInstallFile(tx, patch, `${body}\n\n${keep.join('\n')}`);
     touched.push(`${basename(dir)} (wired: ${missing.join(' + ')})`);
   }
   return touched;
@@ -605,13 +1395,13 @@ function existingOverlayNames(cwd) {
 }
 
 /** Write an overlay registration: frontmatter + a pointer to the original. */
-function writeOverlay(cwd, proposal) {
+function writeOverlay(cwd, proposal, tx = null) {
   const dir = join(cwd, '.trust', 'skills-overlay', proposal.name);
-  mkdirSync(dir, { recursive: true });
+  mkdirInstall(tx, dir);
   const fm = ['---', `name: ${proposal.name}`];
   if (proposal.triggers.length) fm.push(`triggers: ${proposal.triggers.join(', ')}`);
   fm.push('---');
-  writeFileSync(join(dir, 'SKILL.md'), [
+  writeInstallFile(tx, join(dir, 'SKILL.md'), [
     ...fm,
     '',
     `# ${proposal.name}`,
@@ -630,7 +1420,7 @@ function writeOverlay(cwd, proposal) {
  * and `--map-only` accept every proposal without prompting; the
  * interactive path asks per proposal.
  */
-async function mapPhase(cwd, { yes, onlySkills } = {}) {
+async function mapPhase(cwd, { yes, onlySkills, tx = null } = {}) {
   const discovered = scanSkillDirs(discoveryRoots(cwd));
   const plan = planOnboarding({
     discovered,
@@ -648,12 +1438,12 @@ async function mapPhase(cwd, { yes, onlySkills } = {}) {
       reader.close();
       ok = line !== null && (String(line).trim() === '' || /^y/i.test(String(line).trim()));
     }
-    if (ok) { writeOverlay(cwd, p); written.push(p.name); }
+    if (ok) { writeOverlay(cwd, p, tx); written.push(p.name); }
   }
   return { discovered: discovered.length, plan, written };
 }
 
-function printReceipt({ components, routerVersion, harness, stamped, mapResult, hooksPathSet, consentSource, layers }) {
+function printReceipt({ components, routerVersion, harness, stamped, mapResult, hooksPathSet, consentSource, layers, readinessLines = [] }) {
   const yes = (k) => (components[k] ? 'consented' : 'declined (mechanically OFF)');
   console.log('');
   console.log('Receipt');
@@ -662,12 +1452,107 @@ function printReceipt({ components, routerVersion, harness, stamped, mapResult, 
   // a harness could report success while carrying only the veto (origin
   // 2026-10-25 — the discipline adapters had no install path).
   if (layers !== undefined) console.log(`  Layers: ${layers}`);
+  for (const line of readinessLines) console.log(line);
   console.log(`  Mapped: ${stamped ? 'stamp written to .trust/onboarding.json' : 'no stamp written (aborted)'}${mapResult ? ` - ${mapResult.discovered} discovered, ${mapResult.written.length} written (${mapResult.written.join(', ') || 'none'}), ${mapResult.plan.skipped.length} skipped, ${mapResult.plan.noted.length} already registered` : ''}`);
   if (consentSource) console.log('  Consent source: ' + consentSource);
   console.log(hooksPathSet === true
     ? '  Pending: none — hooks wired (core.hooksPath=scripts/hooks).'
-    : '  Pending: hooks wiring was declined — the mechanical hooks stay OFF (consent is real).');
+    : '  Pending: hooks wiring was declined or unavailable — harness adapters/skills are installed, repository git hooks stay as they were.');
   console.log('  Next: ask your agent to read AGENTS.md and recite the four Iron Laws; then run /setup-tna in your chat session (or node scripts/onboarding.mjs --map-only) when new skills appear.');
+}
+
+/**
+ * One install transaction. Every file the first-install path writes is either
+ * operation-created (removed on rollback) or pre-existing (its original bytes
+ * restored on rollback). Git config mutations are journaled too. Empty parent
+ * directories may remain after a rollback; they are inert, while a half-written
+ * file is not.
+ */
+function createInstallTransaction(cwd) {
+  const created = new Set();
+  const createdDirs = new Set();
+  const modified = new Map();
+  const gitConfigs = new Map();
+  const mkdir = (dir) => {
+    const missing = [];
+    let cursor = dir;
+    while (!existsSync(cursor)) {
+      missing.push(cursor);
+      const parent = dirname(cursor);
+      if (parent === cursor) break;
+      cursor = parent;
+    }
+    for (const item of missing) createdDirs.add(item);
+    mkdirSync(dir, { recursive: true });
+  };
+  const writeFile = (file, data) => {
+    if (!created.has(file) && !modified.has(file)) {
+      if (existsSync(file)) modified.set(file, readFileSync(file));
+      else created.add(file);
+    }
+    writeFileSync(file, data);
+  };
+  const gitConfig = (cwd, key, value) => {
+    if (!gitConfigs.has(key)) {
+      let existed = false;
+      let previous = '';
+      try {
+        previous = execFileSync('git', ['config', '--get', key], { cwd, encoding: 'utf8', stdio: 'pipe' }).trim();
+        existed = true;
+      } catch { /* absent or not a repo — restore means unset */ }
+      gitConfigs.set(key, { existed, previous });
+    }
+    execFileSync('git', ['config', key, value], { cwd, stdio: 'pipe' });
+  };
+  const rollback = () => {
+    const errors = [];
+    for (const [key, prior] of [...gitConfigs.entries()].reverse()) {
+      try {
+        if (prior.existed) execFileSync('git', ['config', key, prior.previous], { cwd, stdio: 'pipe' });
+        else execFileSync('git', ['config', '--unset', key], { cwd, stdio: 'pipe' });
+      } catch (e) { errors.push(`git config ${key}: ${e && e.message ? e.message : e}`); }
+    }
+    for (const [file, bytes] of [...modified.entries()].reverse()) {
+      try { writeFileSync(file, bytes); }
+      catch (e) { errors.push(`${file}: ${e && e.message ? e.message : e}`); }
+    }
+    for (const file of [...created].reverse()) {
+      try { if (existsSync(file)) rmSync(file, { force: true }); }
+      catch (e) { errors.push(`${file}: ${e && e.message ? e.message : e}`); }
+    }
+    const deepestFirst = [...createdDirs].sort((a, b) => b.length - a.length);
+    for (const dir of deepestFirst) {
+      try {
+        if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir);
+      } catch (e) { errors.push(`${dir}: ${e && e.message ? e.message : e}`); }
+    }
+    return errors;
+  };
+  return { writeFile, mkdir, gitConfig, rollback, created, createdDirs, modified, gitConfigs };
+}
+
+const writeInstallFile = (tx, file, data) => {
+  if (tx) tx.writeFile(file, data);
+  else writeFileSync(file, data);
+};
+
+const mkdirInstall = (tx, dir) => {
+  if (tx) tx.mkdir(dir);
+  else mkdirSync(dir, { recursive: true });
+};
+
+function writePartialInstallRecord(cwd, error, rollbackErrors, tx) {
+  try {
+    mkdirSync(join(cwd, '.trust'), { recursive: true });
+    writeFileSync(join(cwd, '.trust', 'onboarding-partial.json'), JSON.stringify({
+      schema: 1,
+      failedAt: new Date().toISOString(),
+      error: String(error && error.message ? error.message : error),
+      rollbackErrors,
+      created: [...tx.created],
+      modified: [...tx.modified.keys()],
+    }, null, 2) + '\n');
+  } catch { /* the failure record is best-effort; the nonzero exit is the contract */ }
 }
 
 /**
@@ -682,13 +1567,15 @@ function printReceipt({ components, routerVersion, harness, stamped, mapResult, 
  * the acp profile got the plugins, the headless profile created later got
  * nothing).
  */
-function installLayers({ cwd, harness, components, refresh }) {
+function installLayers({ cwd, harness, components, refresh, tx = null }) {
   const copiedAdapters = [];
   const skippedAdapters = [];
   const missingAdapters = [];
   const refreshedAdapters = [];
   const driftedAdapters = [];
   const adapterHashes = {};
+  const wiredConfigs = [];
+  const unwiredConfigs = [];
   if (components.hooks) {
     for (const { src, dest, label } of adaptersFor(harness, cwd)) {
       if (!existsSync(src)) {
@@ -704,7 +1591,7 @@ function installLayers({ cwd, harness, components, refresh }) {
           adapterHashes[dest] = shipped;
           console.log(`Hook (${label}): already current at ${dest}.`);
         } else if (refresh) {
-          writeFileSync(dest, readFileSync(src));
+          writeInstallFile(tx, dest, readFileSync(src));
           refreshedAdapters.push(dest);
           adapterHashes[dest] = shipped;
           console.log(`Hook (${label}): refreshed at ${dest} (was ${installed.slice(0, 12)}, now ${shipped.slice(0, 12)}).`);
@@ -714,15 +1601,71 @@ function installLayers({ cwd, harness, components, refresh }) {
           console.log(`Hook (${label}): ${dest} DIFFERS from the shipped copy (installed ${installed.slice(0, 12)}, shipped ${shipped.slice(0, 12)}) — left untouched; re-run with --refresh to update it.`);
         }
       } else {
-        mkdirSync(dirname(dest), { recursive: true });
-        writeFileSync(dest, readFileSync(src));
+        mkdirInstall(tx, dirname(dest));
+        writeInstallFile(tx, dest, readFileSync(src));
         copiedAdapters.push(dest);
         adapterHashes[dest] = shipped;
         console.log(`Hook (${label}): copied to ${dest} (ON).`);
       }
     }
     if (harness === 'dsh' && copiedAdapters.length + skippedAdapters.length + refreshedAdapters.length + driftedAdapters.length > 0) {
-      for (const line of wireDshProfiles(cwd)) console.log(`dsh profile: ${line}`);
+      const beforePatches = new Map(dshProfileDirs(cwd).map((dir) => {
+        const file = join(dir, 'cordis.patch.yml');
+        return [file, existsSync(file) ? readFileSync(file, 'utf8') : ''];
+      }));
+      for (const line of wireDshProfiles(cwd, tx)) console.log(`dsh profile: ${line}`);
+      for (const dir of dshProfileDirs(cwd)) {
+        const file = join(dir, 'cordis.patch.yml');
+        if (!existsSync(file)) continue;
+        const before = beforePatches.get(file) || '';
+        const after = readFileSync(file, 'utf8');
+        if (after === before) {
+          const reliedOn = [];
+          if (after.includes('tna-veto')) reliedOn.push('tna-veto');
+          if (after.includes('tna-discipline')) reliedOn.push('tna-discipline');
+          if (reliedOn.length) wiredConfigs.push({ harness: 'dsh', file, entries: [], reliedOn });
+          continue;
+        }
+        const entries = [];
+        if (!before.includes('tna-veto') && after.includes('tna-veto')) entries.push('tna-veto');
+        if (!before.includes('tna-discipline') && after.includes('tna-discipline')) entries.push('tna-discipline');
+        const reliedOn = [];
+        if (after.includes('tna-veto') && !entries.includes('tna-veto')) reliedOn.push('tna-veto');
+        if (after.includes('tna-discipline') && !entries.includes('tna-discipline')) reliedOn.push('tna-discipline');
+        if (entries.length || reliedOn.length) wiredConfigs.push({ harness: 'dsh', file, entries, reliedOn });
+      }
+    }
+    // The user-level harnesses: copying the adapter is half the job — the
+    // harness's own config must reference it or nothing ever runs. Merge into
+    // the config (never clobber: foreign entries survive), and record the
+    // file in did.wiredConfigs so --undo strips exactly our entries.
+    const wire = WIRING[harness];
+    if (wire) {
+      const file = wire.file();
+      const hookPath = join(homedir(), '.tna', 'veto-hooks', harness, 'hook.mjs');
+      let cfg = {};
+      let unparseable = false;
+      if (existsSync(file)) {
+        try { cfg = JSON.parse(readFileSync(file, 'utf8')); } catch { unparseable = true; }
+      }
+      if (unparseable) {
+        console.error(`Hook config (${harness}): ${file} is not valid JSON — left untouched; fix it or remove it and re-run.`);
+        unwiredConfigs.push(file);
+      } else {
+        const { merged, added, already, declined } = wire.plan(cfg, hookPath, components);
+        const changed = added.length > 0 || JSON.stringify(merged) !== JSON.stringify(cfg);
+        if (changed) {
+          mkdirInstall(tx, dirname(file));
+          writeInstallFile(tx, file, JSON.stringify(merged, null, 2) + '\n');
+          wiredConfigs.push({ harness, file, entries: added, reliedOn: already.filter((a) => !/\s/.test(a)) });
+          console.log(`Hook config (${harness}): wired ${added.join(', ') || 'nothing'} in ${file} (existing entries preserved).`);
+        } else if (already.length) {
+          const claims = already.filter((a) => !/\s/.test(a));
+          if (claims.length) wiredConfigs.push({ harness, file, entries: [], reliedOn: claims });
+        }
+        for (const a of already) console.log(`Hook config (${harness}): already wired — ${a} (left as-is).`);
+        for (const d of declined || []) console.log(`Hook config (${harness}): declined by consent — ${d} (stays OFF).`);
+      }
     }
   }
   // Skills (origin 2026-10-25): the floor quotes the MANDATORY skills into
@@ -731,13 +1674,19 @@ function installLayers({ cwd, harness, components, refresh }) {
   // directory THIS harness reads; a pre-existing skill is never overwritten.
   const skillsCopied = [];
   const skillsSkipped = [];
+  const skillsShared = [];
   const skillsMissingSource = [];
   if (components.floor) {
+    if (skillsDirsFor(harness, cwd).length === 0) {
+      const note = skillsNoteFor(harness);
+      if (note) console.log(note);
+    }
     for (const dir of skillsDirsFor(harness, cwd)) {
-      const r = installSkills(dir);
+      const r = installSkills(dir, { tx });
       if (r.missingSource) { skillsMissingSource.push(r.missingSource); continue; }
-      for (const p of r.copied) skillsCopied.push(p);
-      for (const n of r.skipped) skillsSkipped.push(n);
+      const shared = !normalizePathKey(dir).startsWith(`${normalizePathKey(cwd)}/`);
+      for (const p of r.copied) { skillsCopied.push(p); if (shared) skillsShared.push(p); }
+      for (const n of r.skipped) { skillsSkipped.push(n); if (shared) skillsShared.push(join(dir, n)); }
       if (r.copied.length) console.log(`Skills: ${r.copied.length} installed into ${dir}.`);
       if (r.skipped.length) console.log(`Skills: ${r.skipped.length} already present in ${dir} (left untouched).`);
     }
@@ -745,14 +1694,226 @@ function installLayers({ cwd, harness, components, refresh }) {
     // tree beside it. Reporting success with zero skills copied is the silent
     // no-op this check exists to prevent (dsh fix-list #10).
     if (skillsMissingSource.length) {
-      console.error(`Skills: SOURCE NOT FOUND at ${skillsMissingSource[0]} — this tree is a setup-tna SKILL PAYLOAD, not the framework checkout.`);
-      console.error('  Nothing was installed for the floor component. Either run the CLI from the trust-no-agent checkout,');
-      console.error('  or copy the skills yourself: cp -r <trust-no-agent>/skills/*/* ~/.agents/skills/ (or ~/.dsh/skills/ for dsh).');
-      console.error('  Aborting: a "successful" install that copied no skills would misreport the floor as consented.');
-      process.exit(1);
+      throw new Error(`missing required skills source: ${skillsMissingSource[0]}`);
     }
   }
-  return { copiedAdapters, skippedAdapters, missingAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped };
+  if (missingAdapters.length) {
+    throw new Error(`missing required adapter source(s): ${missingAdapters.join(', ')}`);
+  }
+  if (unwiredConfigs.length) {
+    throw new Error(`invalid harness config(s): ${unwiredConfigs.join(', ')}`);
+  }
+  return { copiedAdapters, skippedAdapters, missingAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped, skillsShared, wiredConfigs, unwiredConfigs };
+}
+
+/**
+ * Validate every input and source the first install knows it needs BEFORE the
+ * first write. Environmental write failures can still happen after preflight;
+ * those are the transaction rollback's domain. Predictable invalid input never
+ * reaches the transaction at all.
+ */
+function preflightFirstInstall({ cwd, components, mapSkills, families }) {
+  const errors = [];
+  const ownership = readOwnershipRegistry();
+  if (ownership.error) errors.push(ownership.error);
+  if (components.overlays && mapSkills !== undefined && !Array.isArray(mapSkills)) {
+    errors.push(`mapSkills must be an array (got: ${typeof mapSkills})`);
+  }
+  if (components.hooks) {
+    const missing = new Set();
+    for (const family of families) {
+      // Preflight is read-only — it may never create the dsh acp fallback it
+      // would report as installed to (roast r1 F5).
+      for (const { src, label } of adaptersFor(family, cwd, { createFallback: false })) {
+        if (!existsSync(src)) missing.add(`${label}: ${src}`);
+      }
+      const wire = WIRING[family];
+      if (wire) {
+        const file = wire.file();
+        if (existsSync(file)) {
+          try {
+            const cfg = JSON.parse(readFileSync(file, 'utf8'));
+            if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) errors.push(`invalid harness config (${family}): ${file} must contain a JSON object`);
+          } catch {
+            errors.push(`invalid harness config (${family}): ${file} is not valid JSON`);
+          }
+        }
+      }
+    }
+    for (const item of missing) errors.push(`missing required adapter source — ${item}`);
+    if (detectHarness(cwd) === 'opencode' && !existsSync(join(ROOT, '.opencode', 'plugins', 'tna-gate', 'index.js'))) {
+      errors.push(`missing required adapter source — opencode veto plugin: ${join(ROOT, '.opencode', 'plugins', 'tna-gate', 'index.js')}`);
+    }
+  }
+  if (components.floor && families.some((family) => skillsDirsFor(family, cwd).length > 0)) {
+    const source = join(ROOT, 'skills');
+    if (!existsSync(source)) {
+      errors.push(`missing required skills source: ${source}`);
+    } else {
+      const required = [
+        join('engineering', 'expect-fail'),
+        join('engineering', 'root-cause'),
+        join('discipline', 'receipts'),
+      ];
+      for (const rel of required) {
+        const skillFile = join(source, rel, 'SKILL.md');
+        if (!existsSync(skillFile)) errors.push(`missing required skills source: ${skillFile}`);
+      }
+    }
+  }
+  return errors;
+}
+
+/**
+ * The shared first-install writer. Terminal prompts and --from-chat differ only
+ * in how consent was collected; once collected they are the same operation,
+ * with the same preflight, transaction, rollback, stamp, and receipt.
+ * Returns the process exit status instead of exiting so the caller keeps the
+ * channel-specific epilogue under its own control.
+ */
+async function runFirstInstall({ cwd, components, mapSkills, workflowChoice = '', consentSource, mapYes = true, refresh = false }) {
+  const families = detectHarnessFamilies(cwd);
+  const preflightErrors = preflightFirstInstall({ cwd, components, mapSkills, families });
+  if (preflightErrors.length) {
+    console.error('Install preflight failed — nothing was written:');
+    for (const error of preflightErrors) console.error(`  - ${error}`);
+    return 1;
+  }
+
+  const tx = createInstallTransaction(cwd);
+  try {
+    mkdirInstall(tx, join(cwd, '.trust'));
+    warnOrphanEvidenceGate(components);
+    // The stamp is private: make sure `.trust/` is gitignored — appending to
+    // the adopter's existing .gitignore (never clobbering). Without this the
+    // doctor fails right after a "successful" onboarding (the one-door
+    // promise).
+    let gitignoreAction = 'not-needed';
+    let gitignoreHadTrailingNewline = null;
+    if (components.floor || components.overlays) {
+      const giPath = join(cwd, '.gitignore');
+      const existed = existsSync(giPath);
+      let gi = '';
+      try { gi = readFileSync(giPath, 'utf8'); } catch { /* no .gitignore yet */ }
+      if (!/(^|\n)\s*\.trust\/?\s*(\n|$)/.test(gi)) {
+        gitignoreHadTrailingNewline = gi.endsWith('\n');
+        const sep = gi.endsWith('\n') || gi === '' ? '' : '\n';
+        writeInstallFile(tx, giPath, gi + sep + '.trust/\n');
+        gitignoreAction = existed ? 'appended' : 'created';
+      } else {
+        gitignoreAction = 'already-present';
+      }
+    }
+    let mapResult = null;
+    if (components.overlays) {
+      if (Array.isArray(mapSkills)) {
+        for (const entry of mapSkills) {
+          if (typeof entry !== 'string') console.log('Skipping non-string mapSkills entry: ' + JSON.stringify(String(entry).slice(0, 30)) + ' — only skill-name strings are accepted.');
+        }
+      }
+      mapResult = await mapPhase(cwd, {
+        yes: mapYes,
+        onlySkills: Array.isArray(mapSkills) ? mapSkills.filter((e) => typeof e === 'string') : null,
+        tx,
+      });
+    }
+    // Consent is real (setup-tna unification): consenting hooks WIRES
+    // core.hooksPath when this tree carries repository hooks. An adopter
+    // project usually has no scripts/hooks directory; that is not an install
+    // failure because the harness adapters and skills are the mechanical layer
+    // there. Never point git at an absent hooks directory: git would silently
+    // run no hooks, disabling pre-existing enforcement.
+    let hooksPathSet = false;
+    if (components.hooks) {
+      const hooksDir = join(cwd, 'scripts', 'hooks');
+      if (!existsSync(join(hooksDir, 'commit-msg')) && !existsSync(join(hooksDir, 'pre-commit'))) {
+        console.log('hooks wiring skipped: scripts/hooks is not present in this tree (harness adapters/skills still install).');
+      } else {
+        try {
+          tx.gitConfig(cwd, 'core.hooksPath', 'scripts/hooks');
+          hooksPathSet = true;
+        } catch (e) {
+          console.error(`hooks wiring failed — set it manually: git config core.hooksPath scripts/hooks (${e && e.message ? e.message : 'unknown error'})`);
+        }
+      }
+    }
+    // Veto plugin copy (veto-plugin-onboarding spec AC1-AC3): when hooks are
+    // consented AND the harness is OpenCode, copy the veto plugin into the
+    // project so the mid-session veto actually runs there. Never clobber a
+    // pre-existing copy; record did.vetoPluginCopied for --undo.
+    let vetoPluginCopied = false;
+    const harness = detectHarness(cwd);
+    if (components.hooks && harness === 'opencode') {
+      const srcPlugin = join(ROOT, '.opencode', 'plugins', 'tna-gate');
+      const destPlugin = join(cwd, '.opencode', 'plugins', 'tna-gate');
+      if (existsSync(destPlugin)) {
+        console.log('Veto plugin: already present at .opencode/plugins/tna-gate (left untouched).');
+      } else {
+        copyTree(srcPlugin, destPlugin, tx);
+        vetoPluginCopied = true;
+        console.log('Veto plugin: copied to .opencode/plugins/tna-gate (mid-session veto is ON).');
+      }
+    }
+    const layers = { copiedAdapters: [], skippedAdapters: [], missingAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [], skillsShared: [], wiredConfigs: [], unwiredConfigs: [] };
+    for (const family of families) {
+      const r = installLayers({ cwd, harness: family, components, refresh, tx });
+      layers.copiedAdapters.push(...r.copiedAdapters);
+      layers.skippedAdapters.push(...r.skippedAdapters);
+      layers.missingAdapters.push(...r.missingAdapters);
+      layers.refreshedAdapters.push(...r.refreshedAdapters);
+      layers.driftedAdapters.push(...r.driftedAdapters);
+      Object.assign(layers.adapterHashes, r.adapterHashes);
+      layers.skillsCopied.push(...r.skillsCopied);
+      layers.skillsSkipped.push(...r.skillsSkipped);
+      layers.skillsShared.push(...r.skillsShared);
+      layers.wiredConfigs.push(...r.wiredConfigs);
+      layers.unwiredConfigs.push(...r.unwiredConfigs);
+    }
+    const { copiedAdapters, skippedAdapters, missingAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped, wiredConfigs } = layers;
+    if (missingAdapters.length) throw new Error(`missing required adapter source(s): ${missingAdapters.join(', ')}`);
+    if (layers.unwiredConfigs.length) throw new Error(`invalid harness config(s): ${layers.unwiredConfigs.join(', ')}`);
+    registerSharedOwnership({ cwd, families, components, layers, tx });
+    if (families.length > 1) console.log(`Harnesses detected in this tree: ${families.join(', ')} — adapters installed for each.`);
+    const vetoHookCopiedOmp = copiedAdapters.some((p) => p.includes(`${basename(join(homedir(), '.omp'))}`));
+    const vetoHookCopiedPi = copiedAdapters.some((p) => p.endsWith(join('.pi', 'extensions', 'tna-veto.ts')));
+    const did = { vetoPluginCopied, vetoHookCopiedOmp, vetoHookCopiedPi, copiedAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped, wiredConfigs, dshProfilesWired: families.includes('dsh') && components.hooks, overlays: mapResult ? mapResult.written : [], hooksPathSet, gitignoreAction, gitignoreHadTrailingNewline };
+    writeInstallFile(tx, join(cwd, '.trust', 'onboarding.json'), serializeStamp({ components, harness, routerVersion: readRouterVersion(), did, workflowChoice }));
+    const layersLine = components.hooks
+      ? (harness === 'dsh'
+        ? 'veto + discipline (mandatory-gate, done-gate) registered in every dsh profile; floor comes from dsh reading AGENTS.md'
+        : harness === 'pi' || harness === 'omp'
+          ? 'veto + discipline (floor, mandatory-gate, done-gate)'
+          : harness === 'opencode'
+            ? 'veto + evidence recorder (opencode plugin)'
+            : harness === 'devin'
+              ? 'veto + floor reinjection + mandatory-gate + evidence recorder (devin user hooks; no done-gate on this harness)'
+              : harness === 'antigravity'
+                ? 'veto + evidence recorder (agy Pre/PostToolUse; floor + done-gate not wired — no proven agy surface)'
+                : harness === 'gemini'
+                  ? 'veto + evidence recorder (gemini Before/AfterTool; floor + done-gate not wired)'
+                  : harness === 'claude' || harness === 'codex'
+                    ? 'veto hooks ship with the harness plugin (verify the hooks file in the payload)'
+                    : `no mechanical adapter for '${harness}' — audit-only: the floor runs as prose, veto/done-gate are unavailable`)
+      : 'hooks declined — every layer is mechanically OFF';
+    if (refreshedAdapters.length) console.log(`  Refreshed: ${refreshedAdapters.length} adapter(s) updated to the shipped copy.`);
+    if (driftedAdapters.length) console.log(`  Drift: ${driftedAdapters.length} adapter(s) differ from the shipped copy and were left untouched — re-run with --refresh.`);
+    if (components.floor) console.log(`  Skills: ${skillsCopied.length} installed, ${skillsSkipped.length} already present (left untouched).`);
+    const readinessRows = inspectLayerReadiness({ cwd, harness, components });
+    const readinessLines = formatLayerReadiness(readinessRows, { adapterSelfTest: components.hooks ? 'not run by installer' : 'not run — hooks declined' });
+    printReceipt({ components, routerVersion: readRouterVersion(), harness, stamped: true, mapResult, hooksPathSet, consentSource, layers: layersLine, readinessLines });
+    return 0;
+  } catch (e) {
+    const rollbackErrors = tx.rollback();
+    console.error(`Install failed: ${e && e.message ? e.message : e}`);
+    if (rollbackErrors.length === 0) {
+      console.error('Rollback complete: operation-owned partial writes removed; pre-existing bytes restored. Fix the cause and retry.');
+    } else {
+      writePartialInstallRecord(cwd, e, rollbackErrors, tx);
+      console.error(`Rollback incomplete: ${rollbackErrors.length} item(s) could not be reverted. Recoverable partial-install record: .trust/onboarding-partial.json`);
+      for (const error of rollbackErrors) console.error(`  - ${error}`);
+    }
+    return 1;
+  }
 }
 
 /**
@@ -766,7 +1927,7 @@ function installLayers({ cwd, harness, components, refresh }) {
  * CLI ever did, so a successful refresh left the doctor warning "stale"
  * forever. Returns a receipt string for the caller to print.
  */
-function runRefreshInstall({ cwd, components, existing, consentedAt }) {
+function runRefreshInstallUnchecked({ cwd, components, existing, consentedAt, tx }) {
   // Refresh EVERY family installed on this machine, not just this project's
   // harness: an opencode project still carries omp/pi/dsh adapters on the same
   // disk, and those are exactly the copies that go stale unnoticed (measured
@@ -774,16 +1935,19 @@ function runRefreshInstall({ cwd, components, existing, consentedAt }) {
   // were all behind).
   const families = new Set(detectHarnessFamilies(cwd));
   for (const g of detectInstalledAdapters(cwd).groups) families.add(g.harness);
-  const layers = { copiedAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [] };
+  const layers = { copiedAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [], skillsShared: [], wiredConfigs: [] };
   for (const family of families) {
-    const r = installLayers({ cwd, harness: family, components, refresh: true });
+    const r = installLayers({ cwd, harness: family, components, refresh: true, tx });
     layers.copiedAdapters.push(...r.copiedAdapters);
     layers.refreshedAdapters.push(...r.refreshedAdapters);
     layers.driftedAdapters.push(...r.driftedAdapters);
     Object.assign(layers.adapterHashes, r.adapterHashes);
     layers.skillsCopied.push(...r.skillsCopied);
     layers.skillsSkipped.push(...r.skillsSkipped);
+    layers.skillsShared.push(...r.skillsShared);
+    layers.wiredConfigs.push(...r.wiredConfigs);
   }
+  registerSharedOwnership({ cwd, families: [...families], components, layers, tx });
   const routerVersion = readRouterVersion();
   const did = {
     ...existing.did,
@@ -793,13 +1957,14 @@ function runRefreshInstall({ cwd, components, existing, consentedAt }) {
     adapterHashes: { ...(existing.did.adapterHashes || {}), ...layers.adapterHashes },
     skillsCopied: [...new Set([...(existing.did.skillsCopied || []), ...layers.skillsCopied])],
     skillsSkipped: layers.skillsSkipped,
+    wiredConfigs: [...(existing.did.wiredConfigs || []), ...layers.wiredConfigs],
     dshProfilesWired: families.has('dsh') ? true : existing.did.dshProfilesWired,
   };
-  writeFileSync(join(cwd, '.trust', 'onboarding.json'), serializeStamp({ components: existing.components, harness: existing.harness, routerVersion, consentedAt: existing.consentedAt, workflowChoice: existing.workflowChoice, did }));
+  writeInstallFile(tx, join(cwd, '.trust', 'onboarding.json'), serializeStamp({ components: existing.components, harness: existing.harness, routerVersion, consentedAt: existing.consentedAt, workflowChoice: existing.workflowChoice, did }));
   // The version marker doctor C6 reads — a refresh that skipped this left the
   // doctor warning "stale" about an install it had just refreshed.
-  mkdirSync(join(cwd, '.trust'), { recursive: true });
-  writeFileSync(join(cwd, '.trust', 'tna-version'), routerVersion);
+  mkdirInstall(tx, join(cwd, '.trust'));
+  writeInstallFile(tx, join(cwd, '.trust', 'tna-version'), routerVersion);
   return [
     '',
     'Receipt',
@@ -809,6 +1974,24 @@ function runRefreshInstall({ cwd, components, existing, consentedAt }) {
     `  Skills: ${layers.skillsCopied.length} installed, ${layers.skillsSkipped.length} already present (left untouched).`,
     '  Next: node scripts/doctor.mjs to confirm every adapter is current.',
   ].join('\n');
+}
+
+function runRefreshInstall(args) {
+  const tx = createInstallTransaction(args.cwd);
+  try {
+    return runRefreshInstallUnchecked({ ...args, tx });
+  } catch (e) {
+    const rollbackErrors = tx.rollback();
+    console.error(`Install refresh failed: ${e && e.message ? e.message : e}`);
+    if (rollbackErrors.length === 0) {
+      console.error('Rollback complete: operation-owned partial writes removed; pre-existing bytes restored. Fix the cause and retry.');
+    } else {
+      writePartialInstallRecord(args.cwd, e, rollbackErrors, tx);
+      console.error(`Rollback incomplete: ${rollbackErrors.length} item(s) could not be reverted. Recoverable partial-install record: .trust/onboarding-partial.json`);
+      for (const error of rollbackErrors) console.error(`  - ${error}`);
+    }
+    process.exit(1);
+  }
 }
 
 async function main() {
@@ -824,6 +2007,48 @@ async function main() {
       console.log('Nothing to undo — no consent stamp (this tree was never onboarded).');
       process.exit(0);
     }
+    const ownershipState = readOwnershipRegistry();
+    if (ownershipState.error) {
+      console.error(`${ownershipState.error}. Undo refuses to continue: shared resources and registrations are left untouched.`);
+      process.exit(1);
+    }
+    const ownership = ownershipState.registry;
+    const ownerKey = normalizePathKey(cwd);
+    let ownershipDirty = false;
+    const allowedAdapterPath = (normalized) => normalized.includes('/.pi/extensions/')
+      || normalized.includes('/.omp/agent/hooks/pre/')
+      || normalized.includes('/.omp/agent/extensions/')
+      || normalized.includes('/.dsh/profiles/')
+      || normalized.includes('/.tna/');
+    const sharedAdapterPath = (normalized) => normalized.includes('/.tna/')
+      || normalized.includes('/.omp/')
+      || normalized.includes('/.dsh/')
+      || normalized.startsWith(`${normalizePathKey(homedir())}/.pi/`);
+    const releaseFileResource = (key) => {
+      const resource = ownership.resources[key];
+      if (!resource || resource.kind !== 'file' || !resource.owners.includes(ownerKey)) return { status: 'unowned' };
+      resource.owners = resource.owners.filter((owner) => owner !== ownerKey);
+      ownershipDirty = true;
+      if (resource.owners.length) return { status: 'shared', remaining: resource.owners.length };
+      delete ownership.resources[key];
+      return { status: 'final', hash: resource.hash };
+    };
+    const releaseConfigResource = (key) => {
+      const resource = ownership.resources[key];
+      if (!resource || resource.kind !== 'config' || !resource.owners.includes(ownerKey)) return { status: 'unowned' };
+      resource.owners = resource.owners.filter((owner) => owner !== ownerKey);
+      ownershipDirty = true;
+      if (resource.owners.length) return { status: 'shared', remaining: resource.owners.length };
+      delete ownership.resources[key];
+      return { status: 'final', resource };
+    };
+    const expectedConfigFiles = (harness) => (harness === 'devin' ? devinConfigCandidates()
+      : harness === 'antigravity' ? [agyConfigFile(), join(cwd, '.agents', 'hooks.json')]
+        : harness === 'gemini' ? [geminiConfigFile(), join(cwd, '.gemini', 'settings.json')]
+          : []).map(normalizePathKey);
+    const validConfigPath = (harness, normalized) => harness === 'dsh'
+      ? normalized.includes('/.dsh/profiles/') && normalized.endsWith('/cordis.patch.yml')
+      : expectedConfigFiles(harness).includes(normalized);
     const removed = { overlays: [], hooksPath: false };
     for (const rawName of stamp.did.overlays || []) {
       // The stamp is an on-disk file treated as untrusted here: an overlay name
@@ -846,22 +2071,40 @@ async function main() {
       if (existsSync(vetoDir)) { rmSync(vetoDir, { recursive: true, force: true }); }
       console.log('Veto plugin: removed .opencode/plugins/tna-gate (it was copied by onboarding).');
     }
-    // copiedAdapters is the exact list this run wrote (2026-10-25: the install
-    // grew from one adapter to three per harness, and undo must follow the same
-    // table or it leaves residue). Refreshed adapters are the same kind of
-    // residue: this run REPLACED them, so undo removes them rather than
-    // restoring an older copy it no longer has (the stamp only keeps hashes).
+    const ownedFileKeys = Object.keys(ownership.resources)
+      .filter((key) => key.startsWith('file:') && ownership.resources[key].owners.includes(ownerKey));
+    const handledAdapters = new Set();
+    for (const key of ownedFileKeys) {
+      const target = key.slice('file:'.length);
+      const normalized = normalizePathKey(target);
+      handledAdapters.add(normalized);
+      if (!allowedAdapterPath(normalized)) {
+        console.log('Skipping suspicious adapter path in ownership record: ' + JSON.stringify(normalized.slice(0, 60)));
+        continue;
+      }
+      const release = releaseFileResource(key);
+      if (release.status === 'shared') {
+        console.log(`Hook adapter: preserved ${target} (${release.remaining} project owner(s) remain).`);
+        continue;
+      }
+      if (!existsSync(target)) continue;
+      if (release.status === 'final' && fileHash(target) !== release.hash) {
+        console.log(`Hook adapter: ${target} differs from the operation-owned copy — user-modified file left untouched.`);
+        continue;
+      }
+      rmSync(target, { force: true });
+      console.log(`Hook adapter: removed ${target} after the final project owner released it.`);
+    }
     for (const rawPath of [...(stamp.did.copiedAdapters || []), ...(stamp.did.refreshedAdapters || [])]) {
       const target = String(rawPath);
-      // The stamp is on-disk and therefore untrusted: only a path under a known
-      // harness dir may be removed, never an arbitrary string from the file.
-      const normalized = target.replace(/\\/g, '/');
-      const allowed = normalized.includes('/.pi/extensions/')
-        || normalized.includes('/.omp/agent/hooks/pre/')
-        || normalized.includes('/.omp/agent/extensions/')
-        || normalized.includes('/.dsh/profiles/');
-      if (!allowed) {
+      const normalized = normalizePathKey(target);
+      if (handledAdapters.has(normalized)) continue;
+      if (!allowedAdapterPath(normalized)) {
         console.log('Skipping suspicious adapter path in stamp: ' + JSON.stringify(normalized.slice(0, 60)));
+        continue;
+      }
+      if (sharedAdapterPath(normalized)) {
+        console.log(`Hook adapter: preserved ${target} (no trustworthy ownership record; shared resources fail closed).`);
         continue;
       }
       if (existsSync(target)) {
@@ -869,56 +2112,159 @@ async function main() {
         console.log(`Hook adapter: removed ${target} (it was copied by onboarding).`);
       }
     }
-    // Skills this run created. Only the recorded absolute paths are touched, and
-    // only when the parent dir is a known skills location — a tampered stamp must
-    // not turn undo into an arbitrary recursive delete.
+    // Skills this run created. Shared skill dirs (outside the project, e.g.
+    // ~/.dsh/skills) ride the ownership registry like every other shared
+    // resource: only the FINAL project owner deletes, and only while the copy
+    // still matches the recorded bytes (roast r1 F2 — one project's undo used
+    // to rmSync every stamped path under a sibling's feet). Project-local
+    // copies are the tree's own and are removed outright; a shared path with
+    // no trustworthy ownership record is preserved (fail closed).
+    const allowedSkillPath = (normalized) => normalized.includes('/.agents/skills/') || normalized.includes('/.dsh/skills/');
+    const handledSkills = new Set();
+    const ownedDirKeys = Object.keys(ownership.resources)
+      .filter((key) => key.startsWith('dir:') && ownership.resources[key].owners.includes(ownerKey));
+    for (const key of ownedDirKeys) {
+      const target = key.slice('dir:'.length);
+      const normalized = normalizePathKey(target);
+      handledSkills.add(normalized);
+      if (!allowedSkillPath(normalized)) {
+        console.log('Skipping suspicious skill path in ownership record: ' + JSON.stringify(normalized.slice(0, 60)));
+        continue;
+      }
+      const resource = ownership.resources[key];
+      resource.owners = resource.owners.filter((owner) => owner !== ownerKey);
+      ownershipDirty = true;
+      if (resource.owners.length) {
+        console.log(`Skills: preserved ${target} (${resource.owners.length} project owner(s) remain).`);
+        continue;
+      }
+      delete ownership.resources[key];
+      if (!existsSync(target)) continue;
+      if (dirHash(target) !== resource.hash) {
+        console.log(`Skills: ${target} differs from the operation-owned copy — user-modified dir left untouched.`);
+        continue;
+      }
+      rmSync(target, { recursive: true, force: true });
+      console.log(`Skills: removed ${target} after the final project owner released it.`);
+    }
     for (const rawPath of stamp.did.skillsCopied || []) {
       const target = String(rawPath);
-      const normalized = target.replace(/\\/g, '/');
-      const allowed = normalized.includes('/.agents/skills/') || normalized.includes('/.dsh/skills/');
-      if (!allowed) {
+      const normalized = normalizePathKey(target);
+      if (handledSkills.has(normalized)) continue;
+      if (!allowedSkillPath(normalized)) {
         console.log('Skipping suspicious skill path in stamp: ' + JSON.stringify(normalized.slice(0, 60)));
+        continue;
+      }
+      if (!normalized.startsWith(`${ownerKey}/`)) {
+        console.log(`Skills: preserved ${target} (no trustworthy ownership record; shared resources fail closed).`);
         continue;
       }
       if (existsSync(target)) { rmSync(target, { recursive: true, force: true }); }
     }
     if ((stamp.did.skillsCopied || []).length) {
-      console.log(`Skills: removed ${(stamp.did.skillsCopied || []).length} skill dir(s) this install created (pre-existing ones left untouched).`);
-    }
-    // dsh patch rows this run added: strip them so a removed plugin file is not
-    // still registered (a dangling `name:` would make the profile fail to boot).
-    if (stamp.did.dshProfilesWired === true) {
-      for (const dir of dshProfileDirs(cwd)) {
-        const patch = join(dir, 'cordis.patch.yml');
-        if (!existsSync(patch)) continue;
-        const body = readFileSync(patch, 'utf8');
-        if (!/tna-(veto|discipline)/.test(body)) continue;
-        const kept = body
-          .split('\n')
-          .filter((line, i, all) => {
-            if (/tna-(veto|discipline)/.test(line)) return false;
-            if (line === '# trust-no-agent: evidence-gated veto for irreversible shell actions.') return false;
-            if (line === '# trust-no-agent: MANDATORY classification + completion-claim gate.') return false;
-            if (line === '- insert:') {
-              const next = all[i + 1] ?? '';
-              if (/tna-(veto|discipline)/.test(next)) return false;
-            }
-            return true;
-          })
-          .join('\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .replace(/\s*$/, '\n');
-        writeFileSync(patch, kept);
-        console.log(`dsh profile: unwired tna plugins in ${basename(dir)}/cordis.patch.yml`);
-      }
-    }
-    if (stamp.did.vetoHookCopiedOmp === true) {
-      const vetoOmp = join(homedir(), '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts');
-      if (existsSync(vetoOmp)) { rmSync(vetoOmp, { force: true }); console.log('Veto hook (omp): removed ~/.omp/agent/hooks/pre/tna-veto.ts (it was copied by onboarding).'); }
+      console.log(`Skills: ${(stamp.did.skillsCopied || []).length} skill dir(s) recorded by this install (shared ones released through the ownership registry above).`);
     }
     if (stamp.did.vetoHookCopiedPi === true) {
       const vetoPi = join(cwd, '.pi', 'extensions', 'tna-veto.ts');
       if (existsSync(vetoPi)) { rmSync(vetoPi, { force: true }); console.log('Veto hook (pi): removed .pi/extensions/tna-veto.ts (it was copied by onboarding).'); }
+    }
+    const ownedConfigKeys = Object.keys(ownership.resources)
+      .filter((key) => key.startsWith('config:') && ownership.resources[key].owners.includes(ownerKey));
+    const processedConfigs = new Set();
+    const stampedEntriesFor = (harness, file) => {
+      const normalized = normalizePathKey(file);
+      const ids = [];
+      for (const w of stamp.did.wiredConfigs || []) {
+        if (w.harness !== harness || normalizePathKey(w.file) !== normalized) continue;
+        for (const e of w.entries || []) ids.push(e);
+      }
+      return ids;
+    };
+    const stripConfigEntries = (harness, file, ids) => {
+      if (harness === 'dsh') {
+        writeFileSync(file, stripDshTnaRows(readFileSync(file, 'utf8'), new Set(ids)));
+        return;
+      }
+      const cfg = JSON.parse(readFileSync(file, 'utf8'));
+      writeFileSync(file, JSON.stringify(unwireConfigEntries(harness, cfg, ids), null, 2) + '\n');
+    };
+    // Per-entry release (roast r1 F3): our claim comes off every entry we
+    // claimed; an entry NO project still claims is stripped by exact identity
+    // (marker-gated), an entry another owner relies on survives — undo removes
+    // exactly what this install wrote and nothing else.
+    const unwireOwnedConfig = (key, resource) => {
+      processedConfigs.add(key);
+      const file = resource.file;
+      const normalized = normalizePathKey(file);
+      if (!validConfigPath(resource.harness, normalized)) {
+        console.log('Skipping suspicious config path in ownership record: ' + JSON.stringify(normalized.slice(0, 60)));
+        return;
+      }
+      const claims = resource.entries || {};
+      const unclaimed = [];
+      for (const eid of Object.keys(claims)) {
+        if (!claims[eid].includes(ownerKey)) continue;
+        const rest = claims[eid].filter((o) => o !== ownerKey);
+        ownershipDirty = true;
+        if (rest.length) claims[eid] = rest;
+        else { delete claims[eid]; unclaimed.push(eid); }
+      }
+      const release = releaseConfigResource(key);
+      if (release.status === 'unowned') return;
+      const toStrip = [...new Set([...unclaimed, ...stampedEntriesFor(resource.harness, file)])]
+        .filter((eid) => !(resource.entries?.[eid]?.length));
+      if (!existsSync(file)) return;
+      if (!toStrip.length) {
+        console.log(`Hook config (${resource.harness}): preserved entries in ${file} (another project still claims them).`);
+        return;
+      }
+      try {
+        stripConfigEntries(resource.harness, file, toStrip);
+        console.log(`Hook config (${resource.harness}): removed our entries (${toStrip.join(', ')}) from ${file}${release.status === 'shared' ? ` (${release.remaining} project owner(s) remain)` : ' after the final project owner released them'} — other entries left untouched.`);
+      } catch {
+        console.log(`Hook config (${resource.harness}): ${file} no longer parses — left untouched (remove our entries by hand).`);
+      }
+    };
+    for (const key of ownedConfigKeys) unwireOwnedConfig(key, ownership.resources[key]);
+    for (const w of stamp.did.wiredConfigs || []) {
+      const file = String(w.file ?? '');
+      if (!file) continue;
+      const key = configResourceKey(w.harness, file);
+      if (processedConfigs.has(key)) continue;
+      const normalized = normalizePathKey(file);
+      if (!validConfigPath(w.harness, normalized)) {
+        console.log('Skipping suspicious config path in stamp: ' + JSON.stringify(file.slice(0, 60)));
+        continue;
+      }
+      const ids = (w.entries || []).filter(Boolean);
+      if (!ids.length || !existsSync(file)) continue;
+      try {
+        stripConfigEntries(w.harness, file, ids);
+        console.log(`Hook config (${w.harness}): removed our entries (${ids.join(', ')}) from ${file} (stamp provenance; other entries left untouched).`);
+      } catch {
+        console.log(`Hook config (${w.harness}): ${file} no longer parses — left untouched (remove our entries by hand).`);
+      }
+    }
+    // Reverse the .gitignore write this install recorded. A file onboarding
+    // created is removed only while it still contains exactly that one line;
+    // an append is stripped from the tail without disturbing later edits. If
+    // the shape no longer matches, the file is user state and stays untouched.
+    if (stamp.did.gitignoreAction === 'created' || stamp.did.gitignoreAction === 'appended') {
+      const giPath = join(cwd, '.gitignore');
+      if (existsSync(giPath)) {
+        const body = readFileSync(giPath, 'utf8');
+        if (stamp.did.gitignoreAction === 'created') {
+          if (body === '.trust/\n') { rmSync(giPath, { force: true }); console.log('.gitignore: removed (onboarding created it).'); }
+          else console.log('.gitignore: onboarding created it, but it now carries user edits — left untouched.');
+        } else if (body.endsWith('.trust/\n')) {
+          let prior = body.slice(0, body.length - '.trust/\n'.length);
+          if (stamp.did.gitignoreHadTrailingNewline === false && prior.endsWith('\n')) prior = prior.slice(0, -1);
+          writeFileSync(giPath, prior);
+          console.log('.gitignore: removed the .trust/ line onboarding appended (other entries preserved).');
+        } else {
+          console.log('.gitignore: the appended .trust/ line is no longer at the tail — left untouched.');
+        }
+      }
     }
     // The overlay root is removed only when empty — pre-existing overlays
     // (not created by onboarding) stay untouched.
@@ -928,6 +2274,13 @@ async function main() {
     }
     if (stamp.did.hooksPathSet) {
       try { execFileSync('git', ['config', '--unset', 'core.hooksPath'], { cwd, stdio: 'pipe' }); removed.hooksPath = true; } catch { /* not set / not a repo */ }
+    }
+    if (ownershipDirty) {
+      if (Object.keys(ownership.resources).length) {
+        writeFileSync(ownershipState.path, serializeOwnershipRegistry(ownership));
+      } else if (existsSync(ownershipState.path)) {
+        rmSync(ownershipState.path, { force: true });
+      }
     }
     rmSync(stampPath, { force: true });
     console.log('Receipt');
@@ -986,146 +2339,16 @@ async function main() {
       process.exit(0);
     }
 
-    const components = answers.components;
-    mkdirSync(join(cwd, '.trust'), { recursive: true });
-    // The stamp is private: make sure `.trust/` is gitignored — appending to
-    // the adopter's existing .gitignore (never clobbering). Without this the
-    // doctor fails right after a "successful" onboarding (the one-door
-    // promise).
-    if (components.floor || components.overlays) {
-      const giPath = join(cwd, '.gitignore');
-      let gi = '';
-      try { gi = readFileSync(giPath, 'utf8'); } catch { /* no .gitignore yet */ }
-      if (!/(^|\n)\s*\.trust\/?\s*(\n|$)/.test(gi)) {
-        const sep = gi.endsWith('\n') || gi === '' ? '' : '\n';
-        writeFileSync(giPath, gi + sep + '.trust/\n');
-      }
-    }
-    let mapResult = null;
-    if (components.overlays) {
-      // Consent-boundary (spec AC3): mapSkills must be an array; a non-array
-      // aborts BEFORE any write (the .gitignore append and overlay dir below
-      // happen only after this guard).
-      const ms = answers.mapSkills;
-      if (ms !== undefined && !Array.isArray(ms)) {
-        console.error('mapSkills must be an array — aborting before any write (got: ' + typeof ms + ').');
-        process.exit(1);
-      }
-      if (Array.isArray(ms)) {
-        for (const entry of ms) {
-          if (typeof entry !== 'string') console.log('Skipping non-string mapSkills entry: ' + JSON.stringify(String(entry).slice(0, 30)) + ' — only skill-name strings are accepted.');
-        }
-      }
-      mapResult = await mapPhase(cwd, { yes: true, onlySkills: (ms || []).filter((e) => typeof e === 'string') });
-    }
-    // Consent is real (setup-tna unification): consenting hooks WIRES
-    // core.hooksPath — the component turns ON mechanically, or /setup-tna
-    // alone cannot complete a first install. Declining leaves the config
-    // untouched (off, not broken).
-    let hooksPathSet = false;
-    if (components.hooks) {
-      // Guard (security review 2026-10-16): core.hooksPath may only point at
-      // scripts/hooks when that directory EXISTS in this tree. From the
-      // setup-tna skill payload the hooks directory is not shipped — setting
-      // the config anyway would make git silently run NO hooks, disabling the
-      // adopter's pre-existing pre-commit enforcement. In that case the wiring
-      // is refused with a named manual command instead of a silent regression.
-      const hooksDir = join(cwd, 'scripts', 'hooks');
-      if (!existsSync(join(hooksDir, 'commit-msg')) && !existsSync(join(hooksDir, 'pre-commit'))) {
-        console.error('hooks wiring refused: scripts/hooks not found in this tree (running from the setup-tna skill payload?).');
-        console.error('Clone the repo and run the CLI from its root, or wire manually once the hooks exist:');
-        console.error('  git config core.hooksPath scripts/hooks');
-      } else {
-        try {
-          execFileSync('git', ['config', 'core.hooksPath', 'scripts/hooks'], { cwd, stdio: 'pipe' });
-          hooksPathSet = true;
-        } catch (e) {
-          console.error(`hooks wiring failed — set it manually: git config core.hooksPath scripts/hooks (${e && e.message ? e.message : 'unknown error'})`);
-        }
-      }
-    }
-        // Veto plugin copy (veto-plugin-onboarding spec AC1-AC3): when hooks are
-    // consented AND the harness is OpenCode, copy the veto plugin into the
-    // project so the mid-session veto actually runs there. Never clobber a
-    // pre-existing copy; record did.vetoPluginCopied for --undo.
-    let vetoPluginCopied = false;
-    let vetoHookCopiedOmp = false;
-    let vetoHookCopiedPi = false;
-    const harness = detectHarness(cwd);
-    if (components.hooks && harness === 'opencode') {
-      const srcPlugin = join(ROOT, '.opencode', 'plugins', 'tna-gate');
-      const destPlugin = join(cwd, '.opencode', 'plugins', 'tna-gate');
-      if (existsSync(destPlugin)) {
-        console.log('Veto plugin: already present at .opencode/plugins/tna-gate (left untouched).');
-      } else if (existsSync(join(srcPlugin, 'index.js'))) {
-        mkdirSync(destPlugin, { recursive: true });
-        for (const entry of readdirSync(srcPlugin, { withFileTypes: true })) {
-          if (entry.isFile()) writeFileSync(join(destPlugin, entry.name), readFileSync(join(srcPlugin, entry.name)));
-        }
-        vetoPluginCopied = true;
-        console.log('Veto plugin: copied to .opencode/plugins/tna-gate (mid-session veto is ON).');
-      } else {
-        console.error('Veto plugin: source .opencode/plugins/tna-gate not found in this tree — skipping (copy manually from the repo).');
-      }
-    }
-    // Every adapter the harness needs — the veto (blocking) AND the discipline
-    // extension (floor + mandatory-gate + done-gate). One table, so a future
-    // adapter cannot ship without an install path (origin 2026-10-25: the
-    // discipline adapters existed but nothing copied them).
-    //
-    // --refresh (origin 2026-10-25): a copy-once install has no reconciliation,
-    // so an adapter shipped AFTER the first install never reaches it — measured
-    // on this machine: the installed pi/omp discipline adapters both differed
-    // from the shipped copies while every gate reported green. --refresh
-    // rewrites an adapter whose bytes differ; without it the owner copy is still
-    // left untouched, but the drift is NAMED so "consented" never reads as
-    // "current".
-    const refresh = args.includes('--refresh');
-    // EVERY harness this tree belongs to, not just the primary one.
-    // Origin 2026-10-25 (omp fix-list #10, measured): `detectHarness` returns one
-    // name and project order wins absolutely, so a leftover `.opencode/` in a
-    // repo that also carries `.omp/`/`.pi/` meant the omp adapters were NEVER
-    // installed by the project path — the ones on disk had no provenance at all.
-    const families = detectHarnessFamilies(cwd);
-    const layers = { copiedAdapters: [], skippedAdapters: [], missingAdapters: [], refreshedAdapters: [], driftedAdapters: [], adapterHashes: {}, skillsCopied: [], skillsSkipped: [] };
-    for (const family of families) {
-      const r = installLayers({ cwd, harness: family, components, refresh });
-      layers.copiedAdapters.push(...r.copiedAdapters);
-      layers.skippedAdapters.push(...r.skippedAdapters);
-      layers.missingAdapters.push(...r.missingAdapters);
-      layers.refreshedAdapters.push(...r.refreshedAdapters);
-      layers.driftedAdapters.push(...r.driftedAdapters);
-      Object.assign(layers.adapterHashes, r.adapterHashes);
-      layers.skillsCopied.push(...r.skillsCopied);
-      layers.skillsSkipped.push(...r.skillsSkipped);
-    }
-    const { copiedAdapters, skippedAdapters, missingAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped } = layers;
-    if (families.length > 1) console.log(`Harnesses detected in this tree: ${families.join(', ')} — adapters installed for each.`);
-    // Kept for the --undo contract and for older stamps (assignment, not a new
-    // declaration: the flags are declared once above with the other `did` state).
-    vetoHookCopiedOmp = copiedAdapters.some((p) => p.includes(`${basename(join(homedir(), '.omp'))}`));
-    vetoHookCopiedPi = copiedAdapters.some((p) => p.endsWith(join('.pi', 'extensions', 'tna-veto.ts')));
-    const did = { vetoPluginCopied, vetoHookCopiedOmp, vetoHookCopiedPi, copiedAdapters, refreshedAdapters, driftedAdapters, adapterHashes, skillsCopied, skillsSkipped, dshProfilesWired: families.includes('dsh') && components.hooks, overlays: mapResult ? mapResult.written : [], hooksPathSet };
-    const workflowChoice = typeof answers.workflowChoice === 'string' ? answers.workflowChoice : '';
-    const consentSource = args.includes('--from-chat') ? 'forwarded via --from-chat (agent channel)' : 'interactive prompts';
-    writeFileSync(stampPath, serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did, consentSource, workflowChoice }));
-    const layersLine = components.hooks
-      ? (harness === 'dsh'
-        ? 'veto + discipline (mandatory-gate, done-gate) registered in every dsh profile; floor comes from dsh reading AGENTS.md'
-        : harness === 'pi' || harness === 'omp'
-          ? 'veto + discipline (floor, mandatory-gate, done-gate)'
-          : harness === 'opencode'
-            ? 'veto + evidence recorder (opencode plugin)'
-            : 'veto hooks ship with the harness plugin (verify the hooks file in the payload)')
-      : 'hooks declined — every layer is mechanically OFF';
-    // Adapter/skill state is reported by NAME, never folded into "consented":
-    // a drifted adapter and a current one both read as consented, and that
-    // ambiguity is what hid a stale install until a manual probe found it.
-    if (refreshedAdapters.length) console.log(`  Refreshed: ${refreshedAdapters.length} adapter(s) updated to the shipped copy.`);
-    if (driftedAdapters.length) console.log(`  Drift: ${driftedAdapters.length} adapter(s) differ from the shipped copy and were left untouched — re-run with --refresh.`);
-    if (components.floor) console.log(`  Skills: ${skillsCopied.length} installed, ${skillsSkipped.length} already present (left untouched).`);
-    printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult, hooksPathSet, consentSource, layers: layersLine });
-    process.exit(0);
+    const status = await runFirstInstall({
+      cwd,
+      components: answers.components,
+      mapSkills: answers.mapSkills,
+      workflowChoice: typeof answers.workflowChoice === 'string' ? answers.workflowChoice : '',
+      consentSource: 'forwarded via --from-chat (agent channel)',
+      mapYes: true,
+      refresh: args.includes('--refresh'),
+    });
+    process.exit(status);
   }
 
   // --map-only: re-scan the delta without re-asking consent.
@@ -1176,17 +2399,26 @@ async function main() {
       process.exit(1);
     }
   }
-  mkdirSync(join(cwd, '.trust'), { recursive: true });
-
-  // Mapping phase (ticket 04): discover, plan, confirm, write.
-  let mapResult = null;
-  if (components.overlays) mapResult = await mapPhase(cwd, { yes: args.includes('--yes') });
-  const did = { overlays: mapResult ? mapResult.written : [], hooksPathSet: false };
-  writeFileSync(join(cwd, '.trust', 'onboarding.json'),
-    serializeStamp({ components, harness: detectHarness(cwd), routerVersion: readRouterVersion(), did }));
-  printReceipt({ components, routerVersion: readRouterVersion(), harness: detectHarness(cwd), stamped: true, mapResult });
+  const status = await runFirstInstall({
+    cwd,
+    components,
+    consentSource: args.includes('--yes') ? '--yes default menu' : 'interactive prompts',
+    mapYes: args.includes('--yes'),
+  });
+  if (status !== 0) process.exit(status);
   printExitAndUpdate();
   printRehearsal();
+}
+
+/**
+ * The evidence gate is a consent label, not an engine — its veto rides on the
+ * hooks adapters (gate-hook's PreToolUse path). Consenting it while declining
+ * hooks arms nothing; the stamp must not read as a gate that can fire.
+ */
+function warnOrphanEvidenceGate(components) {
+  if (components.evidenceGate && !components.hooks) {
+    console.error('Evidence gate: consented, but the hooks component is declined — the stamp records consent; NOTHING enforces it (the evidence veto rides on the hooks adapters).');
+  }
 }
 
 function printMapReceipt(r, stamp) {

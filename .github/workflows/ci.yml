@@ -147,6 +147,9 @@ jobs:
       - name: Hook entry-point contract (fail-open)
         run: node scripts/gate-hook.test.mjs
 
+      - name: Native ledger hook routing contract
+        run: node scripts/ledger-hook-routing.test.mjs
+
       - name: Hook fast-path superset guard
         run: node scripts/gate-hook-fastpath.test.mjs
 
@@ -165,6 +168,8 @@ jobs:
         run: node scripts/file-budget.test.mjs
       - name: Payload sync (zero drift by discovery)
         run: node scripts/payload-sync.test.mjs
+      - name: Integrated first-install trust-layer gate
+        run: node scripts/first-install-gate.test.mjs
 
       - name: Changelog structure guard
         run: node scripts/changelog-guard.test.mjs

@@ -239,7 +239,12 @@ export function adapterVerdict({ harness = 'unknown', adapters = [] } = {}) {
   }
   const lines = defects.map((a) => {
     if (a.state === 'missing') return `${a.path} is missing (run node scripts/onboarding.mjs --refresh)`;
-    if (a.state === 'unregistered') return `${a.path} exists but no cordis.patch.yml row loads it — the profile boots without this plugin (re-run onboarding --refresh)`;
+    if (a.state === 'unregistered') {
+      if (Array.isArray(a.missingRegistrations) && a.missingRegistrations.length)
+        return `${a.path} is missing required registration(s): ${a.missingRegistrations.join(', ')} (re-run onboarding --refresh)`;
+      if (harness === 'dsh') return `${a.path} exists but no cordis.patch.yml row loads it — the profile boots without this plugin (re-run onboarding --refresh)`;
+      return `${a.path} exists but its required harness registration is missing (re-run onboarding --refresh)`;
+    }
     return `${a.path} DIFFERS from the shipped copy (installed ${String(a.installed ?? '?').slice(0, 12)}, shipped ${String(a.shipped ?? '?').slice(0, 12)}) — re-run node scripts/onboarding.mjs --refresh`;
   });
   return {
@@ -411,4 +416,75 @@ export function hookTargetVerdict({ missing = [], checked = 0, files = [] } = {}
   if (!files.length) return { level: 'pass', message: 'no harness hook config found — nothing to liveness-check' };
   if (!checked) return { level: 'pass', message: `hook config(s) present (${files.join(', ')}) but name no project-relative targets` };
   return { level: 'pass', message: `${checked} hook target(s) exist on disk (${files.join(', ')})` };
+}
+
+/**
+ * C14 — resolveFloor: which halves of the discipline floor does this router
+ * text actually carry?
+ *
+ * The extraction is DELEGATED to reinject.mjs (the same seam the session's
+ * floor injection uses), so doctor's verdict can never drift from what the
+ * injection would emit: a section reinject cannot find is reported here as
+ * missing. The import is dynamic because reinject.mjs's absence is itself a
+ * reported defect (the G section fails the gate-hook load for exactly that
+ * reason) — a static chain would make the report die on the throw it exists
+ * to describe (the K12 lesson, 2026-11-03).
+ *
+ * @returns {Promise<{lawsFound: boolean, mandatoryFound: boolean}>}
+ */
+export async function resolveFloor(routerText) {
+  const { buildReinject, LAWS_NOT_FOUND, MANDATORY_NOT_FOUND } = await import('./reinject.mjs');
+  const block = buildReinject(routerText);
+  if (!block) return { lawsFound: false, mandatoryFound: false };
+  return {
+    lawsFound: !block.includes(LAWS_NOT_FOUND),
+    mandatoryFound: !block.includes(MANDATORY_NOT_FOUND),
+  };
+}
+
+/**
+ * C14 — floorVerdict: is a resolvable floor required here, and is it present?
+ *
+ * The truth table is consent-shaped because the check's job is catching a
+ * merge that silently dropped a gate section — and "the floor is absent" is
+ * only a defect when someone said it should be there:
+ *
+ *   repo mode          → the framework checkout IS the floor source; an
+ *                        unresolvable half is a defect regardless of stamps.
+ *   floorConsented     → the stamp says the floor was adopted; a dropped half
+ *                        is the silent merge hole this check exists for → FAIL.
+ *   floor declined     → a visible decision (the ON verdict names it) → quiet.
+ *   no stamp           → cannot tell adoption from never-installed → WARN.
+ *   no router files    → nothing to resolve; C1 already owns that report
+ *                        (unless the floor was consented — then FAIL).
+ *
+ * @returns {{level: 'pass'|'warn'|'fail', message: string}}
+ */
+export function floorVerdict({ mode, floorConsented, filesScanned = [], lawsFound, mandatoryFound } = {}) {
+  const where = filesScanned.join(', ');
+  const missing = [
+    !lawsFound && 'Iron Laws',
+    !mandatoryFound && 'MANDATORY section',
+  ].filter(Boolean).join(' + ');
+
+  if (mode === 'repo') {
+    if (!filesScanned.length)
+      return { level: 'fail', message: 'no router files found — the framework checkout must carry its own floor' };
+    if (missing)
+      return { level: 'fail', message: `discipline floor incomplete in the framework's own router — ${missing} not resolvable from ${where}` };
+    return { level: 'pass', message: `discipline floor resolves from ${where}` };
+  }
+
+  if (floorConsented === false)
+    return { level: 'pass', message: 'discipline floor declined at onboarding — nothing to resolve' };
+  if (!filesScanned.length) {
+    if (floorConsented === true)
+      return { level: 'fail', message: 'floor consented at onboarding but no router file exists to carry it — nothing at the project root holds the Iron Laws or the MANDATORY section' };
+    return { level: 'pass', message: 'no router files at the project root — nothing to resolve (see the C1 verdict)' };
+  }
+  if (!missing)
+    return { level: 'pass', message: `discipline floor resolves from ${where} (Iron Laws + MANDATORY section)` };
+  if (floorConsented === true)
+    return { level: 'fail', message: `floor consented at onboarding but ${missing} not resolvable from ${where} — the merge dropped a gate section; the floor injection will emit a NOT FOUND half` };
+  return { level: 'warn', message: `${missing} not resolvable from ${where} — no onboarding stamp records whether the floor was adopted here; if it was, a merge dropped a section` };
 }

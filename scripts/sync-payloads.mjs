@@ -94,7 +94,53 @@ const PAYLOAD_MAP = [
   ['veto-hooks/devin/hook.mjs', join(ROOT, 'veto-hooks', 'devin', 'hook.mjs')],
   ['veto-hooks/antigravity/hook.mjs', join(ROOT, 'veto-hooks', 'antigravity', 'hook.mjs')],
   ['veto-hooks/gemini/hook.mjs', join(ROOT, 'veto-hooks', 'gemini', 'hook.mjs')],
+  // The gate runtime the three user-level adapters spawn (they resolve
+  // ../../plugin/scripts/ relative to themselves). Without the closure a
+  // payload-run install produces adapters that fail-open silently — an
+  // installed veto that never fires (2026-11-24 audit). scripts/reinject.mjs
+  // is devin's floor target.
+  ['plugin/scripts/gate-hook.mjs', join(ROOT, 'scripts', 'gate-hook.mjs')],
+  ['plugin/scripts/reinject.mjs', join(ROOT, 'scripts', 'reinject.mjs')],
+  ['plugin/scripts/overlay-registry.mjs', join(ROOT, 'scripts', 'overlay-registry.mjs')],
+  ['plugin/scripts/floor-composer.mjs', join(ROOT, 'scripts', 'floor-composer.mjs')],
+  ['plugin/scripts/tna-gate.mjs', join(ROOT, 'scripts', 'tna-gate.mjs')],
+  ['plugin/scripts/onboarding.mjs', join(ROOT, 'scripts', 'onboarding.mjs')],
+  ['plugin/scripts/receipt-enforcement.mjs', join(ROOT, 'scripts', 'receipt-enforcement.mjs')],
+  ['plugin/scripts/action-gate.mjs', join(ROOT, 'scripts', 'action-gate.mjs')],
+  ['plugin/scripts/mandatory-gate.mjs', join(ROOT, 'scripts', 'mandatory-gate.mjs')],
+  ['scripts/reinject.mjs', join(ROOT, 'scripts', 'reinject.mjs')],
 ];
+
+// OpenCode's install surface is the project plugin directory itself. It must
+// ride in the payload as a tree, not as a remembered index.js: index.js has
+// static sibling imports and the vendored output-trim engine lives one level
+// down, so a flat or partial copy is not the self-contained plugin the manual
+// install path documents.
+for (const rel of walkFiles(join(ROOT, '.opencode', 'plugins', 'tna-gate'))) {
+  PAYLOAD_MAP.push([
+    `.opencode/plugins/tna-gate/${rel}`,
+    join(ROOT, '.opencode', 'plugins', 'tna-gate', ...rel.split('/')),
+  ]);
+}
+
+// The payload must be a self-sufficient installer: when onboarding runs from
+// a copied setup-tna directory, ROOT is that payload and `installSkills` looks
+// for `<payload>/skills`. Ship every canonical skill except setup-tna itself
+// (the installer is already present by definition). Dynamic enumeration keeps
+// a future skill in the distribution contract without a remembered-list edit.
+for (const category of SKILL_CATEGORIES) {
+  const categoryDir = join(ROOT, 'skills', category);
+  let skillNames = [];
+  try { skillNames = readdirSync(categoryDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name); } catch { continue; }
+  for (const skill of skillNames) {
+    if (category === 'meta' && skill === 'setup-tna') continue;
+    const skillRoot = join(categoryDir, skill);
+    if (!existsSync(join(skillRoot, 'SKILL.md'))) continue;
+    for (const rel of walkFiles(skillRoot)) {
+      PAYLOAD_MAP.push([`skills/${category}/${skill}/${rel}`, join(skillRoot, ...rel.split('/'))]);
+    }
+  }
+}
 
 const walk = (dir, acc = []) => {
   let names;

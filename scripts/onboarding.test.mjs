@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scanSkillDirs, suggestTriggers, planOnboarding, serializeStamp, parseStamp, readRouterVersion } from './onboarding.mjs';
+import { scanSkillDirs, suggestTriggers, planOnboarding, serializeStamp, parseStamp, readRouterVersion, registrationStatus, planDevinConfig } from './onboarding.mjs';
 import { parseOverlayFrontmatter } from './overlay-registry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -927,6 +927,848 @@ const put = (root, name, text) => {
       hooksPathOf(dir) === '', `hooksPath=${hooksPathOf(dir)}`);
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// ---- N. first-install parity, payload self-sufficiency, preflight + rollback ----
+// Re-audit 2026-11: the terminal --yes path wrote only a stamp, the chat path
+// installed the mechanical layers, and the distributed payload aborted after
+// writing adapters. These probes pin the public CLI seam: terminal/chat/payload
+// install the same declared layers, invalid input writes nothing, a mid-install
+// failure rolls back operation-owned writes, and a retry after the obstruction
+// is removed converges.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const copyDir = (from, to) => {
+    mkdirSync(to, { recursive: true });
+    for (const entry of readdirSync(from, { withFileTypes: true })) {
+      const src = join(from, entry.name);
+      const dst = join(to, entry.name);
+      if (entry.isDirectory()) copyDir(src, dst);
+      else if (entry.isFile()) writeFileSync(dst, readFileSync(src));
+    }
+  };
+  const listFiles = (root) => {
+    if (!existsSync(root)) return [];
+    const out = [];
+    const walk = (dir, rel = '') => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const next = rel ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(join(dir, entry.name), next);
+        else if (entry.isFile()) out.push(next);
+      }
+    };
+    walk(root);
+    return out.sort();
+  };
+  const devinFixture = (prefix) => {
+    const dir = tmp(prefix);
+    mkdirSync(join(dir, '.devin'), { recursive: true });
+    const appData = join(dir, 'appdata');
+    mkdirSync(join(appData, 'devin'), { recursive: true });
+    writeFileSync(join(appData, 'devin', 'config.json'), '{}\n');
+    const env = { ...process.env, USERPROFILE: dir, HOME: dir, APPDATA: appData };
+    return { dir, appData, env };
+  };
+  const allConsent = JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] });
+  const runOnboard = (script, dir, args, env, input = '') => spawnSync(process.execPath, [script, ...args], {
+    cwd: dir, input, encoding: 'utf8', timeout: 60000, env,
+  });
+
+  {
+    // Terminal/chat parity on the same harness shape. Compare only the layer
+    // payload (never the stamp: consent provenance and map answers legitimately
+    // differ). Before the fix the terminal tree had no ~/.tna and no skills at all.
+    const term = devinFixture('onboard-n-term-');
+    const chat = devinFixture('onboard-n-chat-');
+    const interactive = devinFixture('onboard-n-interactive-');
+    writeFileSync(join(chat.appData, 'devin', 'config.json'), JSON.stringify({
+      theme: 'dark',
+      hooks: { PreToolUse: [{ matcher: 'foreign', hooks: [{ type: 'command', command: 'node foreign.mjs', timeout: 7 }] }] },
+    }, null, 2) + '\n');
+    const rt = runOnboard(ONB, term.dir, ['--yes'], term.env);
+    const rc = runOnboard(ONB, chat.dir, ['--from-chat', allConsent], chat.env);
+    const ri = runOnboard(ONB, interactive.dir, [], interactive.env, 'y\ny\ny\ny\n');
+    const termTna = listFiles(join(term.dir, '.tna'));
+    const chatTna = listFiles(join(chat.dir, '.tna'));
+    const interactiveTna = listFiles(join(interactive.dir, '.tna'));
+    const termSkills = listFiles(join(term.dir, '.agents', 'skills'));
+    const chatSkills = listFiles(join(chat.dir, '.agents', 'skills'));
+    const interactiveSkills = listFiles(join(interactive.dir, '.agents', 'skills'));
+    check('N1 terminal --yes installs the same adapter/runtime layer --from-chat installs',
+      rt.status === 0 && rc.status === 0 && termTna.length > 0 && JSON.stringify(termTna) === JSON.stringify(chatTna),
+      `term=${rt.status}/${termTna.length} chat=${rc.status}/${chatTna.length}`);
+    check('N2 terminal --yes installs the same floor skills --from-chat installs',
+      termSkills.length > 0 && JSON.stringify(termSkills) === JSON.stringify(chatSkills),
+      `term=${termSkills.length} chat=${chatSkills.length}`);
+    check('N17 interactive terminal consent installs the same adapter/runtime layer --from-chat installs',
+      ri.status === 0 && interactiveTna.length > 0 && JSON.stringify(interactiveTna) === JSON.stringify(chatTna),
+      `interactive=${ri.status}/${interactiveTna.length} chat=${chatTna.length} err=${String(ri.stderr ?? '').slice(0, 120)}`);
+    check('N18 interactive terminal consent installs the same floor skills --from-chat installs',
+      interactiveSkills.length > 0 && JSON.stringify(interactiveSkills) === JSON.stringify(chatSkills),
+      `interactive=${interactiveSkills.length} chat=${chatSkills.length}`);
+    const chatCfg = JSON.parse(readFileSync(join(chat.appData, 'devin', 'config.json'), 'utf8'));
+    check('N22 install preserves unrelated devin settings and foreign hook entries',
+      chatCfg.theme === 'dark' && /foreign\.mjs/.test(JSON.stringify(chatCfg.hooks?.PreToolUse ?? [])),
+      JSON.stringify(chatCfg).slice(0, 240));
+    rmSync(term.dir, { recursive: true, force: true });
+    rmSync(chat.dir, { recursive: true, force: true });
+    rmSync(interactive.dir, { recursive: true, force: true });
+  }
+
+  {
+    // Invalid harness config is a preflight failure: nonzero, named, and not one
+    // byte of the install may land. The gitignore and router files are canaries.
+    const fx = devinFixture('onboard-n-invalid-');
+    writeFileSync(join(fx.appData, 'devin', 'config.json'), '{ not json\n');
+    writeFileSync(join(fx.dir, '.gitignore'), 'node_modules/\n');
+    writeFileSync(join(fx.dir, 'AGENTS.md'), 'OWNER ROUTER — DO NOT REWRITE\n');
+    writeFileSync(join(fx.dir, 'WORKFLOW.md'), 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    const r = runOnboard(ONB, fx.dir, ['--from-chat', allConsent], fx.env);
+    check('N3 invalid harness config exits nonzero before any install write',
+      r.status !== 0 && !existsSync(join(fx.dir, '.trust', 'onboarding.json')),
+      `status=${r.status} stamp=${existsSync(join(fx.dir, '.trust', 'onboarding.json'))} err=${String(r.stderr ?? '').slice(0, 120)}`);
+    check('N4 invalid config leaves gitignore/router bytes and partial layer state untouched',
+      readFileSync(join(fx.dir, '.gitignore'), 'utf8') === 'node_modules/\n'
+      && readFileSync(join(fx.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n'
+      && !existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && !existsSync(join(fx.dir, '.agents', 'skills', 'expect-fail')),
+      `gitignore=${JSON.stringify(readFileSync(join(fx.dir, '.gitignore'), 'utf8'))}`);
+    check('N5 the refusal names the invalid config or preflight failure',
+      /invalid|not valid json|preflight/i.test(String(r.stdout ?? '') + String(r.stderr ?? '')),
+      (String(r.stdout ?? '') + String(r.stderr ?? '')).slice(0, 220));
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+
+  {
+    // A failure AFTER the first writes must roll back operation-owned state.
+    // `.tna/plugin/scripts` as a regular file makes the second adapter copy fail
+    // after the devin hook itself has already landed. The rollback must remove
+    // that hook, restore .gitignore, and leave no stamp; removing the obstruction
+    // and retrying must then converge to a complete install.
+    const fx = devinFixture('onboard-n-rollback-');
+    fixtureSkill(fx.dir);
+    writeFileSync(join(fx.dir, '.gitignore'), 'node_modules/\n');
+    writeFileSync(join(fx.dir, 'AGENTS.md'), 'OWNER ROUTER — DO NOT REWRITE\n');
+    writeFileSync(join(fx.dir, 'WORKFLOW.md'), 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    mkdirSync(join(fx.dir, '.tna', 'plugin'), { recursive: true });
+    const blocker = join(fx.dir, '.tna', 'plugin', 'scripts');
+    writeFileSync(blocker, 'I am a file where a directory must be created\n');
+    const answers = JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: ['team-playbook'] });
+    const first = runOnboard(ONB, fx.dir, ['--from-chat', answers], fx.env);
+    check('N6 a mid-install write failure exits nonzero and names rollback',
+      first.status !== 0 && /rollback|rolled back/i.test(String(first.stdout ?? '') + String(first.stderr ?? '')),
+      `status=${first.status} out=${(String(first.stdout ?? '') + String(first.stderr ?? '')).slice(0, 220)}`);
+    check('N7 rollback removes operation-owned partial writes and restores pre-existing bytes',
+      !existsSync(join(fx.dir, '.trust', 'onboarding.json'))
+      && !existsSync(join(fx.dir, '.trust', 'skills-overlay', 'team-playbook'))
+      && !existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && readFileSync(join(fx.dir, '.gitignore'), 'utf8') === 'node_modules/\n'
+      && readFileSync(join(fx.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n',
+      `stamp=${existsSync(join(fx.dir, '.trust', 'onboarding.json'))} hook=${existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))} gi=${JSON.stringify(readFileSync(join(fx.dir, '.gitignore'), 'utf8'))}`);
+    rmSync(blocker, { force: true });
+    const retry = runOnboard(ONB, fx.dir, ['--from-chat', answers], fx.env);
+    check('N8 retry after the obstruction is removed converges to a complete install',
+      retry.status === 0 && existsSync(join(fx.dir, '.trust', 'onboarding.json'))
+      && existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && existsSync(join(fx.dir, '.tna', 'plugin', 'scripts', 'gate-hook.mjs'))
+      && existsSync(join(fx.dir, '.agents', 'skills', 'expect-fail', 'SKILL.md')),
+      `status=${retry.status} err=${String(retry.stderr ?? '').slice(0, 160)}`);
+    check('N9 successful install and retry never rewrite router/workflow bytes',
+      readFileSync(join(fx.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+
+  {
+    // The distributed payload is the install surface a chat user actually gets:
+    // copy ONLY skills/meta/setup-tna into a temp home and run its onboarding.
+    // It must carry the skills source it installs; depending on the repo checkout
+    // beside it is exactly the broken assumption the re-audit measured.
+    const payloadHome = tmp('onboard-n-payload-home-');
+    const payload = join(payloadHome, 'setup-tna');
+    copyDir(join(HERE, '..', 'skills', 'meta', 'setup-tna'), payload);
+    const fx = devinFixture('onboard-n-payload-project-');
+    writeFileSync(join(fx.dir, 'AGENTS.md'), 'OWNER ROUTER — DO NOT REWRITE\n');
+    writeFileSync(join(fx.dir, 'WORKFLOW.md'), 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    const script = join(payload, 'scripts', 'onboarding.mjs');
+    const r = runOnboard(script, fx.dir, ['--from-chat', allConsent], fx.env);
+    check('N10 the distributed payload first-install exits zero without a repo checkout beside it',
+      r.status === 0, `status=${r.status} err=${String(r.stderr ?? '').slice(0, 240)}`);
+    check('N11 the distributed payload installs adapters, runtime, and floor skills',
+      existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && existsSync(join(fx.dir, '.tna', 'plugin', 'scripts', 'gate-hook.mjs'))
+      && existsSync(join(fx.dir, '.agents', 'skills', 'expect-fail', 'SKILL.md')),
+      `hook=${existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))} runtime=${existsSync(join(fx.dir, '.tna', 'plugin', 'scripts', 'gate-hook.mjs'))} skill=${existsSync(join(fx.dir, '.agents', 'skills', 'expect-fail', 'SKILL.md'))}`);
+    check('N12 the payload install never rewrites pre-existing router/workflow bytes',
+      readFileSync(join(fx.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    const payloadHook = join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs');
+    const hookRun = (target, payload) => spawnSync(process.execPath, [payloadHook, target], {
+      input: JSON.stringify(payload), cwd: fx.dir, encoding: 'utf8', timeout: 30000,
+      env: { ...fx.env, DEVIN_PROJECT_DIR: fx.dir },
+    });
+    const deny = hookRun('gate-hook', {
+      hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' }, cwd: fx.dir,
+    });
+    check('N15 the payload-installed adapter denies a commit without fresh evidence',
+      /"decision":"block"/.test(deny.stdout ?? ''), `status=${deny.status} out=${(deny.stdout ?? '').slice(0, 200)}`);
+    hookRun('gate-hook', {
+      hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'npm test' },
+      tool_response: { exitCode: 0, output: '3 passed' }, cwd: fx.dir,
+    });
+    const allow = hookRun('gate-hook', {
+      hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' }, cwd: fx.dir,
+    });
+    check('N16 the same commit is allowed after recorded evidence (two-sided payload proof)',
+      allow.status === 0
+      && !/"decision":"block"/.test(allow.stdout ?? '')
+      && /evaluated:\s*allow/.test(String(allow.stderr ?? '')),
+      `status=${allow.status} out=${(allow.stdout ?? '').slice(0, 200)} err=${String(allow.stderr ?? '').slice(0, 200)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+    rmSync(payloadHome, { recursive: true, force: true });
+  }
+
+  {
+    // An incomplete distributed payload is not a degraded install: missing
+    // runtime/skill sources are preflight failures before the first write.
+    const payloadHome = tmp('onboard-n-incomplete-payload-home-');
+    const payload = join(payloadHome, 'setup-tna');
+    copyDir(join(HERE, '..', 'skills', 'meta', 'setup-tna'), payload);
+    rmSync(join(payload, 'skills'), { recursive: true, force: true });
+    rmSync(join(payload, 'plugin', 'scripts', 'gate-hook.mjs'), { force: true });
+    const fx = devinFixture('onboard-n-incomplete-payload-project-');
+    writeFileSync(join(fx.dir, '.gitignore'), 'node_modules/\n');
+    writeFileSync(join(fx.dir, 'AGENTS.md'), 'OWNER ROUTER — DO NOT REWRITE\n');
+    writeFileSync(join(fx.dir, 'WORKFLOW.md'), 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    const r = runOnboard(join(payload, 'scripts', 'onboarding.mjs'), fx.dir, ['--from-chat', allConsent], fx.env);
+    const out = String(r.stdout ?? '') + String(r.stderr ?? '');
+    check('N19 unavailable payload sources exit nonzero before any install write',
+      r.status !== 0
+      && !existsSync(join(fx.dir, '.trust', 'onboarding.json'))
+      && !existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && !existsSync(join(fx.dir, '.agents', 'skills', 'expect-fail'))
+      && readFileSync(join(fx.dir, '.gitignore'), 'utf8') === 'node_modules/\n',
+      `status=${r.status} stamp=${existsSync(join(fx.dir, '.trust', 'onboarding.json'))} hook=${existsSync(join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))}`);
+    check('N20 the refusal names the missing runtime and skills sources',
+      /missing required adapter source/i.test(out) && /gate-hook\.mjs/.test(out) && /missing required skills source/i.test(out),
+      out.slice(0, 320));
+    check('N21 the incomplete payload never rewrites router/workflow bytes',
+      readFileSync(join(fx.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    rmSync(fx.dir, { recursive: true, force: true });
+    rmSync(payloadHome, { recursive: true, force: true });
+  }
+
+  {
+    // The payload is harness-neutral: an opencode adopter must receive the
+    // same self-contained project plugin the manual cp -r path documents.
+    const payloadHome = tmp('onboard-n-payload-opencode-home-');
+    const payload = join(payloadHome, 'setup-tna');
+    copyDir(join(HERE, '..', 'skills', 'meta', 'setup-tna'), payload);
+    const fx = tmp('onboard-n-payload-opencode-project-');
+    mkdirSync(join(fx, '.opencode'), { recursive: true });
+    writeFileSync(join(fx, 'AGENTS.md'), 'OWNER ROUTER — DO NOT REWRITE\n');
+    writeFileSync(join(fx, 'WORKFLOW.md'), 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    const env = { ...process.env, USERPROFILE: fx, HOME: fx };
+    const r = runOnboard(join(payload, 'scripts', 'onboarding.mjs'), fx, ['--from-chat', allConsent], env);
+    const pluginDir = join(fx, '.opencode', 'plugins', 'tna-gate');
+    const compressPath = join(pluginDir, 'output-trim', 'output-trim-compress.js');
+    const probe = existsSync(compressPath)
+      ? spawnSync(process.execPath, ['-e', `const x=require(${JSON.stringify(compressPath)});process.stdout.write(typeof x.compressForOpencode)`], { encoding: 'utf8', timeout: 30000 })
+      : { status: -1, stdout: '', stderr: 'compressor missing' };
+    check('N23 the distributed payload installs a self-contained opencode veto plugin',
+      r.status === 0
+      && existsSync(join(pluginDir, 'index.js'))
+      && existsSync(compressPath)
+      && probe.status === 0
+      && probe.stdout === 'function',
+      `install=${r.status} index=${existsSync(join(pluginDir, 'index.js'))} compressor=${existsSync(compressPath)} probe=${probe.status}/${String(probe.stdout ?? '')} err=${(String(r.stderr ?? '') + String(probe.stderr ?? '')).slice(0, 220)}`);
+    check('N24 the payload opencode install never rewrites router/workflow bytes',
+      readFileSync(join(fx, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER — DO NOT REWRITE\n'
+      && readFileSync(join(fx, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW — DO NOT REWRITE\n');
+    rmSync(fx, { recursive: true, force: true });
+    rmSync(payloadHome, { recursive: true, force: true });
+  }
+
+  {
+    // Refresh is an install surface too: it must use the same transaction. Delete
+    // one installed adapter so refresh writes it, then make the later runtime copy
+    // fail. The partial adapter write must be rolled back; after the obstruction
+    // is removed, retrying refresh converges.
+    const fx = devinFixture('onboard-n-refresh-rollback-');
+    const first = runOnboard(ONB, fx.dir, ['--from-chat', allConsent], fx.env);
+    const hookPath = join(fx.dir, '.tna', 'veto-hooks', 'devin', 'hook.mjs');
+    const runtimeDir = join(fx.dir, '.tna', 'plugin', 'scripts');
+    rmSync(hookPath, { force: true });
+    rmSync(runtimeDir, { recursive: true, force: true });
+    writeFileSync(runtimeDir, 'I am a file where a directory must be created\n');
+    const failed = runOnboard(ONB, fx.dir, ['--refresh'], fx.env);
+    check('N13 a failed refresh exits nonzero, names rollback, and removes its partial adapter write',
+      first.status === 0 && failed.status !== 0
+      && /rollback|rolled back/i.test(String(failed.stdout ?? '') + String(failed.stderr ?? ''))
+      && !existsSync(hookPath),
+      `first=${first.status} failed=${failed.status} hook=${existsSync(hookPath)} out=${(String(failed.stdout ?? '') + String(failed.stderr ?? '')).slice(0, 220)}`);
+    rmSync(runtimeDir, { force: true });
+    const retry = runOnboard(ONB, fx.dir, ['--refresh'], fx.env);
+    check('N14 retrying refresh after the obstruction is removed converges',
+      retry.status === 0 && existsSync(hookPath) && existsSync(join(runtimeDir, 'gate-hook.mjs')),
+      `status=${retry.status} hook=${existsSync(hookPath)} runtime=${existsSync(join(runtimeDir, 'gate-hook.mjs'))}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
+// ---- P. shared-install undo ownership (first-install trust-layer AC6/AC7/AC10) ----
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const allConsent = JSON.stringify({ components: { floor: true, hooks: true, overlays: true, evidenceGate: true }, mapSkills: [] });
+  const isolatedEnv = (home) => {
+    const env = { ...process.env, USERPROFILE: home, HOME: home, APPDATA: join(home, 'appdata') };
+    delete env.CLAUDE_PLUGIN_ROOT;
+    return env;
+  };
+  const runOnboard = (dir, args, env, input = '') => spawnSync(process.execPath, [ONB, ...args], {
+    cwd: dir, input, encoding: 'utf8', timeout: 60000, env,
+  });
+  const devinProject = (home, name) => {
+    const appData = join(home, 'appdata');
+    mkdirSync(join(appData, 'devin'), { recursive: true });
+    const config = join(appData, 'devin', 'config.json');
+    if (!existsSync(config)) writeFileSync(config, '{}\n');
+    const dir = join(home, 'projects', name);
+    mkdirSync(join(dir, '.devin'), { recursive: true });
+    writeFileSync(join(dir, 'AGENTS.md'), `OWNER ROUTER ${name} — DO NOT REWRITE\n`);
+    writeFileSync(join(dir, 'WORKFLOW.md'), `OWNER WORKFLOW ${name} — DO NOT REWRITE\n`);
+    return { dir, appData, config };
+  };
+
+  {
+    const home = tmp('onboard-p-agy-home-');
+    const dir = join(home, 'project');
+    mkdirSync(join(dir, '.agents'), { recursive: true });
+    writeFileSync(join(dir, '.agents', 'hooks.json'), '{}\n');
+    const config = join(home, '.gemini', 'config', 'hooks.json');
+    mkdirSync(dirname(config), { recursive: true });
+    writeFileSync(config, JSON.stringify({
+      foreignSetting: { keep: 'yes' },
+      'tna-veto': {
+        PreToolUse: [{ matcher: 'foreign', hooks: [{ type: 'command', command: 'node foreign.mjs', timeout: 7 }] }],
+        PostToolUse: [{ matcher: 'foreign', hooks: [{ type: 'command', command: 'node foreign.mjs', timeout: 7 }] }],
+      },
+    }, null, 2) + '\n');
+    const env = isolatedEnv(home);
+    const install = runOnboard(dir, ['--from-chat', allConsent], env);
+    const cfgAfterInstall = JSON.parse(readFileSync(config, 'utf8'));
+    const pre = cfgAfterInstall['tna-veto'].PreToolUse;
+    const foreignEntry = pre.find((entry) => JSON.stringify(entry).includes('foreign.mjs'));
+    const tnaEntry = pre.find((entry) => JSON.stringify(entry).includes('veto-hooks'));
+    if (foreignEntry && tnaEntry && foreignEntry !== tnaEntry) {
+      foreignEntry.hooks.push(...tnaEntry.hooks);
+      cfgAfterInstall['tna-veto'].PreToolUse = [foreignEntry];
+      writeFileSync(config, JSON.stringify(cfgAfterInstall, null, 2) + '\n');
+    }
+    const undo = runOnboard(dir, ['--undo'], env);
+    const cfgAfterUndo = existsSync(config) ? JSON.parse(readFileSync(config, 'utf8')) : null;
+    const undoText = JSON.stringify(cfgAfterUndo);
+    check('P1 a foreign hook inside the framework-named antigravity group survives install and undo',
+      install.status === 0 && undo.status === 0
+      && cfgAfterUndo && cfgAfterUndo.foreignSetting.keep === 'yes'
+      && /foreign\.mjs/.test(JSON.stringify(cfgAfterUndo['tna-veto']?.PreToolUse ?? []))
+      && /foreign\.mjs/.test(JSON.stringify(cfgAfterUndo['tna-veto']?.PostToolUse ?? []))
+      && !/veto-hooks[\\/]antigravity/.test(undoText),
+      `install=${install.status} undo=${undo.status} cfg=${undoText.slice(0, 320)} out=${String(undo.stdout ?? '').slice(0, 160)}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-two-home-');
+    const a = devinProject(home, 'alpha');
+    const b = devinProject(home, 'beta');
+    writeFileSync(a.config, JSON.stringify({
+      theme: 'dark',
+      hooks: { PreToolUse: [{ matcher: 'foreign', hooks: [{ type: 'command', command: 'node foreign.mjs', timeout: 7 }] }] },
+    }, null, 2) + '\n');
+    const env = isolatedEnv(home);
+    const installA = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const installB = runOnboard(b.dir, ['--from-chat', allConsent], env);
+    const undoA = runOnboard(a.dir, ['--undo'], env);
+    const hookPath = join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs');
+    const runtimePath = join(home, '.tna', 'plugin', 'scripts', 'gate-hook.mjs');
+    const cfg = JSON.parse(readFileSync(a.config, 'utf8'));
+    const cfgText = JSON.stringify(cfg);
+    const hookRun = (target, payload) => spawnSync(process.execPath, [hookPath, target], {
+      input: JSON.stringify(payload), cwd: b.dir, encoding: 'utf8', timeout: 30000,
+      env: { ...env, DEVIN_PROJECT_DIR: b.dir },
+    });
+    const deny = hookRun('gate-hook', {
+      hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' }, cwd: b.dir,
+    });
+    hookRun('gate-hook', {
+      hook_event_name: 'PostToolUse', tool_name: 'exec', tool_input: { command: 'npm test' },
+      tool_response: { exitCode: 0, output: '3 passed' }, cwd: b.dir,
+    });
+    const allow = hookRun('gate-hook', {
+      hook_event_name: 'PreToolUse', tool_name: 'exec', tool_input: { command: 'git commit -m x' }, cwd: b.dir,
+    });
+    check('P2 undoing project A preserves project B runtime, registrations, and deny/allow behavior',
+      installA.status === 0 && installB.status === 0 && undoA.status === 0
+      && existsSync(hookPath) && existsSync(runtimePath)
+      && existsSync(join(b.dir, '.trust', 'onboarding.json'))
+      && !existsSync(join(a.dir, '.trust', 'onboarding.json'))
+      && /veto-hooks[\\/]devin[\\/]hook\.mjs/.test(cfgText)
+      && /"decision":"block"/.test(String(deny.stdout ?? ''))
+      && !/"decision":"block"/.test(String(allow.stdout ?? ''))
+      && allow.status === 0 && /evaluated:\s*allow/.test(String(allow.stderr ?? '')),
+      `installs=${installA.status}/${installB.status} undo=${undoA.status} hook=${existsSync(hookPath)} deny=${String(deny.stdout ?? '').slice(0, 100)} allow=${String(allow.stdout ?? '').slice(0, 100)} allowErr=${String(allow.stderr ?? '').slice(0, 100)} cfg=${cfgText.slice(0, 180)}`);
+    check('P3 undo preserves router/workflow bytes and unrelated devin configuration values',
+      readFileSync(join(a.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER alpha — DO NOT REWRITE\n'
+      && readFileSync(join(a.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW alpha — DO NOT REWRITE\n'
+      && readFileSync(join(b.dir, 'AGENTS.md'), 'utf8') === 'OWNER ROUTER beta — DO NOT REWRITE\n'
+      && readFileSync(join(b.dir, 'WORKFLOW.md'), 'utf8') === 'OWNER WORKFLOW beta — DO NOT REWRITE\n'
+      && cfg.theme === 'dark' && /foreign\.mjs/.test(cfgText),
+      `theme=${cfg.theme} cfg=${cfgText.slice(0, 220)}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-final-home-');
+    const a = devinProject(home, 'sole');
+    const env = isolatedEnv(home);
+    const install = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const undo = runOnboard(a.dir, ['--undo'], env);
+    check('P4 the final owner release removes unmodified shared runtime files',
+      install.status === 0 && undo.status === 0
+      && !existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && !existsSync(join(home, '.tna', 'plugin', 'scripts', 'gate-hook.mjs')),
+      `install=${install.status} undo=${undo.status} hook=${existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-modified-home-');
+    const a = devinProject(home, 'modified');
+    const env = isolatedEnv(home);
+    const install = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const runtimePath = join(home, '.tna', 'plugin', 'scripts', 'gate-hook.mjs');
+    writeFileSync(runtimePath, readFileSync(runtimePath, 'utf8') + '\n// user local change\n');
+    const undo = runOnboard(a.dir, ['--undo'], env);
+    const out = String(undo.stdout ?? '') + String(undo.stderr ?? '');
+    check('P5 a user-modified shared runtime file is never silently removed by undo',
+      install.status === 0 && existsSync(runtimePath)
+      && readFileSync(runtimePath, 'utf8').endsWith('\n// user local change\n')
+      && /user-modified|differs|left untouched/i.test(out),
+      `install=${install.status} undo=${undo.status} exists=${existsSync(runtimePath)} out=${out.slice(0, 220)}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-bad-owner-home-');
+    const a = devinProject(home, 'bad-owner');
+    const env = isolatedEnv(home);
+    const install = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const ownershipPath = join(home, '.tna', 'ownership.json');
+    writeFileSync(ownershipPath, '{ not valid ownership json\n');
+    const undo = runOnboard(a.dir, ['--undo'], env);
+    const out = String(undo.stdout ?? '') + String(undo.stderr ?? '');
+    check('P6 a malformed ownership record fails closed before shared-resource removal',
+      install.status === 0 && undo.status !== 0
+      && existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && existsSync(join(a.dir, '.trust', 'onboarding.json'))
+      && /ownership/i.test(out),
+      `install=${install.status} undo=${undo.status} hook=${existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))} stamp=${existsSync(join(a.dir, '.trust', 'onboarding.json'))} out=${out.slice(0, 220)}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-omp-home-');
+    const a = devinProject(home, 'omp-alpha');
+    const b = devinProject(home, 'omp-beta');
+    mkdirSync(join(a.dir, '.omp'), { recursive: true });
+    mkdirSync(join(b.dir, '.omp'), { recursive: true });
+    const env = isolatedEnv(home);
+    const installA = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const installB = runOnboard(b.dir, ['--from-chat', allConsent], env);
+    const undoA = runOnboard(a.dir, ['--undo'], env);
+    const shared = [
+      join(home, '.omp', 'agent', 'hooks', 'pre', 'tna-veto.ts'),
+      join(home, '.omp', 'agent', 'hooks', 'pre', 'tna-discipline.ts'),
+      join(home, '.omp', 'agent', 'extensions', 'tna-receipts-gate.ts'),
+    ];
+    check('P8 undoing project A preserves project B shared omp adapters',
+      installA.status === 0 && installB.status === 0 && undoA.status === 0
+      && shared.every((path) => existsSync(path)),
+      `installs=${installA.status}/${installB.status} undo=${undoA.status} exists=${shared.map((path) => existsSync(path)).join(',')}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-dsh-home-');
+    mkdirSync(join(home, '.dsh', 'profiles', 'acp'), { recursive: true });
+    writeFileSync(join(home, '.dsh', 'profiles', 'acp', 'cordis.yml'), 'profile: acp\n');
+    const a = devinProject(home, 'dsh-alpha');
+    const b = devinProject(home, 'dsh-beta');
+    const env = isolatedEnv(home);
+    const installA = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const installB = runOnboard(b.dir, ['--from-chat', allConsent], env);
+    const undoA = runOnboard(a.dir, ['--undo'], env);
+    const patch = join(home, '.dsh', 'profiles', 'acp', 'cordis.patch.yml');
+    const patchAfterA = existsSync(patch) ? readFileSync(patch, 'utf8') : '';
+    const plugins = [
+      join(home, '.dsh', 'profiles', 'acp', 'plugins', 'tna-veto.mjs'),
+      join(home, '.dsh', 'profiles', 'acp', 'plugins', 'tna-discipline.mjs'),
+    ];
+    check('P9 undoing project A preserves project B dsh plugins and registrations',
+      installA.status === 0 && installB.status === 0 && undoA.status === 0
+      && plugins.every((path) => existsSync(path))
+      && patchAfterA.includes('tna-veto') && patchAfterA.includes('tna-discipline'),
+      `installs=${installA.status}/${installB.status} undo=${undoA.status} plugins=${plugins.map((path) => existsSync(path)).join(',')} patch=${patchAfterA.slice(0, 180)}`);
+    const undoB = runOnboard(b.dir, ['--undo'], env);
+    const patchAfterB = existsSync(patch) ? readFileSync(patch, 'utf8') : '';
+    check('P10 the final dsh owner release removes plugins and registrations',
+      undoB.status === 0
+      && plugins.every((path) => !existsSync(path))
+      && !patchAfterB.includes('tna-veto') && !patchAfterB.includes('tna-discipline'),
+      `undoB=${undoB.status} plugins=${plugins.map((path) => existsSync(path)).join(',')} patch=${patchAfterB.slice(0, 180)}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+
+  {
+    const home = tmp('onboard-p-tamper-owner-home-');
+    const a = devinProject(home, 'tampered-owner');
+    const env = isolatedEnv(home);
+    const install = runOnboard(a.dir, ['--from-chat', allConsent], env);
+    const canary = join(home, 'canary.txt');
+    writeFileSync(canary, 'must survive');
+    const ownershipPath = join(home, '.tna', 'ownership.json');
+    writeFileSync(ownershipPath, JSON.stringify({
+      schema: 1,
+      resources: {
+        [`file:${canary.replace(/\\/g, '/')}`]: { kind: 'file', owners: [a.dir.replace(/\\/g, '/')], hash: '0000000000000000000000000000000000000000000000000000000000000000' },
+      },
+    }, null, 2) + '\n');
+    const undo = runOnboard(a.dir, ['--undo'], env);
+    check('P7 an untrusted ownership record cannot widen undo filesystem authority',
+      install.status === 0 && existsSync(canary)
+      && existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))
+      && readFileSync(canary, 'utf8') === 'must survive',
+      `install=${install.status} undo=${undo.status} canary=${existsSync(canary)} hook=${existsSync(join(home, '.tna', 'veto-hooks', 'devin', 'hook.mjs'))}`);
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+// ---- T05. Layered readiness in install output (first-install trust-layer AC11) ----
+// The receipt is a readiness claim, so consent labels are not enough: every
+// required mechanical layer must be named with its honest state, adapter-level
+// evidence must never be upgraded into live-host proof, and a decline or an
+// unsupported surface must cap the overall verdict below full readiness.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const mkDevin = (prefix) => {
+    const dir = tmp(prefix);
+    mkdirSync(join(dir, '.devin'), { recursive: true });
+    const appData = join(dir, 'appdata');
+    mkdirSync(join(appData, 'devin'), { recursive: true });
+    writeFileSync(join(appData, 'devin', 'config.json'), '{}\n');
+    const env = { ...process.env, USERPROFILE: dir, HOME: dir, APPDATA: appData };
+    delete env.CLAUDE_PLUGIN_ROOT;
+    return { dir, env };
+  };
+  const runInstall = (fx, components) => spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components, mapSkills: [] })], {
+    cwd: fx.dir, input: '', encoding: 'utf8', timeout: 60000, env: fx.env,
+  });
+  const outputOf = (r) => String(r.stdout ?? '') + String(r.stderr ?? '');
+  const namesEveryLayer = (text) => ['floor', 'mandatory-gate', 'veto', 'evidence-recorder', 'done-gate', 'ledger-append-only']
+    .every((name) => new RegExp(`${name}:`).test(text));
+
+  {
+    const fx = mkDevin('onboard-t05-declined-');
+    const r = runInstall(fx, { floor: true, hooks: false, overlays: false, evidenceGate: false });
+    const text = outputOf(r);
+    check('T05a a hooks-declined install names the declined mechanical layers',
+      r.status === 0 && /Readiness \(required layers\)/.test(text)
+      && /mandatory-gate:\s*declined/.test(text)
+      && /veto:\s*declined/.test(text)
+      && /evidence-recorder:\s*declined/.test(text),
+      `status=${r.status} out=${text.slice(-700)}`);
+    check('T05b a hooks-declined install never emits a full-readiness verdict',
+      !/full-readiness|fully ready|installation healthy/i.test(text)
+      && /Overall:\s*partial readiness/i.test(text),
+      `status=${r.status} out=${text.slice(-500)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+
+  {
+    const fx = mkDevin('onboard-t05-complete-');
+    const r = runInstall(fx, { floor: true, hooks: true, overlays: false, evidenceGate: true });
+    const text = outputOf(r);
+    check('T05c a complete install names every required layer in its receipt',
+      r.status === 0 && /Readiness \(required layers\)/.test(text) && namesEveryLayer(text),
+      `status=${r.status} out=${text.slice(-800)}`);
+    check('T05d the strongest honest verdict still names unsupported and unproven surfaces',
+      /done-gate:\s*unsupported/.test(text)
+      && /adapter self-test:/.test(text)
+      && /live host proof:\s*(open|unproven)/i.test(text)
+      && /Overall:\s*partial readiness/i.test(text)
+      && !/full-readiness|fully ready|installation healthy/i.test(text),
+      `status=${r.status} out=${text.slice(-800)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
+// ---- F1. A declined component suppresses its wiring, not just its report (roast r1) ----
+// Spec line 88: a decline remains off. The install receipt already says
+// "declined", but the planner wired every event anyway — a floor decline
+// still wrote SessionStart:reinject, an evidence-gate decline still wrote
+// the Pre/PostToolUse entries. The wired file is the artifact the harness
+// reads, so the test inspects config.json itself.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const mkDevin = (prefix) => {
+    const dir = tmp(prefix);
+    mkdirSync(join(dir, '.devin'), { recursive: true });
+    const appData = join(dir, 'appdata');
+    mkdirSync(join(appData, 'devin'), { recursive: true });
+    writeFileSync(join(appData, 'devin', 'config.json'), '{}\n');
+    const env = { ...process.env, USERPROFILE: dir, HOME: dir, APPDATA: appData };
+    delete env.CLAUDE_PLUGIN_ROOT;
+    return { dir, env };
+  };
+  const runInstall = (fx, components) => spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components, mapSkills: [] })], {
+    cwd: fx.dir, input: '', encoding: 'utf8', timeout: 60000, env: fx.env,
+  });
+  const wired = (fx) => JSON.parse(readFileSync(join(fx.dir, 'appdata', 'devin', 'config.json'), 'utf8'));
+
+  {
+    const fx = mkDevin('onboard-f1-flooroff-');
+    const r = runInstall(fx, { floor: false, hooks: true, overlays: false, evidenceGate: true });
+    const cfg = wired(fx);
+    check('F1a a floor decline writes NO SessionStart:reinject entry',
+      r.status === 0 && !JSON.stringify(cfg.hooks?.SessionStart ?? []).includes('reinject'),
+      `status=${r.status} SessionStart=${JSON.stringify(cfg.hooks?.SessionStart ?? null)}`);
+    check('F1b a floor decline still wires the consented hook entries',
+      JSON.stringify(cfg.hooks?.PreToolUse ?? []).includes('gate-hook')
+      && JSON.stringify(cfg.hooks?.PostToolUse ?? []).includes('gate-hook')
+      && JSON.stringify(cfg.hooks?.UserPromptSubmit ?? []).includes('gate-hook'),
+      `status=${r.status} cfg=${JSON.stringify(cfg.hooks ?? null).slice(0, 300)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+  {
+    const fx = mkDevin('onboard-f1-egoff-');
+    const r = runInstall(fx, { floor: true, hooks: true, overlays: false, evidenceGate: false });
+    const cfg = wired(fx);
+    check('F1c an evidence-gate decline writes NO Pre/PostToolUse entries',
+      r.status === 0
+      && !JSON.stringify(cfg.hooks?.PreToolUse ?? []).includes('gate-hook')
+      && !JSON.stringify(cfg.hooks?.PostToolUse ?? []).includes('gate-hook'),
+      `status=${r.status} cfg=${JSON.stringify(cfg.hooks ?? null).slice(0, 300)}`);
+    check('F1d an evidence-gate decline still wires floor + mandatory-gate entries',
+      JSON.stringify(cfg.hooks?.SessionStart ?? []).includes('reinject')
+      && JSON.stringify(cfg.hooks?.UserPromptSubmit ?? []).includes('gate-hook'),
+      `status=${r.status} cfg=${JSON.stringify(cfg.hooks ?? null).slice(0, 300)}`);
+    rmSync(fx.dir, { recursive: true, force: true });
+  }
+}
+
+// ---- F2. Shared dsh skills carry project ownership (roast r1) ----
+// dsh skills install into the shared ~/.dsh/skills — two projects can claim
+// the same copies. Undo used to rmSync every stamped skillsCopied path with
+// no owner check, so one project's --undo ripped the floor out from under a
+// sibling. The byte-identical rule as other resources: only the FINAL owner
+// deletes, and only while the copy still matches what was installed.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const home = tmp('onboard-f2-home-');
+  mkdirSync(join(home, '.dsh', 'profiles', 'acp'), { recursive: true });
+  writeFileSync(join(home, '.dsh', 'profiles', 'acp', 'cordis.patch.yml'), '# patch\n');
+  const env = { ...process.env, USERPROFILE: home, HOME: home };
+  delete env.CLAUDE_PLUGIN_ROOT;
+  const install = (dir) => spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: false, evidenceGate: true }, mapSkills: [] })], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000, env,
+  });
+  const undo = (dir) => spawnSync(process.execPath, [ONB, '--undo'], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000, env,
+  });
+  const skillsDir = join(home, '.dsh', 'skills');
+  const installed = () => existsSync(skillsDir) && readdirSync(skillsDir).filter((n) => existsSync(join(skillsDir, n, 'SKILL.md'))).length > 0;
+
+  {
+    const a = tmp('onboard-f2-a-');
+    const b = tmp('onboard-f2-b-');
+    const ra = install(a);
+    check('F2a a dsh install copies skills into the shared skills dir',
+      ra.status === 0 && installed(), `status=${ra.status} out=${String(ra.stdout ?? '').slice(-300)}`);
+    const rb = install(b);
+    check('F2b a second project install keeps the shared skills (claimed as co-owner)',
+      rb.status === 0 && installed(), `status=${rb.status} out=${String(rb.stdout ?? '').slice(-300)}`);
+    const ua = undo(a);
+    check('F2c undoing the first project leaves shared skills in place (another owner remains)',
+      ua.status === 0 && installed(), `status=${ua.status} out=${String(ua.stdout ?? '').slice(-400)}`);
+    const ub = undo(b);
+    check('F2d undoing the FINAL owner removes the shared skills',
+      ub.status === 0 && !installed(), `status=${ub.status} out=${String(ub.stdout ?? '').slice(-400)}`);
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+  }
+  {
+    // Sole owner still gets a clean undo — the registry must not turn a
+    // one-project install into a permanent leak.
+    const home2 = tmp('onboard-f2-home2-');
+    mkdirSync(join(home2, '.dsh', 'profiles', 'acp'), { recursive: true });
+    writeFileSync(join(home2, '.dsh', 'profiles', 'acp', 'cordis.patch.yml'), '# patch\n');
+    const env2 = { ...process.env, USERPROFILE: home2, HOME: home2 };
+    delete env2.CLAUDE_PLUGIN_ROOT;
+    const c = tmp('onboard-f2-c-');
+    const rc = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: false, evidenceGate: true }, mapSkills: [] })], {
+      cwd: c, input: '', encoding: 'utf8', timeout: 60000, env: env2,
+    });
+    const skillsDir2 = join(home2, '.dsh', 'skills');
+    const uc = spawnSync(process.execPath, [ONB, '--undo'], {
+      cwd: c, input: '', encoding: 'utf8', timeout: 60000, env: env2,
+    });
+    check('F2e a sole owner undo still removes the shared skills it installed',
+      rc.status === 0 && uc.status === 0
+      && !(existsSync(skillsDir2) && readdirSync(skillsDir2).filter((n) => existsSync(join(skillsDir2, n, 'SKILL.md'))).length > 0),
+      `install=${rc.status} undo=${uc.status} out=${String(uc.stdout ?? '').slice(-300)}`);
+    rmSync(c, { recursive: true, force: true });
+    rmSync(home2, { recursive: true, force: true });
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+
+// ---- F4. Registration evaluates only the config file the install targets (roast r1) ----
+// Unioning all candidate files let a complete config sitting at a candidate the
+// installer never touches certify a target file that lacks the contract.
+{
+  const home = tmp('onboard-f4-home-');
+  const appData = join(home, 'appdata');
+  const target = join(appData, 'devin', 'config.json');      // first candidate — install target
+  const other = join(home, '.config', 'devin', 'config.json'); // second candidate — never installed to
+  mkdirSync(dirname(target), { recursive: true });
+  mkdirSync(dirname(other), { recursive: true });
+  const ev = (event, target2) => ({ hooks: [{ type: 'command', command: `node "x/veto-hooks/devin/hook.mjs" ${target2}` }] });
+  writeFileSync(target, JSON.stringify({ hooks: { SessionStart: ev('SessionStart', 'reinject') } }));
+  writeFileSync(other, JSON.stringify({ hooks: {
+    SessionStart: ev('SessionStart', 'reinject'),
+    UserPromptSubmit: ev('UserPromptSubmit', 'gate-hook'),
+    PreToolUse: ev('PreToolUse', 'gate-hook'),
+    PostToolUse: ev('PostToolUse', 'gate-hook'),
+  } }));
+  const prev = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, APPDATA: process.env.APPDATA };
+  process.env.USERPROFILE = home;
+  process.env.HOME = home;
+  process.env.APPDATA = appData;
+  try {
+    const r = registrationStatus('devin', home);
+    check('F4 registration reports the target file missing events even when another candidate is fully wired',
+      r.missing.includes('UserPromptSubmit:gate-hook') && r.missing.includes('PreToolUse:gate-hook'),
+      `missing=${JSON.stringify(r.missing)}`);
+  } finally {
+    process.env.USERPROFILE = prev.USERPROFILE;
+    process.env.HOME = prev.HOME;
+    process.env.APPDATA = prev.APPDATA;
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+
+// ---- F9. hookCmd quoting survives metachar home paths (roast r1) ----
+// `node "path"` inside double quotes still lets POSIX shells expand $(...) and
+// backticks — a home dir like a$(id) would EXECUTE on hook invocation. Every
+// POSIX-active char in the path must be backslash-escaped.
+{
+  const hookPath = 'C:/Users/meta$`evil`(x) dir/.tna/veto-hooks/devin/hook.mjs';
+  const { merged } = planDevinConfig({}, hookPath, { floor: true, hooks: true, evidenceGate: true });
+  const cmds = JSON.stringify(merged.hooks);
+  // Every `$`, backtick, and interior `"` must carry a backslash escape.
+  check('F9 a home path with $, backticks, spaces, and parens cannot alter the command',
+    !/(?<!\\)[$`]/.test(cmds) && /\\\$/.test(cmds) && /\\`/.test(cmds),
+    `hooks=${cmds.slice(0, 260)}`);
+}
+
+// ---- F5. Read-only scan/preflight must not create .dsh/profiles/acp (roast r1) ----
+// preflightFirstInstall iterated adaptersFor('dsh') whose dshProfileDirs
+// fallback mkdir'd the acp profile — an abort that reports "nothing was
+// written" left the directory behind.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const home = tmp('onboard-f5-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  const env = { ...process.env, USERPROFILE: home, HOME: home, APPDATA: appData };
+  delete env.CLAUDE_PLUGIN_ROOT;
+  const dir = tmp('onboard-f5-proj-');
+  mkdirSync(join(dir, '.dsh'), { recursive: true });
+  const r = spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({
+    components: { floor: true, hooks: true, overlays: true, evidenceGate: true },
+    mapSkills: 'not-an-array',
+  })], { cwd: dir, input: '', encoding: 'utf8', timeout: 60000, env });
+  check('F5 aborting preflight leaves no .dsh/profiles/acp directory behind',
+    r.status !== 0 && !existsSync(join(dir, '.dsh', 'profiles', 'acp')),
+    `status=${r.status} acp=${existsSync(join(dir, '.dsh', 'profiles', 'acp'))} err=${String(r.stderr ?? '').slice(-160)}`);
+  rmSync(dir, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+}
+
+// ---- F3. Undo strips only the entries this install wrote (roast r1) ----
+// A pre-existing marker-matching entry (the user's own wiring, or a sibling
+// install's) must survive our --undo. Install recorded only coarse
+// entries:added and undo called unwireConfig — every command carrying the
+// TNA marker went, including wiring this install never created.
+{
+  const { spawnSync } = await import('node:child_process');
+  const ONB = join(HERE, 'onboarding.mjs');
+  const home = tmp('onboard-f3-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  const configFile = join(appData, 'devin', 'config.json');
+  // The user's own pre-existing marker-matching wiring — recorded by nobody.
+  const USER_ENTRY = 'node "C:/their-own-layout/veto-hooks/devin/hook.mjs" reinject';
+  writeFileSync(configFile, JSON.stringify({
+    hooks: { SessionStart: [{ hooks: [{ type: 'command', command: USER_ENTRY }] }] },
+  }, null, 2) + '\n');
+  const env = { ...process.env, USERPROFILE: home, HOME: home, APPDATA: appData };
+  delete env.CLAUDE_PLUGIN_ROOT;
+  const install = (dir) => spawnSync(process.execPath, [ONB, '--from-chat', JSON.stringify({ components: { floor: true, hooks: true, overlays: false, evidenceGate: true }, mapSkills: [] })], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000, env,
+  });
+  const undo = (dir) => spawnSync(process.execPath, [ONB, '--undo'], {
+    cwd: dir, input: '', encoding: 'utf8', timeout: 60000, env,
+  });
+  const readCfg = () => JSON.parse(readFileSync(configFile, 'utf8'));
+  const sessionStartHasUserEntry = () => JSON.stringify(readCfg().hooks?.SessionStart ?? []).includes('their-own-layout');
+
+  {
+    const a = tmp('onboard-f3-a-');
+    mkdirSync(join(a, '.devin'), { recursive: true });
+    const b = tmp('onboard-f3-b-');
+    mkdirSync(join(b, '.devin'), { recursive: true });
+    const ra = install(a);
+    check('F3a install preserves the pre-existing marker-matching entry (deduped as equivalent)',
+      ra.status === 0 && sessionStartHasUserEntry(), `status=${ra.status} SessionStart=${JSON.stringify(readCfg().hooks?.SessionStart ?? null).slice(0, 240)}`);
+    const rb = install(b);
+    check('F3b a sibling install claims shared entries without rewriting the file',
+      rb.status === 0 && sessionStartHasUserEntry(), `status=${rb.status}`);
+    const ua = undo(a);
+    check('F3c undoing the first project leaves entries the sibling claims AND the user entry intact',
+      ua.status === 0 && sessionStartHasUserEntry()
+      && JSON.stringify(readCfg().hooks?.PreToolUse ?? []).includes('gate-hook'),
+      `status=${ua.status} cfg=${JSON.stringify(readCfg().hooks ?? null).slice(0, 400)}`);
+    const ub = undo(b);
+    check('F3d undoing the final owner strips our entries but PRESERVES the pre-existing marker entry',
+      ub.status === 0 && sessionStartHasUserEntry()
+      && !JSON.stringify(readCfg().hooks?.PreToolUse ?? []).includes('gate-hook')
+      && !JSON.stringify(readCfg().hooks?.PostToolUse ?? []).includes('gate-hook'),
+      `status=${ub.status} cfg=${JSON.stringify(readCfg().hooks ?? null).slice(0, 400)}`);
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+  }
+  rmSync(home, { recursive: true, force: true });
 }
 
 console.log(failures === 0 ? '\nAll onboarding seam expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);

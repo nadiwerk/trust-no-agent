@@ -229,7 +229,9 @@ const passedDir = () => {
 }
 {
   const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m "feat: x"' }, cwd: passedDir() });
-  check('H3 commit with fresh evidence exits 0 silent', code === 0 && out.trim() === '', `exit=${code} out=${JSON.stringify(out.slice(0, 120))}`);
+  // Positive allow evidence (roast r1 F6): a silent exit 0 cannot tell an
+  // evaluated allow from a crashed fail-open, so the hook names the outcome.
+  check('H3 commit with fresh evidence exits 0 with an evaluated allow signal', code === 0 && out.trim() === '[tna] evaluated: allow', `exit=${code} out=${JSON.stringify(out.slice(0, 120))}`);
 }
 {
   const { code, out } = runPre({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { filePath: 'docs/x.md' }, cwd: bareDir() });
@@ -423,8 +425,11 @@ const passedDir = () => {
     const dir = tmp('veto-valid-');
     seed(dir, GOOD_NEWEST);
     const r = runCommit(dir);
+    // The allow side needs positive evidence (roast r1 F6): exit 0 alone is
+    // indistinguishable from a crashed fail-open, so the hook names the outcome
+    // on stderr; stdout stays empty because only a deny carries JSON.
     check('K2 a commit is allowed when the newest entry has a valid receipt',
-      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} out=${r.out.slice(0, 80)} err=${r.err.slice(0, 80)}`);
+      r.status === 0 && r.out.trim() === '' && /\[tna\] evaluated: allow/.test(r.err), `status=${r.status} out=${r.out.slice(0, 80)} err=${r.err.slice(0, 80)}`);
     rmSync(dir, { recursive: true, force: true });
   }
   {
@@ -622,7 +627,7 @@ const passedDir = () => {
     ].join('\n');
     const r = runPreCmd(dir, cmd);
     check('M1 "git commit" only inside a heredoc body does not fire the receipt veto',
-      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} err=${r.err.slice(0, 160)}`);
+      r.status === 0 && r.out.trim() === '' && /\[tna\] evaluated: allow/.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
   {
@@ -630,7 +635,7 @@ const passedDir = () => {
     seedBlanket(dir);
     const r = runPreCmd(dir, 'echo "remember to git commit after the evidence lands"');
     check('M2 "git commit" only inside a quoted echo does not fire the receipt veto',
-      r.status === 0 && r.out.trim() === '' && r.err.trim() === '', `status=${r.status} err=${r.err.slice(0, 160)}`);
+      r.status === 0 && r.out.trim() === '' && /\[tna\] evaluated: allow/.test(r.err), `status=${r.status} err=${r.err.slice(0, 160)}`);
     rmSync(dir, { recursive: true, force: true });
   }
   {
