@@ -245,5 +245,61 @@ check('P2 the adapter declares its service dependencies', Array.isArray(mod.inje
   rmSync(dir, { recursive: true, force: true });
 }
 
+// ---- W. Evidence binds to the RESOLVED dir (roast r1/r3 parity) ----
+// Same contract as the canonical gate and the pi/omp adapters: `cd X && test`
+// certifies X when the dest exists; a dir-changer hidden in any wrapper,
+// quoting, redirect, indirection, launcher payload, dir flag, or encoded
+// command certifies NOTHING.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'tna-dsh-w-'));
+  mkdirSync(join(dir, 'repo'));
+  const h = makeCtx(dir);
+  mod.apply(h.ctx);
+  await h.fire('tools/result',
+    { name: 'bash', arguments: { command: 'cd repo && node x.test.mjs' }, agent },
+    { isError: false, content: [{ type: 'text', text: 'ok' }] });
+  const destState = join(dir, 'repo', STATE_REL);
+  check('W1 a cd && test binds evidence to the resolved dir',
+    existsSync(destState) && JSON.parse(readFileSync(destState, 'utf8')).testPassFresh === true
+      && !existsSync(join(dir, STATE_REL)),
+    `dest=${existsSync(destState)} payload=${existsSync(join(dir, STATE_REL))}`);
+  rmSync(dir, { recursive: true, force: true });
+
+  for (const [label, command] of [
+    ['parens subshell', '(cd repo) && node x.test.mjs'],
+    ['nested bash -c', 'bash -c "cd repo" && node x.test.mjs'],
+    ['quoted prog', `'cd' repo && node x.test.mjs`],
+    ['escaped prog', 'c\\d repo && node x.test.mjs'],
+    ['redirect boundary', 'cd>x && node x.test.mjs'],
+    ['${IFS} indirection', 'cd${IFS}repo && node x.test.mjs'],
+    ['interpreter -c', 'python -c "import os;os.chdir(\'repo\')" && node x.test.mjs'],
+    ['make -C flag', 'make -C repo test && node x.test.mjs'],
+    ['encoded powershell', 'powershell -e Y2QgcmVwbw && node x.test.mjs'],
+    ['missing dest', 'cd nope-not-here && node x.test.mjs'],
+  ]) {
+    const d2 = mkdtempSync(join(tmpdir(), 'tna-dsh-w2-'));
+    mkdirSync(join(d2, 'repo'));
+    const h2 = makeCtx(d2);
+    mod.apply(h2.ctx);
+    await h2.fire('tools/result',
+      { name: 'bash', arguments: { command }, agent },
+      { isError: false, content: [{ type: 'text', text: 'ok' }] });
+    check(`W2 ${label}: records evidence NOWHERE`,
+      !existsSync(join(d2, STATE_REL)) && !existsSync(join(d2, 'repo', STATE_REL)),
+      `cmd=${command}`);
+    rmSync(d2, { recursive: true, force: true });
+  }
+
+  const dir3 = mkdtempSync(join(tmpdir(), 'tna-dsh-w3-'));
+  const h3 = makeCtx(dir3);
+  mod.apply(h3.ctx);
+  await h3.fire('tools/result',
+    { name: 'bash', arguments: { command: 'echo "remember cd" && node x.test.mjs' }, agent },
+    { isError: false, content: [{ type: 'text', text: 'ok' }] });
+  check('W3 a quoted non-dir-change mention still binds to cwd',
+    existsSync(join(dir3, STATE_REL)), `state=${existsSync(join(dir3, STATE_REL))}`);
+  rmSync(dir3, { recursive: true, force: true });
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

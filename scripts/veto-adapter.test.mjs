@@ -292,5 +292,77 @@ for (const harnessName of ['pi', 'omp']) {
   }
 }
 
+// ---- V. Evidence binds to the RESOLVED dir (roast r1/r3 parity) ----
+// The canonical gate learned evidence-dir binding in round 1 and fail-closed
+// dir-change detection in rounds 2-3: `cd X && test` certifies X (the dest
+// must exist to be provable), and a changer hidden in a wrapper certifies
+// NOTHING. The self-contained adapters still wrote evidence to the payload
+// cwd unconditionally — the same laundering hole the canonical fix closed.
+{
+  for (const harnessName of ['pi', 'omp']) {
+    const adapter = (await import(pathToFileURL(join(ROOT, 'veto-hooks', harnessName, 'tna-veto.ts')).href)).default;
+    const h = makeHarness();
+    adapter(h.pi);
+
+    // V1: cd into an existing dest binds the evidence THERE, not the cwd.
+    const dir = mkdtempSync(join(tmpdir(), `tna-${harnessName}-v-`));
+    mkdirSync(join(dir, 'repo'));
+    await h.call('tool_result', {
+      toolName: 'bash',
+      input: { command: 'cd repo && node x.test.mjs' },
+      content: [{ type: 'text', text: 'ok' }],
+      isError: false,
+    }, { cwd: dir });
+    const destState = join(dir, 'repo', STATE_REL);
+    check(`${harnessName} V1 a cd && test binds evidence to the resolved dir`,
+      existsSync(destState) && JSON.parse(readFileSync(destState, 'utf8')).testPassFresh === true
+        && !existsSync(join(dir, STATE_REL)),
+      `dest=${existsSync(destState)} payload=${existsSync(join(dir, STATE_REL))}`);
+    rmSync(dir, { recursive: true, force: true });
+
+    // V2: a dir-changer the resolver cannot reach records NOTHING — subshell
+    // parens, nested shell payload, quoted/escaped program name, redirect-
+    // fused token, indirection, launcher -c, dir flag, encoded PowerShell.
+    for (const [label, command] of [
+      ['parens subshell', '(cd repo) && node x.test.mjs'],
+      ['nested bash -c', 'bash -c "cd repo" && node x.test.mjs'],
+      ['quoted prog', `'cd' repo && node x.test.mjs`],
+      ['escaped prog', 'c\\d repo && node x.test.mjs'],
+      ['redirect boundary', 'cd>x && node x.test.mjs'],
+      ['${IFS} indirection', 'cd${IFS}repo && node x.test.mjs'],
+      ['interpreter -c', 'python -c "import os;os.chdir(\'repo\')" && node x.test.mjs'],
+      ['make -C flag', 'make -C repo test && node x.test.mjs'],
+      ['encoded powershell', 'powershell -e Y2QgcmVwbw && node x.test.mjs'],
+      ['missing dest', 'cd nope-not-here && node x.test.mjs'],
+    ]) {
+      const d2 = mkdtempSync(join(tmpdir(), `tna-${harnessName}-v2-`));
+      mkdirSync(join(d2, 'repo'));
+      await h.call('tool_result', {
+        toolName: 'bash',
+        input: { command },
+        content: [{ type: 'text', text: 'ok' }],
+        isError: false,
+      }, { cwd: d2 });
+      check(`${harnessName} V2 ${label}: records evidence NOWHERE`,
+        !existsSync(join(d2, STATE_REL)) && !existsSync(join(d2, 'repo', STATE_REL)),
+        `cmd=${command}`);
+      rmSync(d2, { recursive: true, force: true });
+    }
+
+    // V3: a benign quoted mention still binds to the real cwd (no over-flag).
+    const dir3 = mkdtempSync(join(tmpdir(), `tna-${harnessName}-v3-`));
+    await h.call('tool_result', {
+      toolName: 'bash',
+      input: { command: 'echo "remember cd" && node x.test.mjs' },
+      content: [{ type: 'text', text: 'ok' }],
+      isError: false,
+    }, { cwd: dir3 });
+    check(`${harnessName} V3 a quoted non-dir-change mention still binds to cwd`,
+      existsSync(join(dir3, STATE_REL)),
+      `state=${existsSync(join(dir3, STATE_REL))}`);
+    rmSync(dir3, { recursive: true, force: true });
+  }
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

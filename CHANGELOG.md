@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.62] - 2026-11-26
+
+### Fixed
+
+- **Full evidence-binding parity for the pi, omp, and dsh veto adapters.** The
+  self-contained adapters recorded test evidence to the payload cwd
+  unconditionally — the same laundering hole the canonical gate closed in
+  roast r1–r3. Each adapter now carries a verbatim port of
+  `hiddenDirChange`/`evidenceDirFor`: `cd X && test` binds the evidence to the
+  resolved dir X (only when X provably exists), and a dir-changer hidden in
+  subshells, nested-shell/interpreter `-c` payloads, quoted or escaped program
+  names, redirect-fused tokens, `${IFS}` indirection, dir flags
+  (`make -C`, `git -C`), or encoded PowerShell certifies NOTHING anywhere.
+  Fail-first coverage: `veto-adapter.test.mjs` §V (pi + omp) and
+  `dsh-veto.test.mjs` §W.
+
 ## [0.1.61] - 2026-11-26
 
 ### Added
@@ -1964,7 +1980,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.61...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.62...HEAD
+[0.1.62]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.61...v0.1.62
 [0.1.61]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.60...v0.1.61
 [0.1.60]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.59...v0.1.60
 [0.1.59]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.58...v0.1.59

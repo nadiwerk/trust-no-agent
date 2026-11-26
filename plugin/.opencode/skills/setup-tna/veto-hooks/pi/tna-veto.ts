@@ -35,8 +35,8 @@
 //                                         stale true after a red run is the hole)
 //   anything else                      -> nothing recorded, nothing touched
 
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 const IRREVERSIBLE_PATTERNS = [
   "git commit",
@@ -162,6 +162,158 @@ export function recordedTestRun(command) {
   }
   return false;
 }
+
+/**
+ * Evidence-dir binding — a verbatim port of the canonical gate's resolver
+ * (scripts/tna-gate.mjs, roast r1-r3). A `cd X && test` chain certifies X,
+ * not the payload cwd; a dir-changer the resolver cannot prove certifies
+ * NOTHING. Keep this block identical across adapters — drift here is
+ * evidence laundering.
+ */
+const DIR_CHANGERS = new Set(['cd', 'chdir', 'pushd', 'set-location']);
+
+// A dir-changer token bounded by shell syntax — redirects `cd>x`, brace
+// groups, subshells, and member access (`os.chdir`). The `.` boundary makes
+// `foo.cd` collateral — a filename-shaped program certifies nothing either.
+const DIR_CHANGE_TOKEN = /(^|[\s;&|()'"`<>={}.])(cd|chdir|pushd|popd|set-location)(?=[\s;&|()'"`<>={}.]|$)/i;
+
+// Programs that run a payload in a nested shell, wrapped context, or an
+// interpreter whose own arguments relocate the run. The child cannot move
+// our cwd — but the resolver cannot prove which way the command resolved,
+// so the shape is unprovable and certifies NOTHING (roast r2 R1, r3).
+const SHELL_LAUNCHERS = new Set(['sh', 'bash', 'zsh', 'dash', 'fish', 'ksh', 'ash', 'cmd', 'powershell', 'pwsh', 'command', 'builtin', 'exec', 'eval', 'env', 'nohup', 'time', 'xargs', 'sudo', 'doas', 'nice', 'ionice', 'expect', 'script', 'su', 'runuser', 'busybox', 'ssh', 'python', 'python3', 'perl', 'ruby', 'php', 'lua', 'node']);
+
+// Programs whose own flags relocate the working directory (`make -C`,
+// `git -C`) — the changer never appears as a token at all.
+const DIR_FLAG_PROGS = new Set(['make', 'git', 'ninja', 'cmake', 'bazel']);
+
+// Shells whose `-e`/`-EncodedCommand` payload is opaque to any token scan.
+const ENCODED_PAYLOAD_PROGS = new Set(['powershell', 'pwsh']);
+
+/**
+ * Segment a command on shell separators OUTSIDE quotes, remembering the
+ * separator that precedes each segment — that separator is what binds (or
+ * fails to bind) a preceding cd's new directory to the next segment's
+ * execution.
+ */
+function splitChain(text) {
+  const parts = [];
+  let buf = '';
+  let quote = null;
+  let sep = '';
+  const flush = () => {
+    const t = buf.trim();
+    buf = '';
+    if (t) parts.push({ sep, text: t });
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      buf += c;
+    } else if (c === '"' || c === "'") {
+      quote = c;
+      buf += c;
+    } else if (c === ';') {
+      flush();
+      sep = ';';
+    } else if (c === '&' && text[i + 1] === '&') {
+      flush();
+      sep = '&&';
+      i++;
+    } else if (c === '|') {
+      flush();
+      sep = text[i + 1] === '|' ? (i++, '||') : '|';
+    } else {
+      buf += c;
+    }
+  }
+  flush();
+  return parts;
+}
+
+/**
+ * A dir-changer the top-level resolver cannot reach (roast r2 R1, r3):
+ * hidden in subshell parens `(cd x)`, env-prefixes `FOO=1 cd x`, builtin
+ * wrappers `command cd x`, a nested shell payload `bash -c "cd x"`, a
+ * redirect-fused token `cd>x`, a quoted/escaped program name `'cd' x` /
+ * `c\d x`, an indirection `cd${IFS}x`, an unknown launcher `-c` payload, or
+ * an encoded PowerShell command. Every one of these leaves the execution
+ * dir unproven — a claimed pass under an unproven dir certifies NOTHING,
+ * in either direction.
+ */
+function hiddenDirChange(command) {
+  for (const { text } of splitChain(String(command))) {
+    const m = /^(\S+)([\s\S]*)$/.exec(text);
+    if (!m) continue;
+    const raw = m[1];
+    const rest = m[2] ?? '';
+    const prog = raw.toLowerCase().replace(/^.*[\\/]/, '').replace(/\.(exe|bat|cmd)$/, '');
+    // The program name through bash unquote/unescape eyes: 'cd' → cd,
+    // c\d → cd, "cd" → cd. A changer that arrived quoted or escaped is
+    // unresolvable — only the plain bare token reaches the resolver.
+    const unesc = raw.replace(/\\(.)/g, '$1').replace(/^['"]+|['"]+$/g, '');
+    const progUn = unesc.toLowerCase().replace(/^.*[\\/]/, '').replace(/\.(exe|bat|cmd)$/, '');
+    if (DIR_CHANGERS.has(prog) || DIR_CHANGERS.has(progUn) || prog === 'popd' || progUn === 'popd') {
+      if (raw !== unesc) return true;
+      continue; // plain bare form — the resolver owns this case
+    }
+    // Indirection in the program name ($VAR, `subst`, ${IFS}) is unprovable.
+    if (/[$`]/.test(raw)) return true;
+    // A changer fused to shell syntax — `cd>x`, `(cd`, `{cd;`, `x=cd` —
+    // never surfaces as a clean program name.
+    if (DIR_CHANGE_TOKEN.test(raw)) return true;
+    const unquoted = rest.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, ' ');
+    if (DIR_CHANGE_TOKEN.test(unquoted)) return true;
+    if (SHELL_LAUNCHERS.has(prog) && DIR_CHANGE_TOKEN.test(rest)) return true;
+    if (DIR_FLAG_PROGS.has(prog) && /(^|\s)(-C\b|--directory\b)/.test(rest)) return true;
+    if (ENCODED_PAYLOAD_PROGS.has(prog) && /(^|\s)-(e|ec|en|enc|encodedcommand)\b/i.test(rest)) return true;
+  }
+  return false;
+}
+
+/**
+ * The directory a recorded test actually ran in (roast r1 F7), or null when
+ * the execution dir cannot be proven — and unproven records NOTHING.
+ *
+ * The last chain segment is the runner; every earlier `cd`/`pushd` moves the
+ * execution dir — `cd elsewhere && npm test` must certify `elsewhere`, never
+ * the payload cwd it was recorded under (cross-project evidence laundering).
+ * Resolution follows shell semantics:
+ *   - `cd x && …` — the next segment runs in x only when the cd succeeded, so
+ *     a target that does not exist makes the claimed run impossible: forged
+ *     input records nowhere (null), never falls back to the victim cwd.
+ *   - `cd x ; …` / `||` / `|` — the next segment runs regardless of the cd's
+ *     fate, so its real dir is unknowable: null.
+ *   - bare `cd`, `cd -`, a `$variable` or `~` dest, interior quotes, `popd`
+ *     anywhere — unresolvable: null.
+ */
+export function evidenceDirFor(dir, command) {
+  if (hiddenDirChange(command)) return null;
+  let execDir = resolve(String(dir));
+  const parts = splitChain(String(command));
+  for (let i = 0; i < parts.length; i++) {
+    const m = /^(\S+)(?:\s+(.*))?$/s.exec(parts[i].text);
+    if (!m) continue;
+    const prog = m[1].toLowerCase().replace(/^.*[\\/]/, '').replace(/\.(exe|bat|cmd)$/, '');
+    if (prog === 'popd') return null;
+    if (!DIR_CHANGERS.has(prog)) continue;
+    const next = parts[i + 1];
+    if (!next || next.sep !== '&&') return null;
+    let dest = (m[2] ?? '').trim();
+    if ((dest.startsWith('"') && dest.endsWith('"')) || (dest.startsWith("'") && dest.endsWith("'"))) {
+      dest = dest.slice(1, -1);
+    }
+    if (dest === '' || dest.startsWith('-') || dest.startsWith('$') || dest.startsWith('~') || /["']/.test(dest)) {
+      return null;
+    }
+    const target = resolve(execDir, dest);
+    if (!existsSync(target)) return null;
+    execDir = target;
+  }
+  return execDir;
+}
+
 
 
 /**
@@ -682,7 +834,12 @@ export default function tnaVeto(pi) {
       // nothing (a guessed pass is the forgery hole again).
       const pass = runPassed(event);
       if (pass === null) return;
-      recordEvidence(resolveCwd(event, ctx), { command, pass });
+      // Bind the evidence to the directory the command provably ran in —
+      // `cd X && test` certifies X, and an unprovable dir-change certifies
+      // nothing (evidenceDirFor returns null; never launder).
+      const targetDir = evidenceDirFor(resolveCwd(event, ctx), command);
+      if (targetDir === null) return;
+      recordEvidence(targetDir, { command, pass });
       return;
     }
   });
