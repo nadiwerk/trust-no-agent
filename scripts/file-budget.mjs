@@ -37,7 +37,7 @@
  * or `dir/` prefix per line), and binary content is skipped by sniffing.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_LIMIT = 5000;
@@ -116,13 +116,16 @@ const measure = (root, rels, limit, ig) => {
   for (const rel of rels) {
     if (ignored(rel) || matchesIgnore(rel, ig)) continue;
     const abs = join(root, ...rel.split('/'));
-    let size;
-    try { size = statSync(abs).size; } catch { continue; } // deleted between stage and run
-    const tokens = Math.round(size / BYTES_PER_TOKEN);
-    if (tokens <= limit) continue;
     let buf;
     try { buf = readFileSync(abs); } catch { continue; }
     if (isBinary(buf)) continue;
+    // Line-ending agnostic: git materializes CRLF on Windows checkouts while
+    // the stored blob is LF, so raw bytes disagree across hosts on boundary
+    // files (roast-r3 CI red). Tokens are a property of the content, not the
+    // checkout mode — measure the LF-normalized text.
+    const size = buf.toString('utf8').replace(/\r\n/g, '\n').length;
+    const tokens = Math.round(size / BYTES_PER_TOKEN);
+    if (tokens <= limit) continue;
     out.push({ rel, tokens });
   }
   return out;
