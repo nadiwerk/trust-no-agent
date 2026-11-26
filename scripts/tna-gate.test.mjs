@@ -164,5 +164,74 @@ const freshDir = () => mkdtempSync(join(tmpdir(), 'tna-gate-'));
     r === null && writes.length === 0,
     `ret=${JSON.stringify(r)} writes=${writes.length}`);
 }
+{
+  // Residual laundering (roast r2 R1/F7): a dir-changer hidden INSIDE a
+  // wrapper — subshell parens, command substitution, or a nested shell
+  // launcher — never appears as a chain segment's leading token, so a
+  // segment-level DIR_CHANGERS check cannot see it. `bash -c "cd X && npm
+  // test"` really does run the test in X — but through a shape the resolver
+  // cannot prove, so the honest verdict is record NOTHING (unproven dir
+  // certifies nothing), never silently bind to the payload cwd.
+  const dir = freshDir();
+  const elsewhere = freshDir();
+  for (const [label, command] of [
+    ['parens subshell', `(cd ${elsewhere}) && npm test`],
+    ['nested bash -c', `bash -c "cd ${elsewhere}" && npm test`],
+    ['nested cmd /c', `cmd /c "cd ${elsewhere}" && npm test`],
+  ]) {
+    const d = freshDir();
+    const r = observeAfter(d, { tool: 'bash', sessionID: 's', callID: 'c', args: { command } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+    check(`H8 ${label}: wrapped cd does NOT authorize the victim repo`,
+      r === null && readState(d).testPassFresh !== true,
+      `ret=${JSON.stringify(r)} state=${JSON.stringify(readState(d))}`);
+  }
+  const writes = [];
+  const store = { writeState: async (s) => { writes.push(s); } };
+  const rw = await observeAfterWith(store, { tool: 'bash', command: `bash -c "cd ${elsewhere}" && npm test`, pass: true });
+  check('H9 store-bound path also refuses a wrapped cd (bash -c)',
+    rw === null && writes.length === 0, `ret=${JSON.stringify(rw)} writes=${writes.length}`);
+  const rw2 = await observeAfterWith(store, { tool: 'bash', command: '(cd elsewhere) && npm test', pass: true });
+  check('H10 store-bound path refuses a parens-subshell cd',
+    rw2 === null && writes.length === 0, `ret=${JSON.stringify(rw2)} writes=${writes.length}`);
+  // Sanity: a benign quoted mention of a dir-changer is not a dir change —
+  // `echo "remember cd" && npm test` must still bind to the payload cwd
+  // (no over-flagging into a dead gate).
+  const benign = freshDir();
+  const rb = observeAfter(benign, { tool: 'bash', sessionID: 's', callID: 'c', args: { command: 'echo "remember cd" && npm test' } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+  check('H11 a quoted non-dir-change mention still binds to the real cwd',
+    rb !== null && readState(benign).testPassFresh === true,
+    `ret=${JSON.stringify(rb)} state=${JSON.stringify(readState(benign))}`);
+}
+{
+  // Round-3 residuals: shapes that still slip hiddenDirChange.
+  // (a) redirect boundary — bash parses `cd>x` as cd + redirect, but `>` was
+  // not a token boundary so the changer went unseen.
+  // (b) quoted/escaped program name — `'cd' x`, `c\d x`, `cd${IFS}x` dodge the
+  // prog check AND are stripped from rest by the unquoted scan.
+  // (c) launcher gaps — payloads hiding a dir change behind launchers the
+  // set did not know (interpreter -c, make -C, remote exec).
+  // (d) encoded PowerShell — the base64 blob can never match a token scan.
+  for (const [label, command] of [
+    ['H12 redirect boundary', 'cd>x && npm test'],
+    ['H13 single-quoted prog', `'cd' elsewhere && npm test`],
+    ['H13 double-quoted prog', `"cd" elsewhere && npm test`],
+    ['H13 backslash-escaped prog', 'c\\d elsewhere && npm test'],
+    ['H13 ${IFS} bypass', 'cd${IFS}elsewhere && npm test'],
+    ['H14 expect -c', `expect -c "cd elsewhere" && npm test`],
+    ['H14 su -c', `su -c "cd elsewhere" && npm test`],
+    ['H14 runuser -c', `runuser -c "cd elsewhere" && npm test`],
+    ['H14 ssh remote exec', `ssh host "cd elsewhere" && npm test`],
+    ['H14 make -C', 'make -C elsewhere test && npm test'],
+    ['H14 python os.chdir', `python -c "import os;os.chdir('elsewhere')" && npm test`],
+    ['H15 encoded powershell', 'powershell -e Y2QgZWxzZXdoZXJl && npm test'],
+    ['H15 pwsh -EncodedCommand', 'pwsh -EncodedCommand Y2QgZWxzZXdoZXJl && npm test'],
+  ]) {
+    const d = freshDir();
+    const r = observeAfter(d, { tool: 'bash', sessionID: 's', callID: 'c', args: { command } }, { title: '', output: 'ALL PASS', metadata: { error: false } });
+    check(`${label}: records evidence NOWHERE`,
+      r === null && readState(d).testPassFresh !== true,
+      `ret=${JSON.stringify(r)} state=${JSON.stringify(readState(d))}`);
+  }
+}
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

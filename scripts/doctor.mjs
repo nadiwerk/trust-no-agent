@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { checkStarve, checkStale, DEFAULT_GRACE_DAYS } from './corrective-tier.mjs';
-import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict, extractHookTargets, hookTargetVerdict, floorVerdict, resolveFloor } from './doctor-checks.mjs';
+import { hookVerdict, pickLedgerPath, blindSpotWarning, gateVerdict, manifestVerdict, overlayVerdict, grandfatherVerdict, adapterVerdict, payloadDriftVerdict, installedPluginVerdict, extractHookTargets, hookTargetVerdict, floorVerdict, resolveFloor, ROUTER_CANDIDATES } from './doctor-checks.mjs';
 import { parseStamp } from './onboarding.mjs';
 // The hook module is imported LAZILY (see the G hook-load section below): a
 // static import here meant the doctor died on the same load throw that made the
@@ -84,7 +84,6 @@ console.log(`expects ${skillNames.length} skills (${skillNames.join(', ')})`);
 // framework checkout must carry both router files; an adopter's router may
 // keep the name its own harness reads — the merge path never renames it.
 const repoMode = existsSync(join(cwd, 'skills', 'engineering', 'breakpoint', 'SKILL.md'));
-const ROUTER_CANDIDATES = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md'];
 const routersFound = ROUTER_CANDIDATES.filter((f) => existsSync(join(cwd, f)));
 if (repoMode) {
   for (const f of ['AGENTS.md', 'WORKFLOW.md']) {
@@ -551,7 +550,6 @@ let gateHookAdapterSelfTest = 'not run';
 // missing that file degrades this block to a named warn instead of killing
 // the report (the K12 lesson: the checker must outlive the defect).
 {
-  const ROUTER_CANDIDATES = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md'];
   const scanned = ROUTER_CANDIDATES.filter((f) => existsSync(join(cwd, f)));
   const routerText = scanned
     .map((f) => { try { return readFileSync(join(cwd, f), 'utf8'); } catch { return ''; } })

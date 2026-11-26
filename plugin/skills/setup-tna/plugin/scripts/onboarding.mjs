@@ -26,6 +26,14 @@ import { createHash } from 'node:crypto';
 const STOPWORDS = new Set(['skill', 'the', 'and', 'for', 'with', 'from', 'into', 'that', 'this', 'how', 'what', 'when', 'your', 'you']);
 const COMPONENTS = ['floor', 'hooks', 'overlays', 'evidenceGate'];
 
+// Harnesses whose install lives at user level (~/.tna runtime + home config
+// files), versus harnesses whose payload is copied into the project tree.
+// One set — a new user-level harness joins here, not in six places (roast r2
+// standards #4).
+const USER_LEVEL_HARNESSES = new Set(['devin', 'antigravity', 'gemini']);
+// Harnesses whose skills install copies into the project's .agents/skills.
+const PROJECT_SKILL_HARNESSES = new Set(['pi', 'omp', 'opencode', ...USER_LEVEL_HARNESSES]);
+
 /**
  * Discover skills under explicit roots: each directory holding a SKILL.md
  * becomes { name, dir, text }. First root wins on name collision.
@@ -325,10 +333,11 @@ export function planDevinConfig(cfg, hookPath, components = null) {
     }
     const arr = Array.isArray(merged.hooks[event]) ? merged.hooks[event] : (merged.hooks[event] = []);
     // An existing hook in this event already invoking the same target through
-    // any hook.mjs dispatcher is an equivalent wiring (this machine's user
-    // layer routes the same targets through its own dispatcher) — adding ours
-    // would double-fire (a doubled floor injection is doubled context cost).
-    const tRe = new RegExp(`hook\\.mjs"?\\s+${target}\\b`);
+    // OUR dispatcher is an equivalent wiring (this machine's user layer routes
+    // the same targets through its own veto-hooks adapter) — adding ours would
+    // double-fire. A hook.mjs at any OTHER path is foreign wiring, never proof
+    // of ours (roast r2 R2: `node /evil/hook.mjs gate-hook` must not dedupe).
+    const tRe = new RegExp(`veto-hooks[\\\\/]devin[\\\\/]hook\\.mjs"?\\s+${target}\\b`, 'i');
     if (arr.some((g) => Array.isArray(g?.hooks) && g.hooks.some((h) => tRe.test(String(h?.command ?? ''))))) {
       already.push(`${event}:${target}`);
       continue;
@@ -514,7 +523,7 @@ export function adaptersFor(harness, cwd, { createFallback = true } = {}) {
     }
     return out;
   }
-  if (harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+  if (USER_LEVEL_HARNESSES.has(harness)) {
     return tnaAdapterPairs(harness);
   }
   return [];
@@ -538,8 +547,7 @@ export function adaptersFor(harness, cwd, { createFallback = true } = {}) {
 function skillsDirsFor(harness, cwd) {
   const home = homedir();
   if (harness === 'dsh') return [join(home, '.dsh', 'skills')];
-  if (harness === 'pi' || harness === 'omp' || harness === 'opencode'
-    || harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+  if (PROJECT_SKILL_HARNESSES.has(harness)) {
     return [join(cwd, '.agents', 'skills')];
   }
   return [];
@@ -920,7 +928,7 @@ export function detectInstalledAdapters(cwd) {
   ];
   const registrations = {};
   let userInstallEvidence = runtimePairs.some(([, dest]) => existsSync(dest));
-  for (const harness of ['devin', 'antigravity', 'gemini']) {
+  for (const harness of USER_LEVEL_HARNESSES) {
     registrations[harness] = registrationStatus(harness);
     const dest = join(home, '.tna', 'veto-hooks', harness, 'hook.mjs');
     if (existsSync(dest)) userInstallEvidence = true;
@@ -952,26 +960,44 @@ export function detectInstalledAdapters(cwd) {
   return { groups };
 }
 
-/** Collect every string below a value (commands live several objects deep). */
-function collectStrings(value, out = []) {
-  if (typeof value === 'string') out.push(value);
-  else if (Array.isArray(value)) for (const v of value) collectStrings(v, out);
-  else if (value && typeof value === 'object') for (const v of Object.values(value)) collectStrings(v, out);
-  return out;
+/**
+ * Collect real command strings wired to an event under `config.hooks`.
+ * Only `command` fields on event entries or inside their `hooks` arrays
+ * count — a description, statusMessage, or comment containing `hook.mjs
+ * gate-hook` is prose, not wiring; an event key buried under an arbitrary
+ * wrapper (`backup`, `archived`) is not live registration; and a `command`
+ * inside a non-hook sub-object is not an entry (roast r2 R3, r3 residual).
+ */
+function eventCommands(config, event) {
+  const out = [];
+  const collect = (value) => {
+    if (Array.isArray(value)) { for (const v of value) collect(v); return; }
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'command' && typeof child === 'string') out.push(child);
+      else if (key === 'hooks') collect(child);
+    }
+  };
+  collect(config?.hooks?.[event]);
+  return out.map((s) => s.replace(/\\/g, '/'));
 }
 
-/** Collect command strings under every exact event key, through unknown wrapper shapes. */
-function eventCommands(config, event) {
+/**
+ * Every `command` field reachable under `config.hooks` — the evidence hint's
+ * source. Raw-file text is not evidence: a comment or description containing
+ * the adapter marker must not claim TNA-shaped wiring (roast r3 residual).
+ */
+function hookCommands(config) {
   const out = [];
   const walk = (value) => {
     if (Array.isArray(value)) { for (const v of value) walk(v); return; }
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
-      if (key === event) collectStrings(child, out);
-      walk(child);
+      if (key === 'command' && typeof child === 'string') out.push(child);
+      else walk(child);
     }
   };
-  walk(config);
+  walk(config?.hooks);
   return out.map((s) => s.replace(/\\/g, '/'));
 }
 
@@ -994,9 +1020,8 @@ export function registrationStatus(harness) {
   // for a target file that lacks the contract (roast r1 F4).
   const files = [WIRING[harness]?.file?.()].filter(Boolean);
   const parsed = [...new Set(files)].map(parseJsonFile).filter(Boolean);
-  const normalizedTexts = parsed.map((p) => p.text.replace(/\\/g, '/'));
   const marker = `veto-hooks/${harness}/hook.mjs`;
-  let evidence = normalizedTexts.some((t) => t.includes(marker));
+  let evidence = parsed.some((p) => hookCommands(p.config).some((c) => c.toLowerCase().includes(marker)));
 
   if (harness === 'devin') {
     const required = [
@@ -1007,7 +1032,7 @@ export function registrationStatus(harness) {
     ];
     const missing = [];
     for (const [event, target] of required) {
-      const targetRe = new RegExp(`hook\\.mjs"?\\s+${target}\\b`);
+      const targetRe = new RegExp(`veto-hooks[\\\\/]devin[\\\\/]hook\\.mjs"?\\s+${target}\\b`, 'i');
       const present = parsed.some((p) => eventCommands(p.config, event).some((cmd) => targetRe.test(cmd)));
       if (!present) missing.push(`${event}:${target}`);
       else evidence = true;
@@ -1111,7 +1136,7 @@ export function inspectLayerReadiness({ cwd, harness, components = null, groups 
       return { key, label, state: 'missing' };
     }
     let state = 'unverified';
-    if (harness === 'devin' || harness === 'antigravity' || harness === 'gemini') {
+    if (USER_LEVEL_HARNESSES.has(harness)) {
       if (!READINESS_EVENTS[harness]?.[key] && key !== 'doneGate') state = 'unsupported';
       else state = userHarnessLayerState(key, harness, scan);
     } else if (harness === 'omp' || harness === 'pi' || harness === 'dsh') {

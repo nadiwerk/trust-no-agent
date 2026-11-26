@@ -30,6 +30,12 @@
  *
  * @returns {{level: 'pass'|'warn'|'fail', message: string}}
  */
+// The router filenames a project may carry, canonical order. One declaration
+// for every checker that scans for a router file (roast r2 standards #3);
+// the devin hook adapter keeps its own copy because a copied adapter must be
+// self-contained — sync it here: veto-hooks/devin/hook.mjs `routers` literal.
+export const ROUTER_CANDIDATES = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md'];
+
 export function hookVerdict({ mode, hooksPath, hasPre, hasMsg, customHookExists }) {
   if (mode === 'repo') {
     if (!hooksPath)

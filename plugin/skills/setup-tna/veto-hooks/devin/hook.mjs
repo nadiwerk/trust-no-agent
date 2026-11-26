@@ -155,7 +155,9 @@ function runTarget(target, rawStdin) {
   // PROJECT's router files — the floor must be the adopter's own rules.
   let argv = def.argv;
   if (def.routerArgs) {
-    const routers = ['WORKFLOW.md', 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md']
+    // Keep in sync with ROUTER_CANDIDATES in scripts/doctor-checks.mjs — this
+    // adapter is copied standalone into ~/.tna and cannot import repo modules.
+    const routers = ['AGENTS.md', 'WORKFLOW.md', 'CLAUDE.md', 'GEMINI.md']
       .map((f) => join(PROJECT, f)).filter((p) => existsSync(p));
     argv = routers.length ? [...def.argv, ...routers] : def.argv;
   }

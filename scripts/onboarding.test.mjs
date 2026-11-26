@@ -1771,5 +1771,135 @@ const put = (root, name, text) => {
   rmSync(home, { recursive: true, force: true });
 }
 
+// ---- R2. Wired-equivalence must require OUR dispatcher path (roast r2) ----
+// `hook.mjs <target>` from ANY path counted as already-wired: a foreign
+// `node /evil/hook.mjs gate-hook` suppressed our real entry (install skipped)
+// and satisfied the doctor's registration contract. Equivalence is only valid
+// for our own adapter — `veto-hooks/devin/hook.mjs` at whatever layout.
+{
+  const foreign = { hooks: { PreToolUse: [{ matcher: 'x', hooks: [{ type: 'command', command: 'node "/evil/hook.mjs" gate-hook', timeout: 7 }] }] } };
+  const { merged, added, already } = planDevinConfig(foreign, 'C:/u/.tna/veto-hooks/devin/hook.mjs', { floor: true, hooks: true, evidenceGate: true });
+  check('R2a a foreign hook.mjs path does NOT count as already-wired',
+    added.includes('PreToolUse:gate-hook') && !already.includes('PreToolUse:gate-hook'),
+    `added=${JSON.stringify(added)} already=${JSON.stringify(already)}`);
+  check('R2b the foreign entry itself is preserved alongside ours',
+    /evil\/hook\.mjs/.test(JSON.stringify(merged.hooks.PreToolUse)),
+    JSON.stringify(merged.hooks.PreToolUse).slice(0, 300));
+  const ours = { hooks: { PreToolUse: [{ matcher: 'x', hooks: [{ type: 'command', command: 'node "C:/their-own/veto-hooks/devin/hook.mjs" gate-hook', timeout: 7 }] }] } };
+  const r2 = planDevinConfig(ours, 'C:/u/.tna/veto-hooks/devin/hook.mjs', { floor: true, hooks: true, evidenceGate: true });
+  check('R2c our own adapter at a custom layout still dedupes (equivalence kept)',
+    r2.already.includes('PreToolUse:gate-hook') && !r2.added.includes('PreToolUse:gate-hook'),
+    `added=${JSON.stringify(r2.added)} already=${JSON.stringify(r2.already)}`);
+}
+{
+  // registrationStatus uses the same equivalence — a foreign hook.mjs must
+  // not satisfy the registration contract either.
+  const home = tmp('onboard-r2-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  const cfgFile = join(appData, 'devin', 'config.json');
+  writeFileSync(cfgFile, JSON.stringify({ hooks: {
+    SessionStart: [{ hooks: [{ type: 'command', command: 'node "/evil/hook.mjs" reinject' }] }],
+    UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node "/evil/hook.mjs" gate-hook' }] }],
+    PreToolUse: [{ hooks: [{ type: 'command', command: 'node "/evil/hook.mjs" gate-hook' }] }],
+    PostToolUse: [{ hooks: [{ type: 'command', command: 'node "/evil/hook.mjs" gate-hook' }] }],
+  } }));
+  const prev = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, APPDATA: process.env.APPDATA };
+  process.env.USERPROFILE = home; process.env.HOME = home; process.env.APPDATA = appData;
+  try {
+    const r = registrationStatus('devin', home);
+    check('R2d foreign hook.mjs wiring leaves every event missing in registration',
+      r.missing.length === 4, `missing=${JSON.stringify(r.missing)}`);
+  } finally {
+    process.env.USERPROFILE = prev.USERPROFILE; process.env.HOME = prev.HOME; process.env.APPDATA = prev.APPDATA;
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+
+// ---- R3. Registration evidence must read command fields only (roast r2) ----
+// eventCommands collected EVERY string under the event key — a description or
+// statusMessage containing `hook.mjs gate-hook` satisfied the contract and hid
+// an unwired gate. Only real command fields count.
+{
+  const home = tmp('onboard-r3-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  writeFileSync(join(appData, 'devin', 'config.json'), JSON.stringify({ hooks: {
+    PreToolUse: [{ description: 'veto-hooks/devin/hook.mjs gate-hook', hooks: [] }],
+    PostToolUse: [{ statusMessage: 'veto-hooks/devin/hook.mjs gate-hook' }],
+  } }));
+  const prev = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, APPDATA: process.env.APPDATA };
+  process.env.USERPROFILE = home; process.env.HOME = home; process.env.APPDATA = appData;
+  try {
+    const r = registrationStatus('devin', home);
+    check('R3 a description/statusMessage string never satisfies the registration contract',
+      r.missing.includes('PreToolUse:gate-hook') && r.missing.includes('PostToolUse:gate-hook'),
+      `missing=${JSON.stringify(r.missing)}`);
+  } finally {
+    process.env.USERPROFILE = prev.USERPROFILE; process.env.HOME = prev.HOME; process.env.APPDATA = prev.APPDATA;
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+
+// ---- R3-resid. Prose must not set `evidence`; event keys must not match at
+// arbitrary depth (roast r3) ----
+// registrationStatus still substring-matched the raw file text for `evidence`,
+// so a lone description/comment containing the marker reported TNA-shaped
+// wiring. And eventCommands walked the whole config — an event key under a
+// `backup`/disabled wrapper, or a `command` inside a non-hook sub-object,
+// satisfied the contract.
+{
+  const home = tmp('onboard-r3b-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  writeFileSync(join(appData, 'devin', 'config.json'), JSON.stringify({ hooks: {
+    PreToolUse: [{ description: 'veto-hooks/devin/hook.mjs gate-hook', hooks: [] }],
+  } }));
+  const prev = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, APPDATA: process.env.APPDATA };
+  process.env.USERPROFILE = home; process.env.HOME = home; process.env.APPDATA = appData;
+  try {
+    const r = registrationStatus('devin', home);
+    check('R3b prose alone never sets evidence',
+      r.evidence === false, `evidence=${r.evidence}`);
+  } finally {
+    process.env.USERPROFILE = prev.USERPROFILE; process.env.HOME = prev.HOME; process.env.APPDATA = prev.APPDATA;
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+{
+  const home = tmp('onboard-r3c-home-');
+  const appData = join(home, 'appdata');
+  mkdirSync(join(appData, 'devin'), { recursive: true });
+  const cmd = 'node "C:/u/veto-hooks/devin/hook.mjs" gate-hook';
+  writeFileSync(join(appData, 'devin', 'config.json'), JSON.stringify({ hooks: {
+    backup: { PreToolUse: [{ hooks: [{ type: 'command', command: cmd }] }] },
+    archived: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: cmd }] }] },
+    SessionStart: [{ hooks: [{ type: 'command', command: 'node "C:/u/veto-hooks/devin/hook.mjs" reinject' }] }],
+    PreToolUse: [{ hooks: [{ type: 'command', command: cmd }] }],
+    PostToolUse: [{ hooks: [{ type: 'command', command: cmd }] }],
+  } }));
+  const prev = { USERPROFILE: process.env.USERPROFILE, HOME: process.env.HOME, APPDATA: process.env.APPDATA };
+  process.env.USERPROFILE = home; process.env.HOME = home; process.env.APPDATA = appData;
+  try {
+    const r = registrationStatus('devin', home);
+    check('R3c an event key under a non-hooks wrapper never satisfies registration',
+      r.missing.includes('UserPromptSubmit:gate-hook'),
+      `missing=${JSON.stringify(r.missing)}`);
+  } finally {
+    process.env.USERPROFILE = prev.USERPROFILE; process.env.HOME = prev.HOME; process.env.APPDATA = prev.APPDATA;
+  }
+  rmSync(home, { recursive: true, force: true });
+}
+{
+  // The canonical-path equivalence is case-insensitive on the same ground as
+  // the filesystems that carry it — `VETO-HOOKS\Devin\hook.mjs` IS our
+  // dispatcher, not a foreign hook (roast r3 nit → required: it double-fired).
+  const mixed = { hooks: { PreToolUse: [{ matcher: 'x', hooks: [{ type: 'command', command: 'node "C:/u/.tna/VETO-HOOKS/DEVIN/HOOK.MJS" gate-hook', timeout: 7 }] }] } };
+  const { added, already } = planDevinConfig(mixed, 'C:/u/.tna/veto-hooks/devin/hook.mjs', { floor: true, hooks: true, evidenceGate: true });
+  check('R3d own dispatcher path dedupes case-insensitively',
+    already.includes('PreToolUse:gate-hook') && !added.includes('PreToolUse:gate-hook'),
+    `added=${JSON.stringify(added)} already=${JSON.stringify(already)}`);
+}
+
 console.log(failures === 0 ? '\nAll onboarding seam expectations hold.' : `\nFAIL: ${failures} expectation(s) broken.`);
 process.exit(failures === 0 ? 0 : 1);

@@ -29,6 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Evidence-dir laundering residuals closed (roast r3).** The gate's
+  `hiddenDirChange` check now also refuses to record a pass when the dir
+  changer hides behind a redirect (`cd>x`), a quoted or escaped program name
+  (`'cd' x`, `c\d x`, `cd${IFS}x`), an interpreter or remote launcher the set
+  missed (`expect`/`script`/`su`/`runuser`/`busybox`/`ssh`/`python`/`node`
+  `-c` payloads, `os.chdir` member calls), a dir flag (`make -C`, `git -C`),
+  or an encoded PowerShell command (`-e`/`-EncodedCommand`). Unproven dirs
+  certify nothing, in either direction — benign quoted mentions like
+  `echo "remember cd"` still bind to the real cwd.
+- **Registration evidence reads command fields only, end to end.** A
+  `description`, `statusMessage`, or comment containing
+  `veto-hooks/devin/hook.mjs` no longer sets `evidence` or satisfies an event
+  contract; an event key under an arbitrary wrapper (`backup`, `archived`)
+  no longer counts as live wiring; and the own-dispatcher equivalence now
+  dedupes case-insensitively (mixed-case paths used to double-fire).
+- **`ROUTER_CANDIDATES` order aligned** between `doctor-checks.mjs` and the
+  standalone `veto-hooks/devin/hook.mjs` copy — the documented sync contract
+  is now diff-verifiable.
 - **Devin veto was permanently closed (two-sided bug).** The adapter mapped
   tool names only for the `impeccable` target, so `exec` never reached
   `SHELL_TOOLS` in the gate — no test run ever recorded evidence, making the
