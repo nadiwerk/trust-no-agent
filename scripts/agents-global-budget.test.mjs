@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 /** Fail-first guard for the global OpenCode AGENTS.md budget (2026-11-17). */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const p = process.env.OPENCODE_GLOBAL_AGENTS ?? 'C:/Users/Lenovo/.config/opencode/AGENTS.md';
+const floorPath = 'C:/Users/Lenovo/.config/opencode/rules/tna-floor.md';
+// This guard reads the MACHINE's global OpenCode config, not repo content —
+// on any host without it (CI runners, other machines) there is no subject to
+// grade, so the honest verdict is SKIP, never a crash or a fake red.
+if (!existsSync(p) && !existsSync(floorPath)) {
+  console.log('SKIP - machine-local OpenCode global config absent on this host (CI); nothing to guard');
+  process.exit(0);
+}
 let s = '';
 try { s = readFileSync(p, 'utf8'); } catch { /* absent -> fail below */ }
 let failures = 0;
@@ -15,8 +23,9 @@ check('G2 long working-style text is a pointer, not inline', /\.claude[\\/]AGENT
 check('G3 Trust No Agent floor pointer survives', /tna-floor\.md/.test(s));
 check('G5 decision-order ladder is present in every OpenCode project', /The ladder/.test(s) && /shortcut:/.test(s));
 check('G4 model map survives (machine-specific, still needed)', /deepseek-v4\.1-flash/.test(s) && /semutcode/.test(s));
-const floorPath = 'C:/Users/Lenovo/.config/opencode/rules/tna-floor.md';
-const floor = readFileSync(floorPath, 'utf8');
+let floor = '';
+try { floor = readFileSync(floorPath, 'utf8'); } catch { /* absent -> G6 fails below */ }
 const LAWS = ['shared understanding', 'failing test', 'verifikasi fresh', 'sign-off'];
 check('G6 all four Iron Laws are explicit in the always-on floor', LAWS.every((k) => floor.toLowerCase().includes(k)), `${LAWS.filter((k) => !floor.toLowerCase().includes(k))}`);
 console.log(failures === 0 ? 'ALL GREEN' : `${failures} FAILURE(S)`);
+process.exit(failures === 0 ? 0 : 1);
