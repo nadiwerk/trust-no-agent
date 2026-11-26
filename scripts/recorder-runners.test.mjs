@@ -49,7 +49,11 @@ function record(command, response = { stdout: 'passed', exitCode: 0 }) {
 {
   const RUNNERS = [
     ['npx vitest run src/x.test.ts', 'vitest (the ads-tracker command)'],
-    ['cd C:\\repo; npx vitest run --config vitest.db-heavy.config.ts src/test/x.test.ts', 'vitest behind a cd prefix'],
+    // A `cd X; test` chain is deliberately absent: after the roast-r1 F7
+    // evidence-binding fix, a `;` separator means the runner executes whether
+    // or not the cd succeeded — the execution dir is unprovable, and an
+    // unprovable dir certifies NOTHING (records nowhere). The `&&` form is
+    // pinned below as its own case.
     ['vitest run', 'bare vitest'],
     ['npx jest src/x.test.ts', 'jest'],
     ['jest --ci', 'bare jest'],
@@ -69,6 +73,19 @@ function record(command, response = { stdout: 'passed', exitCode: 0 }) {
     // observeAfter returns the written state object (not `true`), or null.
     check(`R1 records evidence: ${label}`, state?.testPassFresh === true && out !== null,
       `out=${JSON.stringify(out)} state=${JSON.stringify(state)}`);
+  }
+  // A cd prefix followed by `&&` binds the evidence to the RESOLVED dir —
+  // the dest must exist for the binding to be provable (roast r1 F7). The
+  // evidence lands in `repo`, and the payload dir keeps nothing.
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'tna-runners-'));
+    mkdirSync(join(dir, 'repo'));
+    const out = observeAfter(dir, { tool: 'PowerShell', args: { command: 'cd repo && npx vitest run src/x.test.ts' } }, { stdout: 'passed', exitCode: 0 });
+    const destState = existsSync(join(dir, 'repo', STATE_REL)) ? JSON.parse(readFileSync(join(dir, 'repo', STATE_REL), 'utf8')) : null;
+    check('R1 records evidence: vitest behind a cd prefix (binds to the resolved dir)',
+      destState?.testPassFresh === true && out !== null && !existsSync(join(dir, STATE_REL)),
+      `out=${JSON.stringify(out)} dest=${JSON.stringify(destState)}`);
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -109,25 +126,47 @@ function record(command, response = { stdout: 'passed', exitCode: 0 }) {
   const AFTER = record('npx vitest run; echo done');
   check('R5a a trailing non-test command records nothing', AFTER.out === null, String(AFTER.out));
 
-  const PREFIX = record('cd repo && npx vitest run src/x.test.ts');
-  check('R5b a leading cd still records evidence (the BB-thread shape)',
-    PREFIX.state?.testPassFresh === true, JSON.stringify(PREFIX.state));
+  // A leading `cd repo &&` moves the evidence WITH the resolved dir (the
+  // BB-thread shape): the dest exists so the binding is provable — evidence
+  // lands in `repo`, never in the payload dir it was recorded under.
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'tna-runners-'));
+    mkdirSync(join(dir, 'repo'));
+    const out = observeAfter(dir, { tool: 'PowerShell', args: { command: 'cd repo && npx vitest run src/x.test.ts' } }, { stdout: 'passed', exitCode: 0 });
+    const destState = existsSync(join(dir, 'repo', STATE_REL)) ? JSON.parse(readFileSync(join(dir, 'repo', STATE_REL), 'utf8')) : null;
+    check('R5b a leading cd still records evidence, bound to the resolved dir',
+      destState?.testPassFresh === true && out !== null && !existsSync(join(dir, STATE_REL)),
+      `dest=${JSON.stringify(destState)}`);
+    rmSync(dir, { recursive: true, force: true });
+  }
 
   const CHAIN = record('npx vitest run && git commit -m x');
   check('R5c a trailing commit records nothing', CHAIN.out === null, String(CHAIN.out));
 }
 
 // ---- R6. The ads-tracker scenario end to end ----
-// The exact command from the report, followed by the gate read that used to fail.
+// The report's exact command used a `;` separator. Under the roast-r1 F7
+// evidence-binding contract that shape is honestly UNPROVABLE — the runner
+// executes regardless of the cd's fate, so nothing is recorded anywhere
+// (crediting either dir would be the laundering hole F7 closed). The `&&`
+// form is the provable spelling: the resolved dest owns the evidence.
 {
   const dir = mkdtempSync(join(tmpdir(), 'tna-adstracker-'));
-  const command = 'cd C:\\Users\\Lenovo\\projects\\ads-tracker; npx vitest run --config vitest.db-heavy.config.ts src/test/db-heavy/import-replace-owner-only.test.ts';
-  observeAfter(dir, { tool: 'PowerShell', args: { command } }, { stdout: 'Test Files 1 passed', exitCode: 0 });
+  const project = join(dir, 'ads-tracker');
+  mkdirSync(project);
+  const semicolon = `cd ${project}; npx vitest run --config vitest.db-heavy.config.ts src/test/db-heavy/import-replace-owner-only.test.ts`;
+  observeAfter(dir, { tool: 'PowerShell', args: { command: semicolon } }, { stdout: 'Test Files 1 passed', exitCode: 0 });
+  check('R6a a `cd X; test` chain records nothing (execution dir unprovable)',
+    readState(dir).testPassFresh !== true && !existsSync(join(project, STATE_REL)),
+    `dir=${JSON.stringify(readState(dir))}`);
 
-  const state = readState(dir);
-  check('R6a the report\'s exact command writes fresh evidence', state.testPassFresh === true, JSON.stringify(state));
-  check('R6b the state records the command that produced it', /vitest/.test(String(state.command)), String(state.command));
-  check('R6c the evidence is fresh (not the 2026-10-23 stale value)', !state.stale, String(state.stale));
+  const anded = `cd ${project} && npx vitest run --config vitest.db-heavy.config.ts src/test/db-heavy/import-replace-owner-only.test.ts`;
+  const out = observeAfter(dir, { tool: 'PowerShell', args: { command: anded } }, { stdout: 'Test Files 1 passed', exitCode: 0 });
+  const destState = existsSync(join(project, STATE_REL)) ? JSON.parse(readFileSync(join(project, STATE_REL), 'utf8')) : null;
+  check('R6b the `cd X && test` spelling writes fresh evidence to the resolved dir',
+    destState?.testPassFresh === true && out !== null && !existsSync(join(dir, STATE_REL)),
+    `dest=${JSON.stringify(destState)}`);
+  check('R6c the state records the command that produced it', /vitest/.test(String(destState?.command)), String(destState?.command));
   rmSync(dir, { recursive: true, force: true });
 }
 
