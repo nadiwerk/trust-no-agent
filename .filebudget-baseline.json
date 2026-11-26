@@ -117,7 +117,7 @@
   "scripts/doctor-checks.mjs": 6945,
   "scripts/doctor.mjs": 9490,
   "scripts/doctor.test.mjs": 13462,
-  "scripts/dsh-fixlist.test.mjs": 5514,
+  "scripts/dsh-fixlist.test.mjs": 5659,
   "scripts/eval.mjs": 19786,
   "scripts/gate-hook.mjs": 7838,
   "scripts/gate-hook.test.mjs": 12127,

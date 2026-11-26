@@ -188,21 +188,30 @@ const resultText = (text) => ({ isError: false, content: [{ type: 'text', text }
   }
 
   // IS evidence: the test is the last command, so its status IS the line's.
-  // This is the BB-thread shape (`cd <repo> && node x.test.mjs`) and must stay
-  // accepted — refusing it rebuilds the wall the pi report closed.
-  for (const command of [
-    'cd . && node y.test.mjs',
-    'cd repo && node deep/x.test.mjs',
-    'cd repo; npm test',
+  // The BB-thread shape (`cd <repo> && node x.test.mjs`) must stay accepted —
+  // but since roast r1 evidence binds to the RESOLVED dir: `cd . &&` records
+  // here, `cd repo &&` records INSIDE repo (the dest must exist to be
+  // provable), and `cd repo;` is unprovable — the next segment runs whether
+  // the cd succeeded or not, so nothing may be recorded anywhere.
+  mkdirSync(join(dir, 'repo'));
+  for (const [command, rel] of [
+    ['cd . && node y.test.mjs', ''],
+    ['cd repo && node deep/x.test.mjs', 'repo'],
   ]) {
+    const statePath = join(dir, rel, STATE);
     await h.emit('tools/result',
       { name: 'bash', agent: AGENT, arguments: { command } },
       resultText('ALL PASS\n'));
-    const state = existsSync(join(dir, STATE)) ? JSON.parse(readFileSync(join(dir, STATE), 'utf8')) : null;
-    check(`F2h a prefixed test still records evidence: ${command}`,
+    const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : null;
+    check(`F2h a provable cd && test binds evidence to the resolved dir: ${command}`,
       state?.testPassFresh === true, JSON.stringify(state));
-    if (existsSync(join(dir, STATE))) rmSync(join(dir, STATE), { force: true });
+    if (existsSync(statePath)) rmSync(statePath, { force: true });
   }
+  await h.emit('tools/result',
+    { name: 'bash', agent: AGENT, arguments: { command: 'cd repo; npm test' } },
+    resultText('ALL PASS\n'));
+  check('F2h a `cd x; test` chain records NOTHING (dir unprovable)',
+    !existsSync(join(dir, STATE)) && !existsSync(join(dir, 'repo', STATE)));
   cleanup();
 }
 
