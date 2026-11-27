@@ -51,7 +51,7 @@ const REPO_SKILLS = join(ROOT, 'skills');
 const FALLBACK_SKILLS = [
   'breakpoint', 'scribe', 'save-as', 'fork-it', 'make-it-so',
   'expect-fail', 'root-cause', 'roast-my-code', 'receipts', 'no-thanks', 'ship-log',
-  'pr-flow', 'setup-tna',
+  'pr-flow', 'setup-tna', 'slice-it',
 ];
 
 const cwd = process.cwd();

@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "trust-no-agent",
   "metadata": {
-    "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 13 skills, and a mechanical enforcement layer that does not rely on the model choosing to load anything."
+    "description": "Trust over speed: a discipline framework for coding agents — four Iron Laws, 14 skills, and a mechanical enforcement layer that does not rely on the model choosing to load anything."
   },
   "owner": {
     "name": "nadiwerk"
@@ -11,7 +11,7 @@
     {
       "name": "trust-no-agent",
       "description": "The router plus the enforcement layer. Skills are inert without the router (self-trigger measured at 0/3), so this plugin ships both: the trigger matrix and Iron Laws, and the hooks that re-inject the floor after compaction and classify each prompt against the three MANDATORY domains.",
-      "version": "0.1.62",
+      "version": "0.1.63",
       "author": {
         "name": "nadiwerk"
       },

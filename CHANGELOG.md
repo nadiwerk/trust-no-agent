@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.63] - 2026-11-27
+
+### Added
+
+- **`slice-it` — split suggestion at task entry (skill #14).** Work classified
+  `full` or `loop` now gets a proposed ticket/branch/worktree/PR/cleanup table
+  before the first file changes — propose & wait, never a gate. One branch per
+  ticket, blockers stack on their blocker's branch, plain `git worktree` per
+  parallel writer on any harness, and a teardown contract (`git worktree
+  remove` + merged-branch delete via `pr-flow` post-merge) so slices die
+  cleanly instead of becoming zombie state. `loop` proposals are provisional;
+  `fork-it` stays the authoritative decomposition after the spec gate. Router
+  trigger-matrix row + classify line, mechanical hint via `stack-select`
+  (`slice-it` emitted on split/breakdown prompts), fail-first coverage in
+  `scripts/slice-it.test.mjs` and `scripts/stack-select.test.mjs`.
+
 ## [0.1.62] - 2026-11-26
 
 ### Fixed
@@ -1980,7 +1996,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.62...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.63...HEAD
+[0.1.63]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.62...v0.1.63
 [0.1.62]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.61...v0.1.62
 [0.1.61]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.60...v0.1.61
 [0.1.60]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.59...v0.1.60
