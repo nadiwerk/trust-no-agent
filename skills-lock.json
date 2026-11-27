@@ -78,6 +78,12 @@
       "sourceType": "github",
       "skillPath": "skills/meta/ship-log/SKILL.md",
       "computedHash": "fd829b764958c8f6958bbde1148be6f4ef1e787b5f648381b4fd3e096a737bd8"
+    },
+    "slice-it": {
+      "source": "nadiwerk/trust-no-agent",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/slice-it/SKILL.md",
+      "computedHash": "5e07367ebe494d6ae84724d4cfb36359af5aeeab1bd54485624a391a7f9e65b0"
     }
   }
 }

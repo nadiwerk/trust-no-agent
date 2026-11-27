@@ -134,6 +134,8 @@ jobs:
         run: node scripts/orchestrator-brief.test.mjs
       - name: stack select self-test
         run: node scripts/stack-select.test.mjs
+      - name: slice-it skill self-test
+        run: node scripts/slice-it.test.mjs
 
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over

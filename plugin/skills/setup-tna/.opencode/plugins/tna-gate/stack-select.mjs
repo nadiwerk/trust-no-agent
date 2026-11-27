@@ -17,6 +17,7 @@ const RULES = [
   [/subagent|delegasi|delegate/i, ['subagent-split-check']],
   [/command panjang|command macet|long.?command|hang/i, ['long-command-check']],
   [/split.*(pr|fitur|refactor)|pecah.*(pr|fitur)|reviewable chunk/i, ['engineering-small-prs']],
+  [/(split|break|pecah|bagi).*(work|kerja|task|pekerjaan|pr|fitur|tiket|branch|into|jadi)|pemecahan|tiket.*(branch|worktree|pr)/i, ['slice-it', 'engineering-small-prs']],
   [/tanpa komentar|no comments/i, ['no-comments']],
   [/technical writing|dokumentasi teknis/i, ['technical-writing']],
   [/poteto/i, ['poteto-mode']],

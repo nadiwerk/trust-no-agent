@@ -210,7 +210,7 @@ const HOOKS = join(ROOT, 'plugin', 'hooks', 'codex.hooks.json');
   }
   const shipped = readdirSync(join(ROOT, 'plugin', 'skills')).filter((n) =>
     existsSync(join(ROOT, 'plugin', 'skills', n, 'SKILL.md')));
-  check('E1 the payload ships every canonical skill, flat', canon.length === 13 && shipped.length === canon.length,
+  check('E1 the payload ships every canonical skill, flat', canon.length === 14 && shipped.length === canon.length,
     `canon=${canon.length} shipped=${shipped.length}`);
   const norm = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
   const mismatched = canon.filter(
