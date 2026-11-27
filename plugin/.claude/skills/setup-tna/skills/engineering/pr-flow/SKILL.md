@@ -42,6 +42,15 @@ Then:
 - **Verify the terminal state after** — `gh pr view <n> --json state,mergeCommit` shows MERGED + the merge SHA. `gh pr merge`'s own exit code is not proof: its local fast-forward step errors AFTER the remote merge already succeeded (measured false-fail — the "failed" merge had landed).
 - **Merge authority**: where project convention reserves the merge for the owner, pr-flow prepares — green, reviewed, ordered — and hands the merge call back. Never merges itself (Iron Law: the model proposes, the user approves).
 
+## Post-merge teardown — the slice-it contract
+
+When the merged PR maps to a row in a `slice-it` plan (`.trust/<slug>/plan.md`), MERGED is not the end — the row's Cleanup column fires here. `slice-it` owns the mapping; this section owns the unmapping, executed only after the terminal-state proof above:
+
+1. Read `.trust/<slug>/plan.md` — the rows are the contract; nothing outside the plan gets removed, and a row naming a PR that is not MERGED produces no removals. Plan-time approval is not execution-time consent.
+2. `git worktree remove .trust/wt/<slug>-NN` for rows that had a worktree — a dirty worktree is reported, not forced; `git worktree list` confirms none remain.
+3. `git branch -d slice/<slug>-NN` — `-d` refuses unmerged and squash-merged branches alike; `git branch -D` is sanctioned only after the PR's MERGED state is verified, never on suspicion.
+4. Mark the ticket landed in `.trust/<slug>/issues/`; the ledger entry records the teardown, not just the merge.
+
 ## Ledger & receipt
 
 A PR event is a unit of work — `ship-log` entry on merge or on handoff. Delivery claims (merged, deployed) follow `receipts` §Delivery claims: terminal-state proof for the merge, and a post-deploy probe for UI/public-route changes — deploy success ≠ feature works.

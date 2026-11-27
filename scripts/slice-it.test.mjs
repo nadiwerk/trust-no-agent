@@ -37,7 +37,7 @@ const text = existsSync(SKILL) ? readFileSync(SKILL, 'utf8') : '';
 
 // ---- B. Full-stack proposal table (spec §Solution, AC1) ----
 {
-  const header = text.split('\n').find((l) => l.includes('|'));
+  const header = text.split('\n').find((l) => l.trimStart().startsWith('|') && l.includes('Ticket'));
   const cols = ['Ticket', 'Branch', 'Worktree', 'PR', 'Cleanup', 'Verify'];
   check('B1 proposal table carries the six columns',
     !!header && cols.every((c) => header.includes(c)), header ?? 'no table line');
@@ -72,7 +72,8 @@ const text = existsSync(SKILL) ? readFileSync(SKILL, 'utf8') : '';
 
 // ---- F. Gate shape: propose & wait, never a hard gate (spec §Constraints) ----
 {
-  check('F1 user may approve, override, or skip', /approve|override|skip/i.test(text));
+  check('F1 user may approve, override, or skip',
+    /approve/i.test(text) && /override/i.test(text) && /skip/i.test(text));
   check('F2 fast class is untouched', /fast/i.test(text));
 }
 

@@ -7,7 +7,7 @@ mechanical gate before it is accepted.
 
 ## What this project is
 
-- A **markdown-only workflow framework** — 13 skills across three tiers
+- A **markdown-only workflow framework** — 14 skills across three tiers
   (engineering, discipline, meta) plus a router (`AGENTS.md` + `WORKFLOW.md`).
 - The identity is the **trust layer**: proven work (receipts, evidence gates,
   vetoes, the ledger). The built-in chain is one workflow option — bring-your-
@@ -105,7 +105,7 @@ This installs two hooks:
 The CI workflow (`.github/workflows/ci.yml`) runs on every push and PR to
 `master`/`main`. Three jobs:
 
-**`validate`** — the gates (78 `run:` steps; the workflow file is the source
+**`validate`** — the gates (80 `run:` steps; the workflow file is the source
 of truth — `grep -n 'run:' .github/workflows/ci.yml` lists them live):
 
 1. `node scripts/validate.mjs` — structural validation.
@@ -147,45 +147,47 @@ of truth — `grep -n 'run:' .github/workflows/ci.yml` lists them live):
 37. `node scripts/goals.test.mjs` — standing-goals contract self-test.
 38. `node scripts/automation-lint.test.mjs` — automation-scope lint self-test.
 39. `node scripts/orchestrator-brief.test.mjs` — orchestrator-brief contract self-test.
-40. `node scripts/tickets.mjs scripts/tickets-fixture/issues` — ticket-graph smoke run against the committed fixture.
-41. `node scripts/site.test.mjs` — site acceptance contract.
-42. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
-43. `node scripts/ledger-hook-routing.test.mjs` — ledger hook-routing self-test.
-44. `node scripts/gate-hook-fastpath.test.mjs` — gate fast-path classifier self-test.
-45. `node scripts/antigravity-hook.test.mjs` — antigravity hook adapter self-test.
-46. `node scripts/gemini-hook.test.mjs` — gemini hook adapter self-test.
-47. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
-48. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
-49. `node scripts/marketplace-copilot.test.mjs` — marketplace copilot guard.
-50. `node scripts/file-budget.test.mjs` — file-budget self-test.
-51. `node scripts/payload-sync.test.mjs` — payload mirror synchronization guard.
-52. `node scripts/first-install-gate.test.mjs` — integrated first-install trust-layer gate.
-53. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
-54. `node scripts/ci-guard.mjs` — workflow file guard.
-55. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
-56. `node scripts/file-budget.mjs --all` — file-budget baseline re-check over all entries.
-57. `node scripts/file-budget.test.mjs` — file-budget self-test (re-run after the baseline check).
-58. `node scripts/codex-reprobe.test.mjs` — codex reprobe self-test.
-59. `node scripts/veto-adapter.test.mjs` — veto adapter self-test.
-60. `node scripts/veto-tool-coverage.test.mjs` — veto tool-coverage self-test.
-61. `node scripts/dsh-veto.test.mjs` — dsh veto self-test.
-62. `node scripts/devin-hook.test.mjs` — devin hook adapter self-test.
-63. `node scripts/dsh-discipline.test.mjs` — dsh discipline self-test.
-64. `node scripts/dsh-fixlist.test.mjs` — dsh fix-list self-test.
-65. `node scripts/omp-fixlist.test.mjs` — omp fix-list self-test.
-66. `node scripts/pi-discipline.test.mjs` — pi discipline self-test.
-67. `node scripts/pi-recorder.test.mjs` — pi recorder self-test.
-68. `node scripts/harness-general.test.mjs` — cross-harness general self-test.
-69. `node scripts/reinject.test.mjs` — router re-injection self-test.
-70. `node scripts/doctor-adapter.test.mjs` — doctor adapter self-test.
-71. `node scripts/behavioral-eval.test.mjs` — behavioral eval self-test.
-72. `node scripts/onboarding-layers.test.mjs` — install-layer self-test.
-73. `node scripts/onboarding-refresh.test.mjs` — onboarding refresh/preservation self-test.
-74. `node scripts/record-evidence.test.mjs` — evidence recorder self-test.
-75. `node scripts/recorder-runners.test.mjs` — recorder runner-matrix self-test.
-76. `node scripts/update-check.test.mjs` — update-check self-test.
-77. `node scripts/update-delivery.test.mjs` — update-delivery self-test.
-78. `node scripts/update-install.test.mjs` — update-install self-test.
+40. `node scripts/stack-select.test.mjs` — stack-select self-test.
+41. `node scripts/slice-it.test.mjs` — slice-it skill self-test.
+42. `node scripts/tickets.mjs scripts/tickets-fixture/issues` — ticket-graph smoke run against the committed fixture.
+43. `node scripts/site.test.mjs` — site acceptance contract.
+44. `node scripts/gate-hook.test.mjs` — hook entry-point contract (fail-open + PreToolUse veto).
+45. `node scripts/ledger-hook-routing.test.mjs` — ledger hook-routing self-test.
+46. `node scripts/gate-hook-fastpath.test.mjs` — gate fast-path classifier self-test.
+47. `node scripts/antigravity-hook.test.mjs` — antigravity hook adapter self-test.
+48. `node scripts/gemini-hook.test.mjs` — gemini hook adapter self-test.
+49. `node scripts/plugin.test.mjs` — plugin mirror drift guard.
+50. `node scripts/codex-plugin.test.mjs` — Codex plugin payload guard.
+51. `node scripts/marketplace-copilot.test.mjs` — marketplace copilot guard.
+52. `node scripts/file-budget.test.mjs` — file-budget self-test.
+53. `node scripts/payload-sync.test.mjs` — payload mirror synchronization guard.
+54. `node scripts/first-install-gate.test.mjs` — integrated first-install trust-layer gate.
+55. `node scripts/changelog-guard.test.mjs` — changelog structure guard.
+56. `node scripts/ci-guard.mjs` — workflow file guard.
+57. `node scripts/ci-guard.test.mjs` — workflow file guard self-test.
+58. `node scripts/file-budget.mjs --all` — file-budget baseline re-check over all entries.
+59. `node scripts/file-budget.test.mjs` — file-budget self-test (re-run after the baseline check).
+60. `node scripts/codex-reprobe.test.mjs` — codex reprobe self-test.
+61. `node scripts/veto-adapter.test.mjs` — veto adapter self-test.
+62. `node scripts/veto-tool-coverage.test.mjs` — veto tool-coverage self-test.
+63. `node scripts/dsh-veto.test.mjs` — dsh veto self-test.
+64. `node scripts/devin-hook.test.mjs` — devin hook adapter self-test.
+65. `node scripts/dsh-discipline.test.mjs` — dsh discipline self-test.
+66. `node scripts/dsh-fixlist.test.mjs` — dsh fix-list self-test.
+67. `node scripts/omp-fixlist.test.mjs` — omp fix-list self-test.
+68. `node scripts/pi-discipline.test.mjs` — pi discipline self-test.
+69. `node scripts/pi-recorder.test.mjs` — pi recorder self-test.
+70. `node scripts/harness-general.test.mjs` — cross-harness general self-test.
+71. `node scripts/reinject.test.mjs` — router re-injection self-test.
+72. `node scripts/doctor-adapter.test.mjs` — doctor adapter self-test.
+73. `node scripts/behavioral-eval.test.mjs` — behavioral eval self-test.
+74. `node scripts/onboarding-layers.test.mjs` — install-layer self-test.
+75. `node scripts/onboarding-refresh.test.mjs` — onboarding refresh/preservation self-test.
+76. `node scripts/record-evidence.test.mjs` — evidence recorder self-test.
+77. `node scripts/recorder-runners.test.mjs` — recorder runner-matrix self-test.
+78. `node scripts/update-check.test.mjs` — update-check self-test.
+79. `node scripts/update-delivery.test.mjs` — update-delivery self-test.
+80. `node scripts/update-install.test.mjs` — update-install self-test.
 
 **`hooks`** — activates `core.hooksPath=scripts/hooks` on a scratch clone and
 proves a conventional commit passes both hooks while a non-conventional message
@@ -203,9 +205,10 @@ If any fails, the PR is not mergeable. Run them locally before pushing.
 trust-no-agent/
 ├── AGENTS.md            # the router — classify, chain, Iron Laws, delegation
 ├── WORKFLOW.md          # core rules (non-negotiable)
-├── skills/              # the 13 skills, three tiers
+├── skills/              # the 14 skills, three tiers
 │   ├── engineering/     #   breakpoint, scribe, save-as, fork-it, make-it-so,
-│   │                    #   expect-fail, root-cause, roast-my-code
+│   │                    #   expect-fail, root-cause, roast-my-code, pr-flow,
+│   │                    #   slice-it
 │   ├── discipline/      #   receipts, no-thanks
 │   └── meta/            #   ship-log
 ├── docs/                # design, philosophy, installation, per-skill use cases

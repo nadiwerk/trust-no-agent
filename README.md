@@ -45,7 +45,7 @@ codex plugin add trust-no-agent@trust-no-agent
 npx skills add nadiwerk/trust-no-agent
 ```
 
-That single line delivers all 13 skills **including the onboarder itself** —
+That single line delivers all 14 skills **including the onboarder itself** —
 the setup-tna skill carries byte-identical copies of the router and the core
 rules in its payload. Project already has its own router, or your harness has
 no skill system? The merge path, the manual copy fallback, and per-harness
@@ -181,7 +181,7 @@ The parts that never depend on the model choosing to comply:
 - **CI** — the full gate suite runs on every push; every rule in the router is pinned
   by a check that was proven able to fail (encode-twice).
 
-## The 13 skills
+## The 14 skills
 
 ### Engineering
 
@@ -196,6 +196,7 @@ The parts that never depend on the model choosing to comply:
 | `root-cause`    | model      | Root-cause-first debugging — no fixes before investigation                                       | [docs/skills/root-cause.md](docs/skills/root-cause.md)       |
 | `roast-my-code` | model      | Three-axis review, parallel subagents, severity labels                                           | [docs/skills/roast-my-code.md](docs/skills/roast-my-code.md) |
 | `pr-flow`       | model      | PR lifecycle contract — open, review, watch, merge                                               | [docs/skills/pr-flow.md](docs/skills/pr-flow.md)             |
+| `slice-it`      | model      | Split proposal before full/loop work — tickets, branches, worktrees, PRs, cleanup                | [docs/skills/slice-it.md](docs/skills/slice-it.md)           |
 
 ### Discipline
 

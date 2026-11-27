@@ -19,13 +19,13 @@ Always the full-stack shape, even when it holds one row:
 
 | # | Ticket | Branch | Worktree | PR | Cleanup | Verify |
 |---|--------|--------|----------|----|---------|--------|
-| 1 | <slice name> | `slice/<slug>-01` | — (serial) | PR-1 → `main` | after PR-1 merges | <exact command> |
+| 1 | <slice name> | `slice/<slug>-01` | — (serial) | PR-1 → `master` | after PR-1 merges | <exact command> |
 | 2 | <slice name> | `slice/<slug>-02` | `.trust/wt/<slug>-02` | PR-2 → `slice/<slug>-01` | after PR-2 merges | <exact command> |
 
 Fill the columns by these rules:
 
 - **Ticket** — the slice's one-line deliverable, phrased as behavior a reviewer can check.
-- **Branch** — one branch per ticket, `slice/<slug>-NN`. A ticket with a blocking edge branches from its **blocker's branch**, not the default branch; independent tickets all branch from the default branch. A PR built on another open PR targets that PR's branch, never the default branch — or its diff carries the other PR whole and review stops being possible.
+- **Branch** — one branch per ticket, `slice/<slug>-NN`. `<slug>` is agent-generated and matches `[a-z0-9-]+` — it enters paths and branch names unquoted, so validate it before the first use. A ticket with a blocking edge branches from its **blocker's branch**, not the default branch; independent tickets all branch from the default branch. A PR built on another open PR targets that PR's branch, never the default branch — or its diff carries the other PR whole and review stops being possible.
 - **Worktree** — only when two or more independent tickets execute in parallel by subagents: plain `git worktree add .trust/wt/<slug>-NN -b slice/<slug>-NN`, one worktree per parallel writer, on any harness. Serial work runs in the coordinating checkout — a worktree per serial ticket is overhead with no isolation to show for it.
 - **PR** — the merge sequence: which PR lands first, which targets a stacked parent. Independent PRs merge in any order; stacked PRs land parent-first.
 - **Cleanup** — the teardown trigger per ticket (see below).
@@ -45,10 +45,13 @@ Each ticket executes with the discipline of its class: failing test first where 
 
 Every row's Cleanup column names when its resources die: **after the PR merges**. The mechanics run through `pr-flow` post-merge — this skill owns the mapping, so it owns the unmapping; `pr-flow` owns knowing the merge happened:
 
-1. `git worktree remove .trust/wt/<slug>-NN` — only for tickets that had one; `git worktree list` confirms none remain.
-2. `git branch -d slice/<slug>-NN` — merged branch deleted locally; `-d` refuses an unmerged branch, which is the check doing its job.
-3. The remote branch dies with the merge (squash-merge deletes it, or the PR's delete-branch action).
-4. The ticket is marked landed in `.trust/<slug>/issues/` (or the tracker) and the ledger gets its entry — per ticket, not per feature.
+Plan-time approval names the rows; it is not a blank cheque for deletions — every removal re-verifies at execution time:
+
+1. Verify the merge actually happened — `gh pr view <n> --json state,mergeCommit` shows MERGED (the `pr-flow` terminal-state check, not the merge command's exit code). A plan row naming a retargeted or closed-unmerged PR produces no teardown.
+2. `git worktree remove .trust/wt/<slug>-NN` — only for tickets that had one, and only when the worktree is clean; `git worktree list` confirms none remain.
+3. `git branch -d slice/<slug>-NN` — merged branch deleted locally; `-d` refuses an unmerged branch, which is the check doing its job. Squash-merged branches carry no merge ancestry, so `-d` refuses them too — after step 1 verified MERGED, `git branch -D` is the sanctioned variant; never `-D` without that verification.
+4. The remote branch dies with the merge (squash-merge deletes it, or the PR's delete-branch action).
+5. The ticket is marked landed in `.trust/<slug>/issues/` (or the tracker) and the ledger gets its entry — per ticket, not per feature.
 
 A `git worktree list` showing a stale `.trust/wt/` entry, or `git branch` showing a merged `slice/` branch, is a teardown debt — report it, don't silently inherit it.
 

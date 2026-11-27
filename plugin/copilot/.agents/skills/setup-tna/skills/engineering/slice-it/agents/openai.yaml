@@ -1,0 +1,3 @@
+interface:
+  display_name: "Slice It"
+  short_description: "Split proposal before full/loop work starts"

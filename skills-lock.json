@@ -35,7 +35,7 @@
       "source": "nadiwerk/trust-no-agent",
       "sourceType": "github",
       "skillPath": "skills/engineering/pr-flow/SKILL.md",
-      "computedHash": "5c46e22ec6a48882a2d9ef3bc277bf141b2d696d5abe47069b2decc143ed87f2"
+      "computedHash": "4949da9ba15f80e650cc25cd77ebc2691f98e83185694e0b4cc44cff3afa3950"
     },
     "receipts": {
       "source": "nadiwerk/trust-no-agent",
@@ -83,7 +83,7 @@
       "source": "nadiwerk/trust-no-agent",
       "sourceType": "github",
       "skillPath": "skills/engineering/slice-it/SKILL.md",
-      "computedHash": "5e07367ebe494d6ae84724d4cfb36359af5aeeab1bd54485624a391a7f9e65b0"
+      "computedHash": "91705e2d5a6d5a12f268390f186c2c2c93f43039280b62162b14e07c8efae559"
     }
   }
 }

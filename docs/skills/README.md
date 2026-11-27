@@ -27,6 +27,7 @@ Bug path: `root-cause` → `expect-fail` → fix → `receipts` → `ship-log`
 | `root-cause` | No fixes without root-cause investigation first | [root-cause.md](root-cause.md) |
 | `roast-my-code` | Three-axis review: Standards, Spec, Security | [roast-my-code.md](roast-my-code.md) |
 | `pr-flow` | PR lifecycle — open, review, watch, merge, each verified | [pr-flow.md](pr-flow.md) |
+| `slice-it` | Split proposal before full/loop work — ticket → branch → worktree → PR → cleanup | [slice-it.md](slice-it.md) |
 
 ### Discipline
 

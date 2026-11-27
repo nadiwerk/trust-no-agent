@@ -89,7 +89,7 @@ for (const cat of categories) {
 // Terms that appear in backticks but are not skills. Keep in sync with the
 // actual prose; add new non-skill terms here only when they genuinely appear.
 const NON_SKILL_TERMS = new Set([
-  'progress.txt', 'package.json', 'uncertain', 'ready-for-agent', 'main', 'HEAD~5', 'npm', 'git', 'node',
+  'progress.txt', 'package.json', 'uncertain', 'ready-for-agent', 'main', 'master', 'HEAD~5', 'npm', 'git', 'node',
   'fast', 'full', 'loop',
   'CONTEXT.md', 'CONTRIBUTING.md', '01', 'HEAD', 'Critical', 'Required', 'Nit', 'Optional', 'FYI',
   'yes', 'no', 'low', 'medium', 'high', 'block',
