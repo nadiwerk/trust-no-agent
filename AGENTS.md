@@ -14,6 +14,8 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 
 **`fast` skips the chain, never the registry.** Before answering any task, check the skill registry once: if a skill matches — trust-no-agent's own or an external one — propose it by name and wait for approval, regardless of class.
 
+**`full`/`loop` opens with a split proposal.** Work classified `full` or `loop` gets a `slice-it` proposal — ticket, branch, worktree, PR order, cleanup — before the first file changes. The agent proposes; the user approves, overrides, or skips. `fast` is untouched.
+
 **Fresh-install signature → propose setup-tna (mandatory recommendation).** When this session's project has the framework's skills installed but the router (AGENTS.md at the project root) or the onboarding stamp (.trust/onboarding.json) is missing, the agent MUST propose running the setup-tna skill before doing other work — a half-installed framework underperforms silently. The model proposes; the user approves — never install without consent (Iron Law 4).
 
 ## 2. Trigger matrix
@@ -21,6 +23,7 @@ Rules every agent session follows. Detail lives in WORKFLOW.md and the skills; t
 | Situation | Load |
 |---|---|
 | Large feature about to start (at least 2 of: 3+ files, >30 min, new logic) — or a plan to stress-test | `breakpoint` — runs the canonical chain (WORKFLOW.md rule 2; variant: `scribe` when decisions should be recorded as ADRs/glossary) |
+| Work classified `full` or `loop` is about to start | `slice-it` — ticket/branch/worktree/PR/cleanup proposal before the first file changes; provisional for `loop` (`fork-it` stays authoritative) |
 | Writing tests / building test-first | `expect-fail` **MANDATORY** |
 | Bug / test failure / unexpected behavior | `root-cause` **MANDATORY** |
 | Before any "done" claim, commit, or PR | `receipts` **MANDATORY** |
