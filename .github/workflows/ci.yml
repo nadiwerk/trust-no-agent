@@ -156,6 +156,12 @@ jobs:
         run: node scripts/dep-lint.mjs --gate --base HEAD~1
       - name: dep lint self-test
         run: node scripts/dep-lint.test.mjs
+      - name: would-deny self-test
+        run: node scripts/would-deny.test.mjs
+      - name: tna-ci parser self-test
+        run: node scripts/tna-ci.test.mjs
+      - name: receipt-draft self-test
+        run: node scripts/receipt-draft.test.mjs
 
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over
