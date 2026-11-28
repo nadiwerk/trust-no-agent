@@ -45,6 +45,7 @@ const TRIGGERS = {
   'make-it-so': ['tickets', 'approved', 'build'],
   'scribe': ['decisions', 'adr', 'glossary', 'recorded'],
   'setup-tna': ['setup', 'onboard', 'install', 'trust-no-agent'],
+  'slice-it': ['split', 'ticket', 'branch', 'worktree', 'cleanup'],
 };
 
 const tokenize = (s) =>
