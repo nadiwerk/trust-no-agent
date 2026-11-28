@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.64] - 2026-11-28
+
+### Added
+
+- **coverage.mjs — absence-coverage checker.** Every declared registry
+  (TRIGGERS, FALLBACK_SKILLS, skills-lock.json, README + docs skill tables)
+  must name all canonical skills, and every discovered skills dir holding a
+  canonical skill must hold all of them with per-skill file superset —
+  discovery is a walk, not a pinned list, so new payload roots are covered
+  the moment they exist. Boundary rules: zero-canonical dirs warn only,
+  junction children followed, installer payloads may omit their parent.
+  Closes the silent-absence class that burned the 0.1.63 release twice.
+- **slice-it delta — preflight step-0 + Undo column.** Before drafting, the
+  agent verifies a clean git status, a current base, and the tools the
+  Verify column calls — a dirty or stale ground is reported, never built
+  on. The proposal table gains an Undo column naming the retreat command
+  per ticket; Cleanup is the scheduled end, Undo is the emergency exit.
+- **plan-check.mjs — plan-vs-actual drift checker + roast hook.** slice-it
+  plans under .trust are graded mechanically: Verify cells must be declared
+  repo gates, branch state resolves-or-warns (landed+deleted is the Cleanup
+  column working), issue files checked when the dir exists. roast-my-code
+  attaches the output to the Spec axis — drift informs the review, it does
+  not block it. Shipped to plugin/scripts.
+- **secrets-scan.mjs + dep-lint.mjs — prose to gate.** Provider-token
+  patterns + literal credential assignments over staged/--base diffs or the
+  tracked tree (--tree), with placeholders and env refs quiet by design.
+  dep-lint flags dependency manifests in a diff; --gate requires a dep-ok:
+  trailer in the commit message. Degrade paths warn loudly; checkout
+  fetch-depth 2 keeps the CI gate real.
+
 ## [0.1.63] - 2026-11-27
 
 ### Added
@@ -1996,7 +2026,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.63...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.64...HEAD
+[0.1.64]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.63...v0.1.64
 [0.1.63]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.62...v0.1.63
 [0.1.62]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.61...v0.1.62
 [0.1.61]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.60...v0.1.61
