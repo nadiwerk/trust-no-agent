@@ -16,6 +16,10 @@ jobs:
     steps:
       # Pinned to full commit SHA for supply-chain integrity (immutable, unlike tag v5).
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # dep-lint diffs HEAD~1...HEAD — the default depth-1 checkout would
+          # degrade the gate to a silent no-op.
+          fetch-depth: 2
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
@@ -144,6 +148,14 @@ jobs:
         run: node scripts/plan-check.mjs
       - name: plan drift checker self-test
         run: node scripts/plan-check.test.mjs
+      - name: secrets scan (tracked tree)
+        run: node scripts/secrets-scan.mjs --tree
+      - name: secrets scanner self-test
+        run: node scripts/secrets-scan.test.mjs
+      - name: dependency-touch lint
+        run: node scripts/dep-lint.mjs --gate --base HEAD~1
+      - name: dep lint self-test
+        run: node scripts/dep-lint.test.mjs
 
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over
