@@ -136,6 +136,10 @@ jobs:
         run: node scripts/stack-select.test.mjs
       - name: slice-it skill self-test
         run: node scripts/slice-it.test.mjs
+      - name: coverage check
+        run: node scripts/coverage.mjs
+      - name: coverage checker self-test
+        run: node scripts/coverage.test.mjs
 
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over
