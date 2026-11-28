@@ -29,7 +29,6 @@ const PROVIDER_PATTERNS = [
   /sk-ant-[A-Za-z0-9-]{20,}/,
   /AKIA[0-9A-Z]{16}/,
   /xox[baprs]-[A-Za-z0-9-]{10,}/,
-  /-----BEGIN OPENSSH PRIVATE KEY-----/,
 ];
 
 // Credential-looking assignments with a literal value long enough to matter.

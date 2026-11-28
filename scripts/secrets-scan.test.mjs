@@ -8,6 +8,7 @@
  * placeholders. Fixture strings are built by concatenation so this test file
  * itself never trips the scanner.
  */
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scanText } from './secrets-scan.mjs';
@@ -61,6 +62,13 @@ const ASSIGN = 'api_key = "' + 'D'.repeat(24) + '"';
   const hits = scanText(`line1\nx = "${GHP}"\nline3\n`, 'myfile.txt');
   check('C finding names file and line number',
     hits.length === 1 && /myfile\.txt:2/.test(hits[0]), JSON.stringify(hits));
+}
+
+// ---- D. Self-scan: the scanner's own pattern table must never trip it ----
+{
+  const src = readFileSync(join(ROOT, 'scripts', 'secrets-scan.mjs'), 'utf8');
+  const hits = scanText(src, 'secrets-scan.mjs');
+  check('D scanner pattern table survives its own scan', hits.length === 0, JSON.stringify(hits));
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
