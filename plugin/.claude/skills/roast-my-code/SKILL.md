@@ -34,6 +34,8 @@ Find the originating spec, in order:
 3. A spec file under `docs/`, `specs/`, or `.trust/` matching the branch name or feature.
 4. If nothing is found, ask the user. If there isn't one, the Spec subagent is skipped and reported as "no spec available".
 
+**Plan drift check.** When `.trust/*/plan.md` files exist (a slice-it run serialized them), run `node scripts/plan-check.mjs` before spawning the subagents and attach its output to the Spec axis. The checker verifies mechanically what can be verified — every ticket carries a gated Verify command, branch state resolves, declared issue files exist — and reports drift; the reviewer decides whether the drift is a finding (propose-not-gate — the check informs the review, it does not block it).
+
 ### 3. Locate the standards sources
 
 Anything in the repo documenting how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`.

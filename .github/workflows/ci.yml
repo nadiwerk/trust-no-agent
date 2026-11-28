@@ -140,6 +140,10 @@ jobs:
         run: node scripts/coverage.mjs
       - name: coverage checker self-test
         run: node scripts/coverage.test.mjs
+      - name: plan drift check
+        run: node scripts/plan-check.mjs
+      - name: plan drift checker self-test
+        run: node scripts/plan-check.test.mjs
 
       - name: Ticket-graph validator smoke
         # The CLI gates on tickets validated, not directories found: a run over
