@@ -84,6 +84,7 @@ Rules the validator enforces:
 - **The fast one-line receipt**: a `fast` unit still carries a receipt — one line: claim, one allowlisted command, its result. Nothing truly skips.
 - **The staleness window**: a claim older than 14 days (RECEIPT_STALE_DAYS) is stale by computation and must be re-verified — its cited gates re-run through the hardened runner — before it may gate anything. Statuses: fresh / re-verified / stale / unverifiable; only fresh and re-verified may gate.
 - **The veto**: the commit veto denies when the newest ledger entry lacks a valid receipt, or its claim is stale — bypassing the receipt cannot land.
+- **Drafting aid**: `node scripts/receipt-draft.mjs` emits the scaffold — four blocks, five bare boolean lines, HEAD sha + the last recorded gate command cited. It is invalid-by-default: booleans ship without evidence lines, so the validator rejects it until each claim is filled. Fill it; never paste it raw.
 
 ## Common Failures
 
@@ -133,6 +134,7 @@ Class rules:
 
 - **The watcher is a gate too.** A polling loop that can end without emitting — a missing parser binary on the host, an empty check list read as "all done", a state name that never arrives — reports success over a check that never ran. Any watcher you wait on must name its terminal condition and have a proven fail path BEFORE you wait on it; a loop with no timeout and no failure branch is a stall wearing a monitor's name.
 - **Post-deploy is its own receipt.** For changes to UI or public routes, the receipt is not complete at merge — it closes on the production probe. If deploy verification is deferred to a later turn, `Open:` names it explicitly; the unit is not "done", it is "shipped, awaiting production probe".
+- **Pre-push parity (conditional, not every push).** A push whose diff touches CI-facing surfaces — `ci.yml`, `scripts/*.mjs` the workflow calls, skill registries, mirror/payload copies — first runs `node scripts/tna-ci.mjs` (the validate job's `run:` steps verbatim, `--from` to resume). Environment diffs the local suite cannot see — untracked→tracked files, shallow clones, registry drift — are exactly the class that burns public CI; a push of docs or skill prose skips it.
 
 ## Labeled claims (prose discipline)
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.65] - 2026-11-28
+
+### Added
+
+- **Gate UX trio — would-deny, tna-ci, receipt-draft.** would-deny.mjs
+  dry-runs a command against the same classifyAction boundary the veto
+  uses plus live evidence state — a gate you can interrogate instead of
+  discovering at veto time. tna-ci.mjs runs the validate job's run: steps
+  verbatim locally (--list, --from) — kills green-local-red-CI drift; it
+  is deliberately not a CI step. receipt-draft.mjs emits a 4-block
+  scaffold that is invalid-by-default — booleans ship without evidence
+  lines so the validator rejects it until each claim is filled; a draft
+  that passed unedited would be a hollow-receipt machine.
+- **receipts wiring (conditional, not per-task).** Receipts start from
+  receipt-draft; a push whose diff touches CI-facing surfaces (ci.yml,
+  CI-called scripts, registries, mirror payloads) first runs tna-ci —
+  environment-diff burns are invisible to the local suite; docs-only
+  pushes skip it.
+
 ## [0.1.64] - 2026-11-28
 
 ### Added
@@ -2026,7 +2045,8 @@ is pinned by a test that was observed failing before the fix.
   git hooks, CI, and full docs (design, philosophy, installation,
   compatibility, rule-inheritance, per-skill pages).
 
-[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.64...HEAD
+[Unreleased]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.65...HEAD
+[0.1.65]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.64...v0.1.65
 [0.1.64]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.63...v0.1.64
 [0.1.63]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.62...v0.1.63
 [0.1.62]: https://github.com/nadiwerk/trust-no-agent/compare/v0.1.61...v0.1.62
