@@ -24,7 +24,9 @@ Skill baru `slice-it` sebagai **pre-chain stage** (bukan stage dalam panah chain
 ## Decisions Already Made
 
 - Trigger scope: `full` + `loop` only; `fast` untouched.
-- Proposal shape: always the full-stack table (Ticket | Branch | Worktree | PR | Cleanup | Verify), even when it holds one row.
+- Preflight: before drafting, the agent verifies a clean `git status`, a current base, and the tools the Verify column will call — a dirty or stale ground is reported, never built on.
+- The Undo column names the retreat command per ticket (revert / worktree-remove+branch-delete / close-PR); Cleanup is the scheduled end, Undo is the emergency exit.
+- Proposal shape: always the full-stack table (Ticket | Branch | Worktree | PR | Cleanup | Undo | Verify), even when it holds one row.
 - Mechanism: new skill `skills/engineering/slice-it/` + router lines (AGENTS.md §1 + §2 trigger-matrix row).
 - Mechanical signal: new RULE in `scripts/stack-select.mjs` emitting `slice-it` (+ `engineering-small-prs` where installed) on split-related keywords — keyword hint, never proof.
 - Worktree: plain `git worktree`, one per parallel writer, harness-agnostic; **no Orca/orca-cli dependency**.
@@ -51,7 +53,7 @@ Skill baru `slice-it` sebagai **pre-chain stage** (bukan stage dalam panah chain
 
 ## Acceptance Criteria
 
-1. (US1, human verification/eval) A prompt classifying `full` or `loop` produces a split-proposal table containing Ticket/Branch/Worktree/PR/Cleanup/Verify columns before production work begins.
+1. (US1, human verification/eval) A prompt classifying `full` or `loop` produces a split-proposal table containing Ticket/Branch/Worktree/PR/Cleanup/Undo/Verify columns before production work begins.
 2. (US1, automated test) `AGENTS.md` §2 trigger matrix contains a row mapping "work classified full or loop is about to start" to `slice-it`.
 3. (US4+US6, automated test) `skills/engineering/slice-it/SKILL.md` exists, is model-invoked, contains `git worktree`, and contains no `orca` reference.
 4. (US2/US3/US5, automated test) skill text states: blocked tickets stack on the blocker's branch; a PR on an open PR targets that PR's branch.

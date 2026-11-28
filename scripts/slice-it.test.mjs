@@ -77,6 +77,19 @@ const text = existsSync(SKILL) ? readFileSync(SKILL, 'utf8') : '';
   check('F2 fast class is untouched', /fast/i.test(text));
 }
 
+// ---- H. Spec delta: preflight step-0 + Undo column (coverage-check pack item 2) ----
+{
+  check('H1 a preflight step runs before the slices are drafted',
+    /preflight|before .{0,40}(draft|first file|proposal)/i.test(text));
+  check('H2 preflight checks a clean tree',
+    /git status|clean (tree|checkout|working)/i.test(text));
+  const header = text.split('\n').find((l) => l.trimStart().startsWith('|') && l.includes('Ticket'));
+  check('H3 proposal table carries the Undo column',
+    !!header && header.includes('Undo'), header ?? 'no table line');
+  check('H4 Undo column names the retreat command per ticket',
+    /Undo[^\n]*(revert|retreat|undo|roll ?back)/i.test(text));
+}
+
 // ---- G. Router wiring (spec §AC2 — ticket 03) ----
 {
   const AGENTS = join(ROOT, 'AGENTS.md');

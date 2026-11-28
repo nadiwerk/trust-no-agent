@@ -1,6 +1,6 @@
 # slice-it
 
-> Classify says *what kind* of work this is; slice-it says *how it lands*. Before any `full` or `loop` task touches a file, the whole lifecycle arrives as one table — ticket, branch, worktree, PR, cleanup, verify — and waits for your answer.
+> Classify says *what kind* of work this is; slice-it says *how it lands*. Before any `full` or `loop` task touches a file, the whole lifecycle arrives as one table — ticket, branch, worktree, PR, cleanup, undo, verify — and waits for your answer.
 
 ## When this is the skill you need
 
@@ -12,10 +12,10 @@
 
 > **Proposal emitted, work not yet started:**
 >
-> | # | Ticket | Branch | Worktree | PR | Cleanup | Verify |
+> | # | Ticket | Branch | Worktree | PR | Cleanup | Undo | Verify |
 > |---|--------|--------|----------|----|---------|--------|
-> | 1 | stack-select rule | `slice/x-01` | — (serial) | PR-1 → master | after PR-1 merges | `node scripts/x.test.mjs` |
-> | 2 | skill file + mirrors | `slice/x-02` | `.trust/wt/x-02` | PR-2 → `slice/x-01` | after PR-2 merges | `node scripts/y.test.mjs` |
+> | 1 | stack-select rule | `slice/x-01` | — (serial) | PR-1 → master | after PR-1 merges | `git revert <sha>` | `node scripts/x.test.mjs` |
+> | 2 | skill file + mirrors | `slice/x-02` | `.trust/wt/x-02` | PR-2 → `slice/x-01` | after PR-2 merges | `git worktree remove` + `git branch -D` | `node scripts/y.test.mjs` |
 >
 > *"Ticket 2 runs in parallel in its own worktree; both PRs land parent-first. Approve, override, or skip?"*
 
